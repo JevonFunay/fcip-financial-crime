@@ -9,7 +9,10 @@ from app.services.ingestion import IngestionFileError, ingest_transactions_csv
 
 router = APIRouter()
 
-MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+# FRD §14.1 NFR-05 requires ingesting 100k transactions; a realistic 100k-row
+# CSV runs ~10-12 MB, so the cap needs headroom above that, not just above a
+# "typical" file.
+MAX_UPLOAD_BYTES = 50 * 1024 * 1024
 
 
 @router.post(
@@ -20,7 +23,8 @@ MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 def upload_transactions(file: UploadFile, db: Session = Depends(get_db)) -> IngestionSummary:
     raw_bytes = file.file.read(MAX_UPLOAD_BYTES + 1)
     if len(raw_bytes) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "File exceeds the 10 MB upload limit")
+        limit_mb = MAX_UPLOAD_BYTES // (1024 * 1024)
+        raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, f"File exceeds the {limit_mb} MB upload limit")
 
     try:
         content = raw_bytes.decode("utf-8-sig")

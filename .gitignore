@@ -26,3 +26,6 @@ frontend/.vite/
 
 # Docker
 *.log
+
+# Generated (reproducible via app/scripts/generate_bulk_transactions.py)
+backend/sample_data/transactions_bulk.csv

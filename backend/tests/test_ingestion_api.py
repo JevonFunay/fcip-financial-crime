@@ -180,7 +180,9 @@ def test_file_with_nul_bytes_rejected(client, auth_headers):
 
 
 def test_oversized_file_rejected(client, auth_headers):
-    response = _upload(client, auth_headers(UserRole.ROLE_DATA_OPS), b"x" * (10 * 1024 * 1024 + 1))
+    from app.routers.ingestion import MAX_UPLOAD_BYTES
+
+    response = _upload(client, auth_headers(UserRole.ROLE_DATA_OPS), b"x" * (MAX_UPLOAD_BYTES + 1))
 
     assert response.status_code == 413
 

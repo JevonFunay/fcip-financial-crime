@@ -140,6 +140,37 @@ docker compose exec db psql -U fcip -d fcip \
 You can also upload from the Swagger UI at http://localhost:8000/docs (click
 "Authorize" and paste the access token).
 
+### NFR-05: 100k-row volume (FRD §14.1)
+
+FRD §14.1 requires ingesting 100,000 transactions, including validation, in
+under 10 minutes. Generate a synthetic 100k-row file (~95% valid rows against
+the seeded accounts, ~5% invalid with the same error variety as
+`transactions_sample.csv`):
+
+```bash
+docker compose exec backend python -m app.scripts.generate_bulk_transactions
+# writes backend/sample_data/transactions_bulk.csv (~10.5 MB)
+```
+
+Upload it like any other file, or run the dedicated (slow, not part of the
+default suite) test:
+
+```bash
+docker compose exec backend pytest -m slow -v -s tests/test_ingestion_bulk_nfr.py
+```
+
+**Measured on this machine:** 100,000 rows (95,000 accepted, 5,000
+quarantined) in **4.4s** end-to-end through the real `POST
+/ingestion/transactions` endpoint (~5s calling the ingestion service directly
+in the pytest run) — about 130x inside the 10-minute budget. No optimization
+was needed: the transaction insert was already a single bulk statement (Core
+`insert()` executed with a list of ~95k row dicts, which SQLAlchemy 2.0 batches
+into a handful of multi-row `INSERT ... VALUES (...), (...), ...` round trips
+via `insertmanyvalues`, not one `INSERT` per row) and quarantine rows go
+through the same ORM bulk-insert batching. The only real fix this NFR
+surfaced: the upload cap was 10 MB while a realistic 100k-row file is ~10.5
+MB, which would have rejected a legitimate NFR-05-sized file — raised to 50 MB.
+
 ## Detection: P02 Structuring
 
 Implemented in `backend/app/services/detection/p02_structuring.py`. Parameters
