@@ -20,6 +20,9 @@ class Alert(Base):
     status: Mapped[AlertStatus] = mapped_column(
         SAEnum(AlertStatus, name="alert_status"), nullable=False, default=AlertStatus.OPEN
     )
+    # Shared by every audit_log row in this alert's chain (creation ->
+    # disposition -> case), per FRD §5.0.
+    correlation_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
     # Entity resolution isn't built yet in this skeleton, so customer_id is a
     # temporary stand-in for the FRD's entity_id concept — see README.
     customer_id: Mapped[uuid.UUID] = mapped_column(

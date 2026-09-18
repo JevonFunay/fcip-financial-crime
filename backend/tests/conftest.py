@@ -28,11 +28,20 @@ _point_app_at_test_database()
 from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402
 
+from sqlalchemy import select  # noqa: E402
+
 from app.core.security import create_access_token  # noqa: E402
 from app.database import Base, SessionLocal, engine  # noqa: E402
 from app.main import app  # noqa: E402
+from app.models.alert import Alert  # noqa: E402
+from app.models.customer import Customer  # noqa: E402
 from app.models.enums import UserRole  # noqa: E402
 from app.models.user import User  # noqa: E402
+from app.scripts.seed import seed_master_data  # noqa: E402
+from app.services.detection.p02_structuring import run_p02_structuring  # noqa: E402
+from app.services.ingestion import ingest_transactions_csv  # noqa: E402
+
+SAMPLE_FILE = BACKEND_DIR / "sample_data" / "transactions_sample.csv"
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -89,3 +98,15 @@ def auth_headers(db: Session) -> Callable[[UserRole], dict[str, str]]:
         return {"Authorization": f"Bearer {token}"}
 
     return make
+
+
+@pytest.fixture()
+def sample_alerts(db: Session) -> dict[str, Alert]:
+    """Seeds master data, ingests the sample CSV and runs P02: yields the 2 resulting alerts keyed by customer_ref."""
+    seed_master_data(db)
+    ingest_transactions_csv(db, file_name="transactions_sample.csv", content=SAMPLE_FILE.read_text())
+    run_p02_structuring(db)
+    rows = db.execute(select(Alert, Customer.customer_ref).join(Customer, Alert.customer_id == Customer.id)).all()
+    alerts = {customer_ref: alert for alert, customer_ref in rows}
+    assert set(alerts) == {"CUST-001", "CUST-006"}
+    return alerts
