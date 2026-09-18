@@ -36,21 +36,27 @@ so the schema is always up to date on boot.
 docker compose exec backend pytest
 ```
 
+Tests run against a separate database named `<your db>_test` (e.g. `fcip_test`),
+created and migrated automatically and truncated before every test, so they
+never touch your dev data. The suite refuses to run if the target database
+name doesn't end in `_test`.
+
 ## Auth
 
 Login/refresh/logout is JWT-based, with rotating refresh tokens tracked
 server-side in the `sessions` table (TRD §12.2) so they can be revoked and
 audited — not stateless JWTs.
 
-Seed one test user per role (idempotent, safe to re-run):
+Seed dev data (idempotent, safe to re-run):
 
 ```bash
 docker compose exec backend python -m app.scripts.seed
 ```
 
-This creates `dataops@fcip.internal`, `analyst@fcip.internal`,
-`triage@fcip.internal`, `investigator@fcip.internal`, all with password
-`DevPassword123!` (dev-only, never use in production).
+This creates one user per role — `dataops@fcip.internal`,
+`analyst@fcip.internal`, `triage@fcip.internal`, `investigator@fcip.internal`,
+all with password `DevPassword123!` (dev-only, never use in production) — plus
+6 synthetic customers (`CUST-001`..`CUST-006`) and their 8 accounts.
 
 ```bash
 # Login
@@ -73,8 +79,54 @@ curl -s -X POST http://localhost:8000/auth/logout \
 ```
 
 Role-based access control lives in `app/core/rbac.py` — `require_role(...)`
-is a FastAPI dependency that later endpoints (alerts, cases, ingestion) will
-use to restrict access per the persona/permission matrix from FRD §4.1.
+is a FastAPI dependency that endpoints use to restrict access per the
+persona/permission matrix from FRD §4.1.
+
+## Ingestion (CSV upload + quarantine)
+
+`POST /ingestion/transactions` (ROLE_DATA_OPS only) takes a multipart CSV
+upload. Valid rows become `transaction` records; rows that fail validation are
+written to `quarantine_item` with the original raw values and the reason, never
+dropped silently.
+
+Required columns: `transaction_ref`, `account_number`, `transaction_date`,
+`amount`, `currency`, `direction`, `channel`. Optional: `counterparty_ref`,
+`description`. Header names are matched case-insensitively.
+
+| Field | Rule |
+|---|---|
+| `amount` | plain positive number, max 2 decimals (`1500000.00`); no thousands separators |
+| `transaction_date` | ISO 8601 date or datetime; no offset means UTC |
+| `currency` | 3 letters (normalized to upper case) |
+| `direction` | `CREDIT` or `DEBIT` (case-insensitive) |
+| `transaction_ref` | must be unique — already-ingested or repeated refs are quarantined |
+| `account_number` | must already exist (accounts are seeded, not ingested) |
+
+A file that can't be interpreted at all (missing required column, not UTF-8,
+malformed CSV, over 10 MB) is rejected with `422`/`413` and nothing is stored.
+`row_number` in quarantine is spreadsheet-style: the header is row 1, the first
+data row is row 2.
+
+Try it with the bundled synthetic file (22 valid rows + 7 intentionally invalid
+ones). Log in as `dataops@fcip.internal` first, then:
+
+```bash
+curl -s -X POST http://localhost:8000/ingestion/transactions \
+  -H "Authorization: Bearer <access_token>" \
+  -F "file=@backend/sample_data/transactions_sample.csv"
+# expect: total_rows 29, accepted 22, quarantined 7
+```
+
+Uploading the same file again quarantines all 22 valid rows as "already exists",
+so re-uploads are visible instead of silently ignored. Inspect quarantine with:
+
+```bash
+docker compose exec db psql -U fcip -d fcip \
+  -c "select row_number, error_reason from quarantine_item order by created_at, row_number;"
+```
+
+You can also upload from the Swagger UI at http://localhost:8000/docs (click
+"Authorize" and paste the access token).
 
 ## Known simplifications (skeleton stage)
 
@@ -87,8 +139,10 @@ here so they're easy to explain and are tracked for follow-up:
   added in a later stage) aggregates by `customer_id` instead. Each customer
   is treated as its own entity for now.
 - **CSV ingestion covers transactions only.** Customer and account records
-  are pre-seeded reference data (see `backend/app/scripts/seed.py`, added in
-  a later stage), not part of the ingestion pipeline.
+  are pre-seeded reference data (see `backend/app/scripts/seed.py`), not part
+  of the ingestion pipeline.
+- **Naive timestamps are read as UTC.** A CSV `transaction_date` without a UTC
+  offset is treated as UTC; source-system timezones aren't modelled yet.
 - **Session security is simplified.** TRD §12.2's idle timeout (30 min) and
   absolute timeout (8h) are enforced using the `sessions` table's
   `last_used_at`/`expires_at` columns, but login lockout and refresh
