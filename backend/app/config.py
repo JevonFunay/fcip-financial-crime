@@ -17,7 +17,13 @@ class Settings(BaseSettings):
     login_lockout_max_attempts: int = 5
     login_lockout_minutes: int = 15
 
+    # TRD §12.2 requires the refresh cookie to be Secure. Chrome/Firefox accept
+    # Secure cookies on http://localhost; Safari doesn't, so set COOKIE_SECURE=false
+    # for local dev in Safari only.
+    cookie_secure: bool = True
+
     # Comma-separated browser origins allowed to call the API (the Vite dev server by default).
+    # Must be an explicit list (no "*") because the refresh cookie is sent with credentials.
     cors_origins: str = "http://localhost:5173"
 
     @property

@@ -1,12 +1,13 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 
 import type { TokenResponse } from "../types";
-import { clearTokens, getAccessToken, getRefreshToken, setTokens } from "./tokens";
+import { getAccessToken, setAccessToken } from "./accessToken";
 
 export const API_BASE_URL: string = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 export const SESSION_EXPIRED_EVENT = "fcip:session-expired";
 
-export const apiClient = axios.create({ baseURL: API_BASE_URL });
+// withCredentials: the refresh cookie must ride along on cross-origin calls to /auth/*.
+export const apiClient = axios.create({ baseURL: API_BASE_URL, withCredentials: true });
 
 type RetriableConfig = InternalAxiosRequestConfig & { _retried?: boolean };
 
@@ -20,21 +21,26 @@ apiClient.interceptors.request.use((config) => {
 
 let refreshInFlight: Promise<string> | null = null;
 
-async function refreshAccessToken(): Promise<string> {
-  const refreshToken = getRefreshToken();
-  if (!refreshToken) {
-    throw new Error("No refresh token");
+// Exchanges the HttpOnly refresh cookie for a new access token. Concurrent
+// callers share one request, since each call rotates the cookie.
+export function refreshAccessToken(): Promise<string> {
+  if (!refreshInFlight) {
+    // Plain axios so this request doesn't loop back through the interceptor below.
+    refreshInFlight = axios
+      .post<TokenResponse>(`${API_BASE_URL}/auth/refresh`, null, { withCredentials: true })
+      .then(({ data }) => {
+        setAccessToken(data.access_token);
+        return data.access_token;
+      })
+      .finally(() => {
+        refreshInFlight = null;
+      });
   }
-  // Plain axios so this request doesn't loop back through the interceptor below.
-  const { data } = await axios.post<TokenResponse>(`${API_BASE_URL}/auth/refresh`, {
-    refresh_token: refreshToken,
-  });
-  setTokens(data);
-  return data.access_token;
+  return refreshInFlight;
 }
 
-// On 401: rotate the refresh token once (shared across concurrent requests) and
-// retry. If that fails too, the session is gone — clear it and tell the app.
+// On 401: refresh once and retry. If that fails too, the session is gone —
+// drop the access token and tell the app.
 apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
@@ -46,16 +52,11 @@ apiClient.interceptors.response.use(
     }
     config._retried = true;
     try {
-      if (!refreshInFlight) {
-        refreshInFlight = refreshAccessToken().finally(() => {
-          refreshInFlight = null;
-        });
-      }
-      const token = await refreshInFlight;
+      const token = await refreshAccessToken();
       config.headers.Authorization = `Bearer ${token}`;
       return apiClient(config);
     } catch {
-      clearTokens();
+      setAccessToken(null);
       window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
       throw error;
     }

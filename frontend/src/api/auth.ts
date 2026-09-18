@@ -6,8 +6,9 @@ export async function login(email: string, password: string): Promise<TokenRespo
   return data;
 }
 
-export async function logout(refreshToken: string): Promise<void> {
-  await apiClient.post("/auth/logout", { refresh_token: refreshToken });
+// The refresh cookie identifies the session; the server revokes it and expires the cookie.
+export async function logout(): Promise<void> {
+  await apiClient.post("/auth/logout");
 }
 
 export async function fetchMe(): Promise<User> {

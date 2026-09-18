@@ -43,9 +43,25 @@ name doesn't end in `_test`.
 
 ## Auth
 
-Login/refresh/logout is JWT-based, with rotating refresh tokens tracked
-server-side in the `sessions` table (TRD §12.2) so they can be revoked and
-audited — not stateless JWTs.
+Login/refresh/logout follows TRD §12.2:
+
+- The **access token** (15 min) is returned in the JSON body and sent as
+  `Authorization: Bearer` — it's the only credential page scripts ever hold.
+- The **refresh token** never appears in a response body. It's set as a
+  `fcip_refresh_token` cookie with `HttpOnly; Secure; SameSite=Strict;
+  Path=/auth`, rotated on every `/auth/refresh`, and tracked server-side in
+  the `sessions` table (hash only) so it can be revoked. `Max-Age` equals the
+  remaining absolute session lifetime (8h from login).
+- `/auth/refresh` reads the token from the cookie only; `/auth/logout` revokes
+  the session and expires the cookie. A rejected refresh also expires the
+  cookie so browsers drop dead sessions.
+- CORS runs with `allow_credentials=True` and an explicit origin list
+  (`CORS_ORIGINS`), and the frontend sends `withCredentials: true`. Frontend
+  and API must share a hostname (both `localhost`) — `SameSite=Strict` treats
+  `127.0.0.1` and `localhost` as different sites.
+- `COOKIE_SECURE=true` by default. Chrome and Firefox accept `Secure` cookies
+  on `http://localhost`; Safari doesn't, so for Safari on plain-http local dev
+  set `COOKIE_SECURE=false` in `.env`.
 
 Seed dev data (idempotent, safe to re-run):
 
@@ -59,23 +75,19 @@ all with password `DevPassword123!` (dev-only, never use in production) — plus
 6 synthetic customers (`CUST-001`..`CUST-006`) and their 8 accounts.
 
 ```bash
-# Login
-curl -s -X POST http://localhost:8000/auth/login \
+# Login: access token in the body, refresh token in a Set-Cookie header (-c stores it)
+curl -s -c cookies.txt -X POST http://localhost:8000/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"triage@fcip.internal","password":"DevPassword123!"}'
 
 # Use the access_token from the response above
 curl -s http://localhost:8000/auth/me -H "Authorization: Bearer <access_token>"
 
-# Rotate the refresh_token from the login response
-curl -s -X POST http://localhost:8000/auth/refresh \
-  -H "Content-Type: application/json" \
-  -d '{"refresh_token":"<refresh_token>"}'
+# Rotate: the cookie jar sends the refresh cookie (-b) and stores the new one (-c)
+curl -s -b cookies.txt -c cookies.txt -X POST http://localhost:8000/auth/refresh
 
-# Logout (revokes the session)
-curl -s -X POST http://localhost:8000/auth/logout \
-  -H "Content-Type: application/json" \
-  -d '{"refresh_token":"<refresh_token>"}'
+# Logout: revokes the session and expires the cookie
+curl -s -b cookies.txt -c cookies.txt -X POST http://localhost:8000/auth/logout -o /dev/null -w "%{http_code}\n"
 ```
 
 Role-based access control lives in `app/core/rbac.py` — `require_role(...)`
@@ -248,11 +260,15 @@ case" button only for ROLE_TRIAGE / ROLE_INVESTIGATOR on `ESCALATED` alerts
 without a case. Other roles get the same pages read-only. The backend enforces
 the same rules, the UI just doesn't offer what would be rejected.
 
-Session handling (`src/api/client.ts`, `src/context/AuthContext.tsx`): tokens
-are kept in `localStorage`; every request carries the access token; on a `401`
-the client rotates the refresh token once (shared across concurrent requests)
-and retries, and if that fails the session is cleared and the user lands on
-`/login`. Reloading the page keeps you signed in.
+Session handling (`src/api/client.ts`, `src/context/AuthContext.tsx`): the
+access token lives only in memory — nothing is written to `localStorage` or
+`sessionStorage`. On first load the app calls `/auth/refresh`; if the browser
+still holds a valid refresh cookie it gets a fresh access token and renders
+the protected pages, otherwise it shows the login page. Every API call carries
+the access token; on a `401` the client refreshes once (shared across
+concurrent requests) and retries, and if that fails the session is cleared and
+the user lands on `/login`. Reloading the page keeps you signed in without
+re-entering credentials.
 
 Try it: seed, upload the sample CSV and run detection (sections above), then
 sign in as `triage@fcip.internal` → open the CUST-006 alert → escalate with a
@@ -276,9 +292,9 @@ here so they're easy to explain and are tracked for follow-up:
   are non-overlapping. Each is a one-line change in `P02Parameters` /
   `find_clusters` if the FRD says otherwise.
 - **No scheduler.** Detection is triggered manually (script or endpoint).
-- **Tokens in `localStorage`.** Simple and enough for the skeleton; the
-  hardened version keeps the refresh token in an httpOnly cookie so it isn't
-  readable by page scripts.
+- **No CSRF token on `/auth/*`.** `SameSite=Strict` on the refresh cookie
+  already blocks cross-site requests from carrying it; a dedicated CSRF token
+  isn't added on top for the skeleton.
 - **Frontend has no automated tests in the repo.** It was verified with a
   scripted Playwright click-through (login, queue, disposition, case, role
   restrictions, token refresh); wiring that into CI is a follow-up.

@@ -80,7 +80,8 @@ def db() -> Iterator[Session]:
 
 @pytest.fixture()
 def client() -> TestClient:
-    return TestClient(app)
+    # https so the client's cookie jar sends back the Secure refresh cookie, like a real browser would.
+    return TestClient(app, base_url="https://testserver")
 
 
 @pytest.fixture()

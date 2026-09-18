@@ -9,9 +9,9 @@ import {
   useState,
 } from "react";
 
+import { setAccessToken } from "../api/accessToken";
 import { fetchMe, login as apiLogin, logout as apiLogout } from "../api/auth";
-import { SESSION_EXPIRED_EVENT } from "../api/client";
-import { clearTokens, getAccessToken, getRefreshToken, setTokens } from "../api/tokens";
+import { SESSION_EXPIRED_EVENT, refreshAccessToken } from "../api/client";
 import type { User } from "../types";
 
 interface AuthState {
@@ -28,17 +28,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const queryClient = useQueryClient();
 
+  // On first load nothing is in memory: ask /auth/refresh whether the browser
+  // still holds a valid refresh cookie, and only then render protected pages.
   useEffect(() => {
-    if (!getAccessToken() && !getRefreshToken()) {
-      setLoading(false);
-      return;
-    }
     let cancelled = false;
-    fetchMe()
+    refreshAccessToken()
+      .then(() => fetchMe())
       .then((me) => {
         if (!cancelled) setUser(me);
       })
-      .catch(() => clearTokens())
+      .catch(() => setAccessToken(null))
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
@@ -58,20 +57,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     const tokens = await apiLogin(email, password);
-    setTokens(tokens);
+    setAccessToken(tokens.access_token);
     setUser(await fetchMe());
   }, []);
 
   const logout = useCallback(async () => {
-    const refreshToken = getRefreshToken();
-    if (refreshToken) {
-      try {
-        await apiLogout(refreshToken);
-      } catch {
-        // already revoked or backend unreachable: local logout still proceeds
-      }
+    try {
+      await apiLogout();
+    } catch {
+      // already revoked or backend unreachable: local logout still proceeds
     }
-    clearTokens();
+    setAccessToken(null);
     setUser(null);
     queryClient.clear();
   }, [queryClient]);
