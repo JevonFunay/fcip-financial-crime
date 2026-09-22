@@ -6,6 +6,7 @@ import { AlertDetailPage } from "./pages/AlertDetailPage";
 import { AlertQueuePage } from "./pages/AlertQueuePage";
 import { CaseDetailPage } from "./pages/CaseDetailPage";
 import { LoginPage } from "./pages/LoginPage";
+import { OverviewPage } from "./pages/OverviewPage";
 
 export default function App() {
   return (
@@ -13,13 +14,13 @@ export default function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<Layout />}>
-          <Route path="/" element={<Navigate to="/alerts" replace />} />
+          <Route path="/" element={<OverviewPage />} />
           <Route path="/alerts" element={<AlertQueuePage />} />
           <Route path="/alerts/:id" element={<AlertDetailPage />} />
           <Route path="/cases/:id" element={<CaseDetailPage />} />
         </Route>
       </Route>
-      <Route path="*" element={<Navigate to="/alerts" replace />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

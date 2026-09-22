@@ -2,11 +2,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.routers import alerts, auth, cases, detection, ingestion
+from app.routers import alerts, auth, cases, detection, ingestion, overview, transactions
 
 app = FastAPI(title="Financial Crime Intelligence Platform API")
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
+app.include_router(overview.router, prefix="/overview", tags=["overview"])
 app.include_router(ingestion.router, prefix="/ingestion", tags=["ingestion"])
+app.include_router(transactions.router, prefix="/transactions", tags=["transactions"])
 app.include_router(detection.router, prefix="/detection", tags=["detection"])
 app.include_router(alerts.router, prefix="/alerts", tags=["alerts"])
 app.include_router(cases.router, prefix="/cases", tags=["cases"])

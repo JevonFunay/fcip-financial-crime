@@ -32,6 +32,11 @@ h2 {
   color: #f9fafb;
 }
 
+.topbar nav {
+  display: flex;
+  gap: 1.25rem;
+}
+
 .topbar a {
   color: #e5e7eb;
   text-decoration: none;
@@ -127,6 +132,121 @@ button:disabled {
   background: transparent;
   border-color: #6b7280;
   padding: 0.25rem 0.6rem;
+}
+
+/* --- overview tiles --- */
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.tile {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 0.8rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.tile-label {
+  font-size: 0.78rem;
+  color: #6b7280;
+}
+
+.tile-value {
+  font-size: 1.5rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.tile-warn {
+  border-color: #fcd34d;
+}
+
+.tile-alert {
+  border-color: #fca5a5;
+}
+
+.tile-link {
+  text-decoration: none;
+  color: inherit;
+}
+
+.tile-link:hover {
+  background: #eff6ff;
+}
+
+/* --- data operations --- */
+.ops-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+}
+
+.ops-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 260px;
+}
+
+.ops-item > label,
+.ops-item > .ops-label {
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+.inline-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.ok {
+  color: #047857;
+  font-size: 0.87rem;
+}
+
+/* --- section toolbar --- */
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.section-head h2 {
+  margin: 0;
+}
+
+.toolbar {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.toolbar input[type="search"] {
+  min-width: 220px;
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 0.75rem;
+}
+
+.table-scroll {
+  overflow-x: auto;
 }
 
 .table {

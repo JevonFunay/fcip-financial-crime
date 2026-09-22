@@ -1,13 +1,18 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.rbac import require_role
 from app.database import get_db
 from app.models.enums import UserRole
+from app.models.quarantine_item import QuarantineItem
 from app.schemas.ingestion import IngestionSummary
+from app.schemas.quarantine import QuarantineListResponse, QuarantineOut
 from app.services.ingestion import IngestionFileError, ingest_transactions_csv
 
 router = APIRouter()
+
+ALL_ROLES = tuple(UserRole)
 
 # FRD §14.1 NFR-05 requires ingesting 100k transactions; a realistic 100k-row
 # CSV runs ~10-12 MB, so the cap needs headroom above that, not just above a
@@ -37,3 +42,25 @@ def upload_transactions(file: UploadFile, db: Session = Depends(get_db)) -> Inge
         return ingest_transactions_csv(db, file_name=file.filename or "upload.csv", content=content)
     except IngestionFileError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+
+
+@router.get("/quarantine", response_model=QuarantineListResponse, dependencies=[Depends(require_role(*ALL_ROLES))])
+def list_quarantine(
+    limit: int = Query(25, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+) -> QuarantineListResponse:
+    total = db.scalar(select(func.count()).select_from(QuarantineItem)) or 0
+    items = db.execute(
+        select(QuarantineItem)
+        .order_by(QuarantineItem.created_at.desc(), QuarantineItem.row_number)
+        .limit(limit)
+        .offset(offset)
+    ).scalars()
+
+    return QuarantineListResponse(
+        items=[QuarantineOut.model_validate(item, from_attributes=True) for item in items],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )

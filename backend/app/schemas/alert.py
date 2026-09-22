@@ -1,26 +1,23 @@
 import enum
 import uuid
 from datetime import datetime
-from decimal import Decimal
 
 from pydantic import BaseModel, field_validator
 
-from app.models.enums import AlertStatus, TransactionDirection
+from app.models.enums import AlertStatus
+from app.schemas.transaction import TransactionOut
 
 MIN_DISPOSITION_REASON_LENGTH = 20
 
-
-class TransactionOut(BaseModel):
-    id: uuid.UUID
-    transaction_ref: str
-    account_number: str
-    transaction_date: datetime
-    amount: Decimal
-    currency: str
-    direction: TransactionDirection
-    channel: str
-    counterparty_ref: str | None
-    description: str | None
+__all__ = [
+    "MIN_DISPOSITION_REASON_LENGTH",
+    "AlertDetail",
+    "AlertListResponse",
+    "AlertSummary",
+    "DispositionDecision",
+    "DispositionRequest",
+    "TransactionOut",
+]
 
 
 class AlertSummary(BaseModel):

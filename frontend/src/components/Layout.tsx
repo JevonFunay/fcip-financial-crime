@@ -8,10 +8,13 @@ export function Layout() {
   return (
     <div className="app">
       <header className="topbar">
-        <Link to="/alerts" className="brand">
+        <Link to="/" className="brand">
           FCIP
         </Link>
         <nav>
+          <NavLink to="/" end>
+            Overview
+          </NavLink>
           <NavLink to="/alerts">Alert queue</NavLink>
         </nav>
         <div className="topbar-user">

@@ -12,7 +12,7 @@ export function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const from = (location.state as { from?: string } | null)?.from ?? "/alerts";
+  const from = (location.state as { from?: string } | null)?.from ?? "/";
 
   if (loading) {
     return <p className="muted content">Checking session...</p>;

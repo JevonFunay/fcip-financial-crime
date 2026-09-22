@@ -115,12 +115,13 @@ Required columns: `transaction_ref`, `account_number`, `transaction_date`,
 | `account_number` | must already exist (accounts are seeded, not ingested) |
 
 A file that can't be interpreted at all (missing required column, not UTF-8,
-malformed CSV, over 10 MB) is rejected with `422`/`413` and nothing is stored.
+malformed CSV, over 50 MB) is rejected with `422`/`413` and nothing is stored.
 `row_number` in quarantine is spreadsheet-style: the header is row 1, the first
 data row is row 2.
 
-Try it with the bundled synthetic file (22 valid rows + 7 intentionally invalid
-ones). Log in as `dataops@fcip.internal` first, then:
+The easiest way to try it is the **Upload CSV** control on the Overview page,
+signed in as `dataops@fcip.internal`. From the command line, with the bundled
+synthetic file (22 valid rows + 7 intentionally invalid ones):
 
 ```bash
 curl -s -X POST http://localhost:8000/ingestion/transactions \
@@ -137,7 +138,7 @@ docker compose exec db psql -U fcip -d fcip \
   -c "select row_number, error_reason from quarantine_item order by created_at, row_number;"
 ```
 
-You can also upload from the Swagger UI at http://localhost:8000/docs (click
+The interactive API docs at http://localhost:8000/docs work too (click
 "Authorize" and paste the access token).
 
 ### NFR-05: 100k-row volume (FRD §14.1)
@@ -170,6 +171,14 @@ via `insertmanyvalues`, not one `INSERT` per row) and quarantine rows go
 through the same ORM bulk-insert batching. The only real fix this NFR
 surfaced: the upload cap was 10 MB while a realistic 100k-row file is ~10.5
 MB, which would have rejected a legitimate NFR-05-sized file — raised to 50 MB.
+
+## Browsing the data
+
+| Endpoint | Roles | Notes |
+|---|---|---|
+| `GET /overview` | all | counts behind the landing-page tiles, in one call |
+| `GET /transactions?search=&direction=&limit=&offset=` | all | `search` matches transaction ref, account number, customer ref or name |
+| `GET /ingestion/quarantine?limit=&offset=` | all | rows that failed validation, with their original values and reason |
 
 ## Detection: P02 Structuring
 
@@ -281,9 +290,16 @@ react-router for pages. Functional, not polished.
 | Route | Page | What it does |
 |---|---|---|
 | `/login` | Login | email + password; backend errors (wrong password, lockout) are shown as-is |
+| `/` | Overview | landing page: summary tiles, the full transaction table (search + direction filter + paging), the quarantine list, and the data operations below |
 | `/alerts` | Alert queue | table with status filter (Open / Escalated / Disposed / All), click a row for detail |
 | `/alerts/:id` | Alert detail | reason, correlation id, evidence transactions, detection factors; triage form and "open case" button depending on role and status |
 | `/cases/:id` | Case detail | case header (number, status, opened by) and the linked alerts |
+
+The whole workflow runs from the UI — **no Swagger needed**. Overview carries the
+two data operations, role-gated like everything else: **Upload CSV** (ROLE_DATA_OPS)
+and **Run detection** (ROLE_DATA_OPS, ROLE_ANALYST). Both report what happened
+(`22 accepted, 7 quarantined`, `2 alerts created`) and refresh the tiles in place.
+Other roles see the same data read-only.
 
 Role-aware UI: the disposition form only renders for ROLE_TRIAGE on `OPEN`
 alerts (submit stays disabled until the reason has 20 characters); the "Open
@@ -301,10 +317,12 @@ concurrent requests) and retries, and if that fails the session is cleared and
 the user lands on `/login`. Reloading the page keeps you signed in without
 re-entering credentials.
 
-Try it: seed, upload the sample CSV and run detection (sections above), then
-sign in as `triage@fcip.internal` → open the CUST-006 alert → escalate with a
-reason → "Open case from this alert". Sign in as `analyst@fcip.internal` to
-see the read-only view. Screenshots of that flow are in `docs/screenshots/`.
+Try it end to end without leaving the browser: seed the users and master data
+(`python -m app.scripts.seed`), sign in as `dataops@fcip.internal` → upload
+`backend/sample_data/transactions_sample.csv` from Overview → **Run detection**
+→ switch to `triage@fcip.internal` → open the CUST-006 alert → escalate with a
+reason → "Open case from this alert". Sign in as `analyst@fcip.internal` to see
+the read-only view. Screenshots of that flow are in `docs/screenshots/`.
 
 ## Known simplifications (skeleton stage)
 
