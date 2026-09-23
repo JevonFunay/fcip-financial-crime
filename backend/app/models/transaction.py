@@ -32,6 +32,12 @@ class Transaction(Base):
     channel: Mapped[str] = mapped_column(String, nullable=False)
     counterparty_ref: Mapped[str | None] = mapped_column(String, nullable=True)
     description: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Which registered batch loaded this row (FR-101). Nullable because rows
+    # created by the seed script and by direct service calls in tests have no
+    # batch behind them.
+    ingestion_batch_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ingestion_batch.id"), nullable=True, index=True
+    )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

@@ -82,12 +82,71 @@ export interface OverviewSummary {
   latest_transaction_date: string | null;
 }
 
+export type IngestionBatchStatus = "REGISTERED" | "COMPLETED" | "NEEDS_REVIEW" | "FAILED";
+export type AuditObjectType = "ALERT" | "CASE" | "BATCH" | "DETECTION_RUN" | "AUDIT_EXPORT";
+
 export interface IngestionSummary {
   file_name: string;
   total_rows: number;
   accepted: number;
   quarantined: number;
+  batch_ref: string | null;
+  batch_status: IngestionBatchStatus | null;
   quarantine_preview: { row_number: number; error_reason: string }[];
+}
+
+export interface IngestionBatch {
+  id: string;
+  batch_ref: string;
+  source_system: string;
+  business_date: string;
+  file_name: string;
+  file_checksum: string;
+  file_size_bytes: number;
+  expected_records: number | null;
+  status: IngestionBatchStatus;
+  total_rows: number;
+  accepted_rows: number;
+  quarantined_rows: number;
+  correlation_id: string;
+  registered_by_email: string | null;
+  created_at: string;
+  completed_at: string | null;
+}
+
+export interface IngestionBatchListResponse {
+  items: IngestionBatch[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface AuditEvent {
+  id: string;
+  correlation_id: string;
+  actor_user_id: string | null;
+  actor_email: string | null;
+  actor_role: string | null;
+  object_type: AuditObjectType;
+  object_id: string;
+  from_state: string | null;
+  to_state: string;
+  reason: string | null;
+  created_at: string;
+}
+
+export interface AuditListResponse {
+  items: AuditEvent[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface AuditFilters {
+  correlation_id?: string;
+  object_type?: string;
+  object_id?: string;
+  actor_email?: string;
 }
 
 export interface DetectionRunSummary {

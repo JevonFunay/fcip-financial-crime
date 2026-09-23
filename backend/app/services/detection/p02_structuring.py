@@ -29,7 +29,7 @@ from app.models.enums import AlertStatus
 from app.models.transaction import Transaction
 from app.models.user import User
 from app.schemas.detection import DetectedAlert, DetectionRunSummary
-from app.services.audit import OBJECT_ALERT, record_transition
+from app.services.audit import OBJECT_ALERT, OBJECT_DETECTION_RUN, record_transition
 
 PATTERN_CODE = "P02_STRUCTURING"
 _CENTS = Decimal("0.01")
@@ -242,6 +242,22 @@ def run_p02_structuring(
                     created=is_new,
                 )
             )
+
+    # FR-1104: the run itself is a material action, so it is audited even when
+    # it raises nothing — "no alerts" has to be distinguishable from "never ran".
+    record_transition(
+        db,
+        correlation_id=run_id,
+        actor=actor,
+        object_type=OBJECT_DETECTION_RUN,
+        object_id=run_id,
+        from_state=None,
+        to_state="COMPLETED",
+        reason=(
+            f"{PATTERN_CODE}: scanned {len(rows)} in-band transaction(s) across {len(by_customer)} entity/entities; "
+            f"{created} alert(s) created, {len(detected) - created} already existing"
+        ),
+    )
     db.commit()
 
     return DetectionRunSummary(

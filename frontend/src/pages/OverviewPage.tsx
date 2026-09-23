@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import {
+  fetchBatches,
   fetchOverview,
   fetchQuarantine,
   fetchTransactions,
@@ -26,6 +27,12 @@ export function OverviewPage() {
   const [direction, setDirection] = useState<Direction | "">("");
   const [offset, setOffset] = useState(0);
 
+  // FR-101 batch metadata. Blank means "let the backend apply its default"
+  // (MANUAL_UPLOAD, today) rather than sending an empty value.
+  const [sourceSystem, setSourceSystem] = useState("");
+  const [businessDate, setBusinessDate] = useState("");
+  const [expectedRecords, setExpectedRecords] = useState("");
+
   useEffect(() => {
     const timer = setTimeout(() => {
       setSearch(searchInput);
@@ -47,15 +54,22 @@ export function OverviewPage() {
     placeholderData: (previous) => previous,
   });
   const quarantine = useQuery({ queryKey: ["quarantine"], queryFn: () => fetchQuarantine(25) });
+  const batches = useQuery({ queryKey: ["batches"], queryFn: () => fetchBatches(10) });
 
   function refreshData() {
     void queryClient.invalidateQueries({ queryKey: ["overview"] });
     void queryClient.invalidateQueries({ queryKey: ["transactions"] });
     void queryClient.invalidateQueries({ queryKey: ["quarantine"] });
+    void queryClient.invalidateQueries({ queryKey: ["batches"] });
   }
 
   const upload = useMutation({
-    mutationFn: (file: File) => uploadTransactions(file),
+    mutationFn: (file: File) =>
+      uploadTransactions(file, {
+        source_system: sourceSystem,
+        business_date: businessDate,
+        expected_records: expectedRecords,
+      }),
     onSuccess: () => {
       refreshData();
       if (fileInput.current) fileInput.current.value = "";
@@ -117,11 +131,34 @@ export function OverviewPage() {
                     {upload.isPending ? "Mengunggah..." : "Upload"}
                   </button>
                 </div>
+                <div className="inline-controls batch-fields">
+                  <input
+                    aria-label="Source system"
+                    value={sourceSystem}
+                    onChange={(e) => setSourceSystem(e.target.value)}
+                    placeholder="Source system (MANUAL_UPLOAD)"
+                  />
+                  <input
+                    aria-label="Business date"
+                    type="date"
+                    value={businessDate}
+                    onChange={(e) => setBusinessDate(e.target.value)}
+                  />
+                  <input
+                    aria-label="Expected records"
+                    type="number"
+                    min={0}
+                    value={expectedRecords}
+                    onChange={(e) => setExpectedRecords(e.target.value)}
+                    placeholder="Jumlah record diharapkan"
+                  />
+                </div>
                 {upload.error && <p className="error">{errorMessage(upload.error)}</p>}
                 {upload.data && (
-                  <p className="ok">
-                    {upload.data.file_name}: {upload.data.total_rows} baris dibaca, {upload.data.accepted} diterima,{" "}
-                    {upload.data.quarantined} masuk quarantine.
+                  <p className={upload.data.batch_status === "NEEDS_REVIEW" ? "warn" : "ok"}>
+                    {upload.data.batch_ref} — {upload.data.file_name}: {upload.data.total_rows} baris dibaca,{" "}
+                    {upload.data.accepted} diterima, {upload.data.quarantined} masuk quarantine. Status batch:{" "}
+                    {upload.data.batch_status}.
                   </p>
                 )}
               </form>
@@ -241,6 +278,66 @@ export function OverviewPage() {
               </div>
             </div>
           </>
+        )}
+      </section>
+
+      <section className="card">
+        <div className="section-head">
+          <h2>Ingestion batch {batches.data ? `(${batches.data.total})` : ""}</h2>
+          <span className="muted">
+            Setiap unggahan tercatat sebagai batch dengan checksum dan log pemrosesan (FR-101, FR-105).
+          </span>
+        </div>
+
+        {batches.data && batches.data.items.length === 0 && (
+          <p className="muted">Belum ada batch yang terdaftar.</p>
+        )}
+
+        {batches.data && batches.data.items.length > 0 && (
+          <div className="table-scroll">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Batch</th>
+                  <th>Sumber / tanggal bisnis</th>
+                  <th>File</th>
+                  <th>Baris</th>
+                  <th>Status</th>
+                  <th>Didaftarkan</th>
+                </tr>
+              </thead>
+              <tbody>
+                {batches.data.items.map((batch) => (
+                  <tr key={batch.id}>
+                    <td className="mono">
+                      <Link to={`/audit?correlation_id=${batch.correlation_id}`}>{batch.batch_ref}</Link>
+                    </td>
+                    <td>
+                      {batch.source_system}
+                      <div className="muted">{batch.business_date}</div>
+                    </td>
+                    <td>
+                      {batch.file_name}
+                      <div className="muted mono">{batch.file_checksum.slice(0, 12)}…</div>
+                    </td>
+                    <td>
+                      {batch.total_rows} dibaca
+                      <div className="muted">
+                        {batch.accepted_rows} diterima · {batch.quarantined_rows} quarantine
+                      </div>
+                    </td>
+                    <td>
+                      <span className={batch.status === "COMPLETED" ? "ok" : "warn"}>{batch.status}</span>
+                    </td>
+                    <td>
+                      {batch.registered_by_email ?? "-"}
+                      <div className="muted">{formatDateTime(batch.created_at)}</div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
 

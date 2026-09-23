@@ -1,6 +1,7 @@
 import type {
   DetectionRunSummary,
   Direction,
+  IngestionBatchListResponse,
   IngestionSummary,
   OverviewSummary,
   QuarantineListResponse,
@@ -30,10 +31,27 @@ export async function fetchQuarantine(limit = 25): Promise<QuarantineListRespons
   return data;
 }
 
-export async function uploadTransactions(file: File): Promise<IngestionSummary> {
+/** FR-101: the upload registers a batch, so the caller supplies the batch's
+ *  source system, business date and (optionally) the record count it expects. */
+export async function uploadTransactions(
+  file: File,
+  batch: { source_system?: string; business_date?: string; expected_records?: string } = {},
+): Promise<IngestionSummary> {
   const form = new FormData();
   form.append("file", file);
+  for (const [key, value] of Object.entries(batch)) {
+    if (value !== undefined && value.trim() !== "") {
+      form.append(key, value.trim());
+    }
+  }
   const { data } = await apiClient.post<IngestionSummary>("/ingestion/transactions", form);
+  return data;
+}
+
+export async function fetchBatches(limit = 10): Promise<IngestionBatchListResponse> {
+  const { data } = await apiClient.get<IngestionBatchListResponse>("/ingestion/batches", {
+    params: { limit },
+  });
   return data;
 }
 

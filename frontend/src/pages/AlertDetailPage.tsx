@@ -87,7 +87,9 @@ export function AlertDetailPage() {
           <dt>Reason</dt>
           <dd>{alert.reason}</dd>
           <dt>Correlation ID</dt>
-          <dd className="mono">{alert.correlation_id}</dd>
+          <dd className="mono">
+            <Link to={`/audit?correlation_id=${alert.correlation_id}`}>{alert.correlation_id}</Link>
+          </dd>
           {alert.case_id && (
             <>
               <dt>Case</dt>

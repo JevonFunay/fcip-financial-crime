@@ -14,6 +14,7 @@ from app.models.customer import Customer
 from app.models.enums import AlertStatus, EntityType, TransactionDirection, UserRole
 from app.models.transaction import Transaction
 from app.scripts.seed import seed_master_data
+from app.services.audit import OBJECT_ALERT, OBJECT_DETECTION_RUN
 from app.services.detection.p02_structuring import (
     DEFAULT_PARAMETERS,
     PATTERN_CODE,
@@ -162,7 +163,12 @@ def test_rerun_on_same_data_is_idempotent(db, sample_data):
     assert {a.alert_id for a in second.alerts} == {a.alert_id for a in first.alerts}
     assert all(not a.created for a in second.alerts)
     assert db.query(Alert).count() == 2
-    assert db.query(AuditLog).count() == 2
+    # One ALERT event per alert, written on the first run only — the second run
+    # raises nothing, so it adds no alert events.
+    assert db.query(AuditLog).filter_by(object_type=OBJECT_ALERT).count() == 2
+    # ...but both runs are audited, so "ran and found nothing new" stays
+    # distinguishable from "never ran" (FR-1104).
+    assert db.query(AuditLog).filter_by(object_type=OBJECT_DETECTION_RUN).count() == 2
 
 
 def test_stored_window_bounds_reproduce_the_evidence(db, sample_data):
@@ -277,6 +283,11 @@ def test_run_endpoint_records_the_triggering_user_as_actor(client, db, auth_head
     assert all(a["created"] for a in body["alerts"])
 
     entries = db.query(AuditLog).all()
-    assert len(entries) == 2
+    assert len(entries) == 3  # 2 alerts raised + the detection run itself
     assert {entry.actor_role for entry in entries} == {role.value}
     assert all(entry.actor_user_id is not None for entry in entries)
+
+    run_entry = db.query(AuditLog).filter_by(object_type=OBJECT_DETECTION_RUN).one()
+    assert str(run_entry.object_id) == body["detection_run_id"]
+    assert run_entry.to_state == "COMPLETED"
+    assert "2 alert(s) created" in run_entry.reason

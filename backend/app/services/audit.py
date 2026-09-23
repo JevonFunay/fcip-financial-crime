@@ -7,6 +7,18 @@ from app.models.user import User
 
 OBJECT_ALERT = "ALERT"
 OBJECT_CASE = "CASE"
+OBJECT_BATCH = "BATCH"
+OBJECT_DETECTION_RUN = "DETECTION_RUN"
+# FRD §4.1.10: an auditor's own export is itself an audited action.
+OBJECT_AUDIT_EXPORT = "AUDIT_EXPORT"
+
+OBJECT_TYPES = (
+    OBJECT_ALERT,
+    OBJECT_CASE,
+    OBJECT_BATCH,
+    OBJECT_DETECTION_RUN,
+    OBJECT_AUDIT_EXPORT,
+)
 
 
 def record_transition(

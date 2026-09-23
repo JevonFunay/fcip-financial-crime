@@ -29,3 +29,8 @@ frontend/.vite/
 
 # Generated (reproducible via app/scripts/generate_bulk_transactions.py)
 backend/sample_data/transactions_bulk.csv
+
+# Generated raw source dataset. Byte-for-byte reproducible from the seed
+# (TRD §11.0.1), so it is regenerated rather than committed:
+#   python -m app.scripts.generate_raw_dataset --profile small
+backend/sample_data/raw/

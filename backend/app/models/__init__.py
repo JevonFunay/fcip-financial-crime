@@ -3,6 +3,8 @@ from app.models.alert import Alert, AlertTransaction
 from app.models.audit_log import AuditLog
 from app.models.case import Case
 from app.models.customer import Customer
+from app.models.ingestion_batch import IngestionBatch
+from app.models.processing_log import ProcessingLog
 from app.models.quarantine_item import QuarantineItem
 from app.models.session import Session
 from app.models.transaction import Transaction
@@ -15,6 +17,8 @@ __all__ = [
     "AuditLog",
     "Case",
     "Customer",
+    "IngestionBatch",
+    "ProcessingLog",
     "QuarantineItem",
     "Session",
     "Transaction",

@@ -24,9 +24,14 @@ def account(db):
     return acc
 
 
-def _upload(client, headers, content: str | bytes, filename: str = "upload.csv"):
+def _upload(client, headers, content: str | bytes, filename: str = "upload.csv", **form):
     data = content.encode() if isinstance(content, str) else content
-    return client.post("/ingestion/transactions", headers=headers, files={"file": (filename, data, "text/csv")})
+    return client.post(
+        "/ingestion/transactions",
+        headers=headers,
+        files={"file": (filename, data, "text/csv")},
+        data={key: str(value) for key, value in form.items()},
+    )
 
 
 def _csv(*rows: str) -> str:
@@ -55,13 +60,13 @@ def test_valid_rows_are_stored_with_normalized_values(client, db, auth_headers, 
     response = _upload(client, auth_headers(UserRole.ROLE_DATA_OPS), csv_text)
 
     assert response.status_code == 200
-    assert response.json() == {
-        "file_name": "upload.csv",
-        "total_rows": 2,
-        "accepted": 2,
-        "quarantined": 0,
-        "quarantine_preview": [],
-    }
+    body = response.json()
+    assert body["file_name"] == "upload.csv"
+    assert (body["total_rows"], body["accepted"], body["quarantined"]) == (2, 2, 0)
+    assert body["quarantine_preview"] == []
+    # Every API upload runs inside a registered batch (FR-101).
+    assert body["batch_ref"].startswith("BAT-")
+    assert body["batch_status"] == "COMPLETED"
     first = db.query(Transaction).filter_by(transaction_ref="TXN-1").one()
     assert first.account_id == account.id
     assert (first.currency, first.channel, first.direction.value) == ("IDR", "CASH", "CREDIT")
@@ -115,14 +120,17 @@ def test_duplicate_within_file_is_quarantined(client, db, auth_headers, account)
 
 
 def test_reuploading_the_same_file_quarantines_existing_transactions(client, db, auth_headers, account):
+    """Re-sending a file on a later business date is legitimate, so it is
+    ingested — but its rows are already known, so every row is quarantined
+    rather than silently ignored."""
     headers = auth_headers(UserRole.ROLE_DATA_OPS)
     csv_text = _csv(
         "TXN-1,ACC-T1,2026-08-03T09:15:00Z,10.00,IDR,CREDIT,CASH,,",
         "TXN-2,ACC-T1,2026-08-04T09:15:00Z,20.00,IDR,CREDIT,CASH,,",
     )
 
-    first = _upload(client, headers, csv_text).json()
-    second = _upload(client, headers, csv_text).json()
+    first = _upload(client, headers, csv_text, business_date="2026-08-04").json()
+    second = _upload(client, headers, csv_text, business_date="2026-08-05").json()
 
     assert (first["accepted"], first["quarantined"]) == (2, 0)
     assert (second["accepted"], second["quarantined"]) == (0, 2)

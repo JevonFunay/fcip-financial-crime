@@ -16,6 +16,7 @@ export function Layout() {
             Overview
           </NavLink>
           <NavLink to="/alerts">Alert queue</NavLink>
+          <NavLink to="/audit">Audit trail</NavLink>
         </nav>
         <div className="topbar-user">
           {user && (

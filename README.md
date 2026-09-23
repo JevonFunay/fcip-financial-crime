@@ -94,12 +94,63 @@ Role-based access control lives in `app/core/rbac.py` — `require_role(...)`
 is a FastAPI dependency that endpoints use to restrict access per the
 persona/permission matrix from FRD §4.1.
 
-## Ingestion (CSV upload + quarantine)
+## Ingestion (batch + CSV upload + quarantine)
 
 `POST /ingestion/transactions` (ROLE_DATA_OPS only) takes a multipart CSV
 upload. Valid rows become `transaction` records; rows that fail validation are
 written to `quarantine_item` with the original raw values and the reason, never
 dropped silently.
+
+### Batch registration (FR-101) and processing log (FR-105)
+
+Every upload runs inside a registered **ingestion batch**, so a row can always
+be traced back to the file, the checksum, the business date and the person who
+loaded it.
+
+| Form field | Required | Default | Meaning |
+|---|---|---|---|
+| `file` | yes | — | the CSV |
+| `source_system` | no | `MANUAL_UPLOAD` | the upstream system the file came from |
+| `business_date` | no | today (UTC) | the business day the file is filed against |
+| `expected_records` | no | — | how many rows the sender claims; checked at reconciliation |
+
+The batch gets a `BAT-000001`-style reference from a Postgres sequence, a
+SHA-256 checksum of the file, and its own `correlation_id`. **The same file
+cannot be registered twice for the same source system and business date** — the
+second attempt gets `409` naming the existing batch. The same file *on a
+different business date*, or from a *different source system*, is allowed: that
+is a genuine re-send, and its rows are then quarantined one by one as "already
+exists" rather than silently ignored.
+
+Batch status follows what actually happened:
+
+| Status | When |
+|---|---|
+| `REGISTERED` | batch created, parsing not finished |
+| `COMPLETED` | every input row accounted for (`accepted + quarantined == rows read`) |
+| `NEEDS_REVIEW` | reconciliation mismatch — e.g. `expected_records` doesn't match rows read (TRD C-02: flagged, never quietly completed) |
+| `FAILED` | structural failure (bad header, not UTF-8, NUL bytes) — zero rows loaded, and the batch stays visible as FAILED (TRD C-01) |
+
+`processing_log` records what the platform did with the file, in the order it
+happened (`BATCH_REGISTERED` → `VALIDATION_COMPLETED` → `RECONCILIATION_OK` /
+`RECONCILIATION_MISMATCH`, or `BATCH_FAILED`). It carries an identity `seq`
+column because Postgres `now()` is transaction start time, so entries written
+in one transaction share a timestamp and could not otherwise be ordered.
+
+| Endpoint | Roles | Notes |
+|---|---|---|
+| `GET /ingestion/batches` | all | registered batches, newest first, with counts and who loaded them |
+| `GET /ingestion/batches/{id}` | all | one batch plus its full processing log |
+
+```bash
+curl -s -X POST http://localhost:8000/ingestion/transactions \
+  -H "Authorization: Bearer <access_token>" \
+  -F "file=@backend/sample_data/transactions_sample.csv" \
+  -F "source_system=CORE_BANKING" -F "business_date=2026-09-23" -F "expected_records=29"
+# -> {"batch_ref": "BAT-000001", "batch_status": "COMPLETED", "total_rows": 29, "accepted": 22, "quarantined": 7, ...}
+```
+
+Both are on the Overview page too, so none of this needs Swagger.
 
 Required columns: `transaction_ref`, `account_number`, `transaction_date`,
 `amount`, `currency`, `direction`, `channel`. Optional: `counterparty_ref`,
@@ -171,6 +222,108 @@ via `insertmanyvalues`, not one `INSERT` per row) and quarantine rows go
 through the same ORM bulk-insert batching. The only real fix this NFR
 surfaced: the upload cap was 10 MB while a realistic 100k-row file is ~10.5
 MB, which would have rejected a legitimate NFR-05-sized file — raised to 50 MB.
+
+## Synthetic raw source dataset (TRD §6.1, §11)
+
+`app/scripts/generate_raw_dataset.py` generates the **full banking source
+schema** — eight CSV files plus a manifest, matching the source file contract
+in TRD §6.1 — rather than the narrow transaction CSV the skeleton ingests. This
+is DEP-01 from the FRD's 16-week backlog.
+
+```bash
+docker compose exec backend python -m app.scripts.generate_raw_dataset --profile small
+```
+
+| Profile | Scale | Use | Transactions |
+|---|---|---|---|
+| `tiny` | 1% | CI | ~4,000 |
+| `small` | 5% | local development (default) | ~20,000 |
+| `full` | 100% | integration and final demo | ~408,000 |
+
+Output lands in `backend/sample_data/raw/<profile>/`:
+
+| File | Contents |
+|---|---|
+| `customers.csv` | 20 columns: identity, KYC status, address, contact, onboarding |
+| `business_customers.csv` | 16 columns: legal name, registration, industry code, turnover band |
+| `beneficial_owners.csv` | ownership percentage and control type per business |
+| `accounts.csv` | wallet / virtual account / settlement, status, balance snapshot |
+| `merchants.csv` | MCC, declared volume and ticket bands, settlement account, outlets |
+| `devices.csv` | device type, OS, app version, emulator/rooted flags |
+| `transactions.csv` | 16 columns: amount, currency, channel, transaction type, counterparty, merchant, device, IP, source status |
+| `watchlist.csv` | synthetic PEP / sanctions / internal list records |
+| `manifest.json` | `source_system_code`, business date, contract version, per-file SHA-256 and record counts, `synthetic_declaration: true` |
+| `labels.csv` | ground truth for every injected scenario |
+| `data_dictionary.md`, `scenario_catalogue.md` | TRD §11.7 deliverables, rendered from the same specs the CSVs are written from |
+| `generation_report.json`, `seeds.json` | counts per object, defects per type, labels per pattern, seed provenance |
+
+### What makes it usable as evidence, not just volume
+
+**Deterministic (TRD §11.0.1).** The same seed reproduces every file
+byte-for-byte, checked by `test_same_seed_reproduces_every_file_byte_for_byte`
+(this is T-GEN-01). Without it no detection metric is reproducible, which is
+why the dataset is regenerated rather than committed.
+
+**Provably synthetic while structurally correct.** National IDs are NIK-shaped
+and encode gender the real way (a female's birth day is stored +40), so entity
+resolution and masking work against realistic input — but they sit on province
+prefix `99`, which is never issued, so a generated value cannot collide with a
+real NIK. Registration numbers use the same prefix, phones a reserved `+62899`
+block, IP addresses the RFC 5737 documentation ranges.
+
+**Shaped like Indonesian wallet activity (TRD §11.0.3).** Payday clustering
+around the 25th, a month-end tail, quieter weekends, arisan collection, agent
+kiosks and remittance corridors.
+
+**Labelled (TRD §11.3).** All twelve patterns P01–P12 get injected positives,
+behavioural look-alikes, and exact-threshold boundary cases. Every one writes a
+row to `labels.csv` with its entity, window and expected reason code, so recall
+is measured rather than eyeballed.
+
+**Deliberately imperfect (TRD §11.4).** Twelve defect types at controlled
+rates: malformed dates, invalid currencies, zero/negative amounts, unresolvable
+accounts, exact duplicates, idempotency conflicts, late arrivals, missing
+counterparties and devices, missing beneficial owners, placeholder addresses,
+truncated names. The quality pipeline has real work to do.
+
+**Entity resolution population (TRD §11.5).** Five constructions, each stating
+what resolution must do with it — must auto-merge, must not auto-merge, must
+force `PENDING_REVIEW` with `IDENTIFIER_CONFLICT`, or must land in the
+0.75–0.95 manual review band.
+
+### Loading it into the skeleton
+
+The skeleton models customers, accounts and transactions, and its ingestion
+endpoint takes a narrower CSV, so a bridge script loads the master data and
+projects the transactions onto that shape:
+
+```bash
+docker compose exec backend python -m app.scripts.load_raw_dataset --profile small
+```
+
+It prints exactly which columns it could not carry across (merchant, device,
+IP, source status, business date, transaction type) — that gap **is** the
+distance between the skeleton and the full pipeline, so it is reported rather
+than hidden. Then upload the projected file from the Overview page, or:
+
+```bash
+curl -s -X POST http://localhost:8000/ingestion/transactions \
+  -H "Authorization: Bearer <token>" \
+  -F "file=@backend/sample_data/raw/small/transactions_app_format.csv" \
+  -F "source_system=NDP_WALLET_CORE" -F "business_date=2026-09-30"
+```
+
+**Measured on the `small` profile:** 20,173 rows read, 19,751 accepted, 422
+quarantined across every defect type; P02 detection then catches **2 of 2**
+injected positives, fires on **0 of 2** labelled P02 look-alikes, and raises
+**nothing** on the 42-entity control cohort (FRD §8.14). One further alert
+emerges from ordinary background traffic, which is what TRD §11.1 expects —
+alerts emerge, they are never generated directly.
+
+> **Spec inconsistency, flagged not resolved:** TRD §11.1 describes "~600
+> duplicate source records" for entity resolution, but the §11.5 table sums to
+> 820. The generator follows §11.5 as the more specific of the two. Worth a
+> mentor ruling.
 
 ## Browsing the data
 
@@ -271,9 +424,7 @@ OPEN`) that reuses the originating alert's `correlation_id`, so one query
 returns the whole chain:
 
 ```bash
-docker compose exec db psql -U fcip -d fcip -c \
-  "select object_type, from_state, to_state, actor_role, created_at from audit_log \
-   where correlation_id = (select correlation_id from alert where id = '<alert_id>') order by created_at;"
+curl -s "http://localhost:8000/audit?correlation_id=<correlation_id>" -H "Authorization: Bearer <token>"
 #  ALERT  NULL -> OPEN       (detection)
 #  ALERT  OPEN -> ESCALATED  (triage)
 #  CASE   NULL -> OPEN       (investigator)
@@ -281,6 +432,39 @@ docker compose exec db psql -U fcip -d fcip -c \
 
 `IN_PROGRESS`/`CLOSED` transitions and assignment aren't exposed yet — the
 columns exist, the endpoints come with the investigation workflow.
+
+## Audit trail (FR-1104, FR-1105)
+
+Every material action writes an `audit_log` row inside the same database
+transaction as the change itself, so a failed audit write rolls the change back
+(TRD ADR-004). Four object types are audited today:
+
+| `object_type` | Transitions written |
+|---|---|
+| `BATCH` | `NULL -> REGISTERED`, then `REGISTERED -> COMPLETED \| NEEDS_REVIEW \| FAILED` |
+| `DETECTION_RUN` | `NULL -> COMPLETED` on every run — so "ran and found nothing" stays distinguishable from "never ran" |
+| `ALERT` | `NULL -> OPEN` (detection), `OPEN -> DISPOSED \| ESCALATED` (triage) |
+| `CASE` | `NULL -> OPEN` |
+| `AUDIT_EXPORT` | `NULL -> EXPORTED`, recording the filters used |
+
+| Endpoint | Roles | Notes |
+|---|---|---|
+| `GET /audit` | all | filters: `correlation_id`, `object_type`, `object_id`, `actor_email`, `date_from`, `date_to`, `limit`, `offset` |
+| `GET /audit/export` | all | same filters, returns CSV (capped at 10,000 rows) |
+
+Results are ordered oldest-first, so searching by `correlation_id` reads as the
+chain in the order it happened (NFR-13). Exporting is itself an audited action
+(FRD §4.1.10) — the export event records how many rows went out and under which
+filters.
+
+The **Audit trail** page in the UI does the same thing, and the correlation ID
+on alert detail and case detail links straight into it filtered to that chain,
+which is UAT-12 in one click.
+
+> RBAC note: FRD §4.1.10 gives `ROLE_AUDITOR` read access to the audit trail.
+> That role doesn't exist yet (4 of the FRD's 9 roles are built), so for now
+> every authenticated role can read it. Narrowing this belongs with the
+> outstanding RBAC work, not here.
 
 ## Frontend
 
@@ -294,6 +478,7 @@ react-router for pages. Functional, not polished.
 | `/alerts` | Alert queue | table with status filter (Open / Escalated / Disposed / All), click a row for detail |
 | `/alerts/:id` | Alert detail | reason, correlation id, evidence transactions, detection factors; triage form and "open case" button depending on role and status |
 | `/cases/:id` | Case detail | case header (number, status, opened by) and the linked alerts |
+| `/audit` | Audit trail | filter by correlation ID / object type / object ID / actor, and export the result as CSV |
 
 The whole workflow runs from the UI — **no Swagger needed**. Overview carries the
 two data operations, role-gated like everything else: **Upload CSV** (ROLE_DATA_OPS)
@@ -350,6 +535,13 @@ here so they're easy to explain and are tracked for follow-up:
 - **CSV ingestion covers transactions only.** Customer and account records
   are pre-seeded reference data (see `backend/app/scripts/seed.py`), not part
   of the ingestion pipeline.
+- **A batch and an alert are separate audit chains.** FRD UAT-12 asks for "the
+  whole chain from batch to report" under one correlation ID, but an alert's
+  evidence window can span several batches, so a single chain from batch to
+  report isn't well defined. For now a batch chains its own lifecycle and an
+  alert chains detection → disposition → case; the batch link is reachable
+  through `transaction.ingestion_batch_id` on the alert's evidence rows. **This
+  needs a mentor/design decision, not a silent default.**
 - **Naive timestamps are read as UTC.** A CSV `transaction_date` without a UTC
   offset is treated as UTC; source-system timezones aren't modelled yet.
 - **Session security is simplified.** TRD §12.2's idle timeout (30 min) and

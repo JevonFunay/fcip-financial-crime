@@ -42,7 +42,9 @@ export function CaseDetailPage() {
           <dt>Last updated</dt>
           <dd>{formatDateTime(data.updated_at)}</dd>
           <dt>Correlation ID</dt>
-          <dd className="mono">{data.correlation_id}</dd>
+          <dd className="mono">
+            <Link to={`/audit?correlation_id=${data.correlation_id}`}>{data.correlation_id}</Link>
+          </dd>
         </dl>
       </section>
 

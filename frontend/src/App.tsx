@@ -4,6 +4,7 @@ import { Layout } from "./components/Layout";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AlertDetailPage } from "./pages/AlertDetailPage";
 import { AlertQueuePage } from "./pages/AlertQueuePage";
+import { AuditPage } from "./pages/AuditPage";
 import { CaseDetailPage } from "./pages/CaseDetailPage";
 import { LoginPage } from "./pages/LoginPage";
 import { OverviewPage } from "./pages/OverviewPage";
@@ -18,6 +19,7 @@ export default function App() {
           <Route path="/alerts" element={<AlertQueuePage />} />
           <Route path="/alerts/:id" element={<AlertDetailPage />} />
           <Route path="/cases/:id" element={<CaseDetailPage />} />
+          <Route path="/audit" element={<AuditPage />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

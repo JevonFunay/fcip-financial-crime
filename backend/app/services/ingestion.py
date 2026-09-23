@@ -15,10 +15,19 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from app.models.account import Account
-from app.models.enums import TransactionDirection
+from app.models.enums import IngestionBatchStatus, TransactionDirection
+from app.models.ingestion_batch import IngestionBatch
+from app.models.processing_log import (
+    EVENT_RECONCILIATION_MISMATCH,
+    EVENT_RECONCILIATION_OK,
+    EVENT_VALIDATION_COMPLETED,
+    ProcessingLog,
+)
 from app.models.quarantine_item import QuarantineItem
 from app.models.transaction import Transaction
+from app.models.user import User
 from app.schemas.ingestion import IngestionSummary, QuarantinePreview
+from app.services.audit import OBJECT_BATCH, record_transition
 
 REQUIRED_COLUMNS = (
     "transaction_ref",
@@ -146,8 +155,87 @@ def _lookup_account_ids(db: Session, account_numbers: set[str]) -> dict[str, uui
     return found
 
 
-def ingest_transactions_csv(db: Session, *, file_name: str, content: str) -> IngestionSummary:
-    """row_number is spreadsheet-style: the header is row 1, the first data row is row 2."""
+def _finalise_batch(
+    db: Session,
+    batch: IngestionBatch,
+    *,
+    actor: User | None,
+    total_rows: int,
+    accepted: int,
+    quarantined: int,
+) -> None:
+    """FR-105 end-of-batch reconciliation. TRD C-02 requires that every input
+    row is accounted for; a mismatch marks the batch for follow-up instead of
+    letting it finish quietly as COMPLETED."""
+    batch.total_rows = total_rows
+    batch.accepted_rows = accepted
+    batch.quarantined_rows = quarantined
+    batch.completed_at = datetime.now(timezone.utc)
+
+    db.add(
+        ProcessingLog(
+            ingestion_batch_id=batch.id,
+            event_code=EVENT_VALIDATION_COMPLETED,
+            message=f"Validated {total_rows} row(s): {accepted} accepted, {quarantined} quarantined",
+            details={"total_rows": total_rows, "accepted": accepted, "quarantined": quarantined},
+        )
+    )
+
+    discrepancies: list[str] = []
+    if accepted + quarantined != total_rows:
+        discrepancies.append(
+            f"accepted ({accepted}) + quarantined ({quarantined}) != rows read ({total_rows})"
+        )
+    if batch.expected_records is not None and batch.expected_records != total_rows:
+        discrepancies.append(f"rows read ({total_rows}) != expected_records ({batch.expected_records})")
+
+    if discrepancies:
+        batch.status = IngestionBatchStatus.NEEDS_REVIEW
+        message = "; ".join(discrepancies)
+        db.add(
+            ProcessingLog(
+                ingestion_batch_id=batch.id,
+                event_code=EVENT_RECONCILIATION_MISMATCH,
+                message=message,
+                details={"discrepancies": discrepancies},
+            )
+        )
+    else:
+        batch.status = IngestionBatchStatus.COMPLETED
+        message = f"{total_rows} row(s) reconciled"
+        db.add(
+            ProcessingLog(
+                ingestion_batch_id=batch.id,
+                event_code=EVENT_RECONCILIATION_OK,
+                message=message,
+            )
+        )
+
+    record_transition(
+        db,
+        correlation_id=batch.correlation_id,
+        actor=actor,
+        object_type=OBJECT_BATCH,
+        object_id=batch.id,
+        from_state=IngestionBatchStatus.REGISTERED.value,
+        to_state=batch.status.value,
+        reason=message,
+    )
+
+
+def ingest_transactions_csv(
+    db: Session,
+    *,
+    file_name: str,
+    content: str,
+    batch: IngestionBatch | None = None,
+    actor: User | None = None,
+) -> IngestionSummary:
+    """row_number is spreadsheet-style: the header is row 1, the first data row is row 2.
+
+    `batch` is optional so the seed script and unit tests can ingest without
+    registering a batch; uploads through the API always run inside one (FR-101).
+    """
     reader = csv.DictReader(io.StringIO(content))
     candidates: list[tuple[int, dict[str, Any], ParsedTransaction]] = []
     quarantined: list[tuple[int, dict[str, Any], str]] = []
@@ -221,6 +309,7 @@ def ingest_transactions_csv(db: Session, *, file_name: str, content: str) -> Ing
                     "channel": parsed.channel,
                     "counterparty_ref": parsed.counterparty_ref,
                     "description": parsed.description,
+                    "ingestion_batch_id": batch.id if batch is not None else None,
                 }
                 for _, _, parsed, account_id in to_insert
             ],
@@ -234,9 +323,25 @@ def ingest_transactions_csv(db: Session, *, file_name: str, content: str) -> Ing
 
     quarantined.sort(key=lambda item: item[0])
     db.add_all(
-        QuarantineItem(source_file_name=file_name, row_number=number, raw_row=stored, error_reason=reason)
+        QuarantineItem(
+            source_file_name=file_name,
+            row_number=number,
+            raw_row=stored,
+            error_reason=reason,
+            ingestion_batch_id=batch.id if batch is not None else None,
+        )
         for number, stored, reason in quarantined
     )
+
+    if batch is not None:
+        _finalise_batch(
+            db,
+            batch,
+            actor=actor,
+            total_rows=total_rows,
+            accepted=len(inserted_refs),
+            quarantined=len(quarantined),
+        )
     db.commit()
 
     return IngestionSummary(
@@ -244,6 +349,8 @@ def ingest_transactions_csv(db: Session, *, file_name: str, content: str) -> Ing
         total_rows=total_rows,
         accepted=len(inserted_refs),
         quarantined=len(quarantined),
+        batch_ref=batch.batch_ref if batch is not None else None,
+        batch_status=batch.status.value if batch is not None else None,
         quarantine_preview=[
             QuarantinePreview(row_number=number, error_reason=reason)
             for number, _, reason in quarantined[:QUARANTINE_PREVIEW_LIMIT]
