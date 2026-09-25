@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import re
 from datetime import date
 from pathlib import Path
 
@@ -41,6 +42,9 @@ APP_COLUMNS = (
     "currency", "direction", "channel", "counterparty_ref", "description",
 )
 DIRECTION_MAP = {"IN": "CREDIT", "OUT": "DEBIT"}
+# A well-formed ISO 4217 code. Only these can be "foreign currency"; anything
+# else (1DR, IDRR, "id r") is a malformed value and belongs in quarantine.
+_ISO_CURRENCY = re.compile(r"[A-Z]{3}")
 
 
 def _read(path: Path) -> list[dict[str, str]]:
@@ -121,9 +125,13 @@ def project_transactions(raw_dir: Path, out_path: Path) -> dict[str, int]:
         writer = csv.DictWriter(handle, fieldnames=APP_COLUMNS, lineterminator="\n")
         writer.writeheader()
         for row in rows:
-            # The skeleton has no FX table, so a non-IDR row cannot be valued.
-            # It is counted and dropped here rather than silently mis-valued.
-            if row["currency_original"] not in ("IDR", "") and len(row["currency_original"]) == 3:
+            # The skeleton has no FX table, so a genuinely foreign-currency row
+            # cannot be valued; it is counted and dropped rather than mis-valued.
+            # Only a well-formed code counts as foreign: a malformed one such as
+            # "1DR" is the INVALID_CURRENCY defect (TRD §11.4) and is passed
+            # through so ingestion quarantines it.
+            currency = row["currency_original"]
+            if _ISO_CURRENCY.fullmatch(currency) and currency != "IDR":
                 stats["non_idr"] += 1
                 continue
             writer.writerow({
