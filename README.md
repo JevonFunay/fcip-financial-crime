@@ -236,9 +236,9 @@ docker compose exec backend python -m app.scripts.generate_raw_dataset --profile
 
 | Profile | Scale | Use | Transactions |
 |---|---|---|---|
-| `tiny` | 1% | CI | ~4,000 |
-| `small` | 5% | local development (default) | ~20,000 |
-| `full` | 100% | integration and final demo | ~408,000 |
+| `tiny` | 1% | CI | ~4,200 |
+| `small` | 5% | local development (default) | ~20,500 |
+| `full` | 100% | integration and final demo | ~407,000 |
 
 Output lands in `backend/sample_data/raw/<profile>/`:
 
@@ -275,16 +275,29 @@ block, IP addresses the RFC 5737 documentation ranges.
 around the 25th, a month-end tail, quieter weekends, arisan collection, agent
 kiosks and remittance corridors.
 
+**Population mix held exactly (TRD §11.2).** Retail 62%, business 18%,
+control-clean 8%, edge/ambiguous 8%, injected 4% — assigned as exact counts, so
+the shares hold at every scale including the CI profile. §11.1's volumes put
+real businesses at only ~11% of parties, so individual sole traders (UMKM
+wallet merchants) make up the rest of the business cohort and transact like
+merchants.
+
 **Labelled (TRD §11.3).** All twelve patterns P01–P12 get injected positives,
 behavioural look-alikes, and exact-threshold boundary cases. Every one writes a
 row to `labels.csv` with its entity, window and expected reason code, so recall
-is measured rather than eyeballed.
+is measured rather than eyeballed. **Each entity carries at most one label**:
+positives come from the injected cohort and look-alikes from the edge cohort
+(spilling to ordinary parties only when those run out), and the control cohort
+is never touched. A party holding both a positive and a look-alike label would
+make the look-alike label a lie.
 
 **Deliberately imperfect (TRD §11.4).** Twelve defect types at controlled
 rates: malformed dates, invalid currencies, zero/negative amounts, unresolvable
 accounts, exact duplicates, idempotency conflicts, late arrivals, missing
 counterparties and devices, missing beneficial owners, placeholder addresses,
-truncated names. The quality pipeline has real work to do.
+truncated names. The quality pipeline has real work to do. Defect counts in
+`generation_report.json` are taken from the rows actually written, not tallied
+as they are injected.
 
 **Entity resolution population (TRD §11.5).** Five constructions, each stating
 what resolution must do with it — must auto-merge, must not auto-merge, must
@@ -313,12 +326,19 @@ curl -s -X POST http://localhost:8000/ingestion/transactions \
   -F "source_system=NDP_WALLET_CORE" -F "business_date=2026-09-30"
 ```
 
-**Measured on the `small` profile:** 20,173 rows read, 19,751 accepted, 422
-quarantined across every defect type; P02 detection then catches **2 of 2**
-injected positives, fires on **0 of 2** labelled P02 look-alikes, and raises
-**nothing** on the 42-entity control cohort (FRD §8.14). One further alert
-emerges from ordinary background traffic, which is what TRD §11.1 expects —
-alerts emerge, they are never generated directly.
+**Measured on the `small` profile:** 20,509 rows read, 20,058 accepted, 451
+quarantined across every defect type (99 unresolvable accounts, 73 malformed
+dates, 39 invalid currencies, 35 zero/negative or malformed amounts, the rest
+in-file duplicates). P02 detection then raises exactly 2 alerts: it catches
+**2 of 2** injected positives, fires on **0 of 2** labelled P02 look-alikes, and
+raises **nothing** on the 42-entity control cohort (FRD §8.14).
+
+On the `full` profile the same check, run offline against the generated files,
+catches 45 of 45 P02 positives, fires on 0 of 30 look-alikes and 0 of 830
+control entities, and additionally fires on 17 entities labelled for *other*
+patterns — mostly P07 (weekly values stepping into P02's band) and P08
+(remittances inside the band). Those are cross-pattern hits on genuinely
+suspicious entities, not false positives on clean ones.
 
 > **Spec inconsistency, flagged not resolved:** TRD §11.1 describes "~600
 > duplicate source records" for entity resolution, but the §11.5 table sums to

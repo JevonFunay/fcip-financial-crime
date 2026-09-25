@@ -10,6 +10,7 @@ behave the way their labels claim.
 import csv
 import hashlib
 import json
+import random
 from collections import Counter
 from datetime import date, datetime, timedelta
 from decimal import Decimal
@@ -18,7 +19,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.scripts.generate_raw_dataset import DEFECTS, RawDatasetGenerator
+from app.scripts.generate_raw_dataset import COHORT_SHARES, DEFECTS, JAKARTA, RawDatasetGenerator
 from app.scripts.raw_contract import CONTRACT_VERSION, FILE_SPECS, LABELS
 from app.services.detection.p02_structuring import P02Parameters, find_clusters
 
@@ -208,6 +209,96 @@ def test_quarantinable_defects_appear_at_roughly_their_declared_rate(dataset):
     for name in ("malformed_date", "invalid_currency", "invalid_amount", "unresolved_account"):
         rate = report["defect_counts"][name] / total
         assert DEFECTS[name] / 4 <= rate <= DEFECTS[name] * 4, f"{name} at {rate:.4f}"
+
+
+class _AlwaysDefective(random.Random):
+    """A defect stream that applies every defect to every row."""
+
+    def random(self) -> float:
+        return 0.0
+
+
+def test_a_row_that_is_both_late_and_malformed_stays_malformed():
+    """Late arrival rewrites the timestamp. Applied after the malformed-date
+    defect it used to overwrite the malformed value with a valid one, so the
+    defect vanished while still being counted."""
+    generator = RawDatasetGenerator(profile="tiny", seed=SEED, reference_date=REFERENCE_DATE)
+    generator.rng["defect"] = _AlwaysDefective(1)
+
+    row = generator._emit(
+        account_id="ACC-0000001", when=datetime(2026, 9, 1, 10, 0, tzinfo=JAKARTA), amount=1000.0,
+        direction="OUT", channel="QRIS", transaction_type="MERCHANT_PAYMENT",
+    )
+
+    assert {"late_arrival", "malformed_date"} <= set(row["_defects"])
+    with pytest.raises(ValueError):
+        datetime.fromisoformat(row["value_datetime"])
+    assert row["business_date"] < "2026-09-01", "late arrival must still backdate the row"
+
+
+def test_defect_counts_are_bounded_by_the_symptoms_in_the_written_rows(dataset):
+    """Counts come from the rows written, not from a running tally. Each
+    quarantine-driving defect must show up on at least as many rows as it is
+    counted for, and on no more than that plus the copied rows (exact
+    duplicates and idempotency conflicts copy whatever their source carried)."""
+    out_dir, report = dataset
+    counts = report["defect_counts"]
+    accounts = {r["source_account_id"] for r in _rows(out_dir, "accounts.csv")}
+    rows = _rows(out_dir, "transactions.csv")
+
+    def unparseable(value: str) -> bool:
+        try:
+            datetime.fromisoformat(value)
+        except ValueError:
+            return True
+        return False
+
+    symptoms = {
+        "malformed_date": sum(unparseable(r["value_datetime"]) for r in rows),
+        "invalid_currency": sum(r["currency_original"] != "IDR" for r in rows),
+        "invalid_amount": sum(Decimal(r["amount_original"]) <= 0 for r in rows),
+        "unresolved_account": sum(r["source_account_id"] not in accounts for r in rows),
+    }
+    copies = counts["exact_duplicate"] + counts["idempotency_conflict"]
+    for name, seen in symptoms.items():
+        assert counts[name] <= seen <= counts[name] + copies, f"{name}: counted {counts[name]}, on {seen} rows"
+
+
+# --- TRD §11.2 population ------------------------------------------------------
+
+def test_cohorts_hit_the_declared_shares_exactly(dataset):
+    """Assigned as exact counts, so the shares hold even at the CI profile,
+    where per-party draws used to drift by several points."""
+    _, report = dataset
+    population = report["population"]
+    total = population["parties_excluding_er_test"]
+    cohorts = population["cohorts"]
+
+    for cohort, share in COHORT_SHARES.items():
+        assert cohorts[cohort]["count"] == round(total * share), cohort
+    assert sum(entry["count"] for entry in cohorts.values()) == total
+    assert population["real_businesses"] + population["individual_sole_traders_in_business_cohort"] == (
+        cohorts["BUSINESS_NORMAL"]["count"]
+    )
+
+
+def test_every_entity_carries_at_most_one_label(dataset):
+    """One scenario per entity. A party labelled both positive and edge makes
+    the edge label a lie, P05's dormancy gap deletes another scenario's
+    history, and a scenario on a control entity breaks the control cohort."""
+    out_dir, _ = dataset
+    per_entity = Counter(r["entity_source_id"] for r in _rows(out_dir, LABELS.name))
+
+    assert [entity for entity, n in per_entity.items() if n > 1] == []
+
+
+def test_edge_cases_are_placed_on_the_ambiguous_cohort_before_spilling(dataset):
+    _, report = dataset
+    population = report["population"]
+    placed = population["scenario_placement"]["edge_and_boundary"]
+    from_own_cohort = placed.get("EDGE_AMBIGUOUS", 0)
+
+    assert from_own_cohort == min(sum(placed.values()), population["cohorts"]["EDGE_AMBIGUOUS"]["count"])
 
 
 # --- TRD §11.3 labels and scenario behaviour ----------------------------------

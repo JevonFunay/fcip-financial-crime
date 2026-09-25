@@ -4,7 +4,7 @@
 Intelligence Platform capstone: what the project is, what the spec demands, what
 is actually built, what is deliberately not built, and what is still undecided.
 
-Last updated: **23 September 2026** · Week 4 of 16 · ~17% of MVP scope
+Last updated: **25 September 2026** · Week 4 of 16 · ~17% of MVP scope
 
 ---
 
@@ -103,7 +103,7 @@ percentage is an estimate — the counts underneath it are not.
 | NFRs proven by measurement | 3 of 18 | 17% |
 | TRD components | ~6 full + ~5 partial of 30 | ~25% |
 
-**226 backend tests pass** (2 excluded as `slow`). Frontend has no automated
+**231 backend tests pass** (2 excluded as `slow`). Frontend has no automated
 tests in the repo; it was verified with a scripted Playwright click-through.
 
 ### Per domain
@@ -157,7 +157,7 @@ backend/
     scripts/       seed.py, run_detection.py, generate_bulk_transactions.py,
                    generate_raw_dataset.py, raw_contract.py, load_raw_dataset.py
   alembic/versions/  0001 … 0004
-  tests/             14 test modules, 226 passing
+  tests/             14 test modules, 231 passing
 frontend/src/
   api/           client.ts (token refresh), alerts, cases, data, audit, auth
   pages/         Login, Overview, AlertQueue, AlertDetail, CaseDetail, Audit
@@ -246,20 +246,24 @@ Files: `customers.csv` (20 cols), `business_customers.csv` (16), `beneficial_own
 (per-file SHA-256, `synthetic_declaration: true`), `labels.csv`,
 `data_dictionary.md`, `scenario_catalogue.md`, `generation_report.json`, `seeds.json`.
 
-Profiles: `tiny` 1% (CI), `small` 5% (default), `full` 100% (~408k transactions in 6s).
+Profiles: `tiny` 1% (CI), `small` 5% (default), `full` 100% (~407k transactions in 6s).
 All volumes land inside TRD §11.1 targets.
 
 Key properties:
 - **Deterministic** — same seed reproduces every file byte-for-byte (T-GEN-01)
 - **Provably synthetic but structurally correct** — NIK-shaped IDs encoding gender the real way (female birth day +40), on province prefix `99` which is never issued; `+62899` phone block; RFC 5737 IP ranges
-- **Labelled** — all 12 patterns get injected positives, behavioural look-alikes and exact-threshold boundary cases, each writing to `labels.csv`
+- **Population mix held exactly** (TRD §11.2) — retail 62 / business 18 / control 8 / edge 8 / injected 4, as exact counts at every scale; individual sole traders fill the business cohort beyond the ~11% that §11.1's real businesses supply
+- **Labelled** — all 12 patterns get injected positives, behavioural look-alikes and exact-threshold boundary cases, each writing to `labels.csv`. Each entity carries at most one label, and the control cohort is never touched
 - **Deliberately defective** — 12 defect types at controlled rates (TRD §11.4)
 - **ER population** — 5 constructions per TRD §11.5, each stating what resolution must do
 
-Measured on `small`: 20,173 rows read, 19,751 accepted, 422 quarantined across
-every defect type. P02 then catches **2/2** injected positives, fires on **0/2**
-labelled look-alikes, and raises **nothing** on the 42-entity control cohort
-(FRD §8.14).
+Measured on `small` through the real API: 20,509 rows read, 20,058 accepted,
+451 quarantined across every defect type. P02 raises exactly 2 alerts: it
+catches **2/2** injected positives, fires on **0/2** labelled look-alikes, and
+raises **nothing** on the 42-entity control cohort (FRD §8.14). On `full`,
+checked offline: 45/45 positives, 0/30 look-alikes, 0/830 control, plus 17
+cross-pattern hits on entities labelled P07/P08, whose values fall inside
+P02's band — genuinely suspicious entities, not false positives.
 
 `app/scripts/load_raw_dataset.py` bridges it into the skeleton and **prints
 which columns it could not carry across** (merchant, device, IP, source status,

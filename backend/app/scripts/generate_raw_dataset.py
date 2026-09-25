@@ -21,6 +21,7 @@ import csv
 import hashlib
 import json
 import random
+from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
@@ -61,7 +62,18 @@ SCENARIO_TARGETS = {
 }
 EDGE_PER_PATTERN = 25
 BOUNDARY_PER_PATTERN = 5
-CONTROL_CLEAN_ENTITIES = 800
+
+# TRD §11.2 population mix, as exact shares of all non-ER parties; retail takes
+# the remainder (~62%). §11.3's "~800 CONTROL_CLEAN entities" at the full
+# profile is this 8% of ~10,400 parties, not a separate target.
+COHORT_SHARES = {
+    "BUSINESS_NORMAL": 0.18,
+    "CONTROL_CLEAN": 0.08,
+    "EDGE_AMBIGUOUS": 0.08,
+    "INJECTED_CANDIDATE": 0.04,
+}
+COHORT_ORDER = ("RETAIL_NORMAL", "BUSINESS_NORMAL", "CONTROL_CLEAN", "EDGE_AMBIGUOUS", "INJECTED_CANDIDATE")
+UNASSIGNED = "UNASSIGNED"
 
 PATTERN_NAMES = {
     "P01": "Unusually large single transfer",
@@ -171,11 +183,7 @@ class Party:
 @dataclass
 class Counters:
     rows: dict[str, int] = field(default_factory=dict)
-    defects: dict[str, int] = field(default_factory=dict)
     labels: dict[str, int] = field(default_factory=dict)
-
-    def defect(self, name: str, n: int = 1) -> None:
-        self.defects[name] = self.defects.get(name, 0) + n
 
     def label(self, name: str, n: int = 1) -> None:
         self.labels[name] = self.labels.get(name, 0) + n
@@ -195,9 +203,15 @@ class RawDatasetGenerator:
         self.period_start = reference_date - timedelta(days=182)
         self.rng = {
             name: random.Random(_seed_for(seed, name))
-            for name in ("party", "account", "merchant", "device", "txn", "defect", "scenario", "watchlist")
+            for name in ("party", "account", "merchant", "device", "txn", "defect", "scenario", "watchlist", "cohort")
         }
         self.counters = Counters()
+        # Scenario placement state: see _take().
+        self._pools: dict[str, list[Party]] = {}
+        self._claimed: set[str] = set()
+        self._placement: dict[str, Counter[str]] = {"INJECTED_CANDIDATE": Counter(), "EDGE_AMBIGUOUS": Counter()}
+        self._without_bo: set[str] = set()
+        self._customer_rows: dict[str, dict[str, Any]] = {}
         self.customers: list[dict[str, Any]] = []
         self.businesses: list[dict[str, Any]] = []
         self.beneficial_owners: list[dict[str, Any]] = []
@@ -242,7 +256,6 @@ class RawDatasetGenerator:
     def _address(self, rng: random.Random) -> tuple[str, str, str, str]:
         city, province, postcode = rng.choice(CITIES)
         if rng.random() < DEFECTS["placeholder_address"]:
-            self.counters.defect("placeholder_address")
             return rng.choice(PLACEHOLDER_ADDRESSES), city, province, postcode
         return f"{rng.choice(STREETS)} No. {rng.randrange(1, 240)}", city, province, postcode
 
@@ -251,23 +264,41 @@ class RawDatasetGenerator:
         later becomes NOT_SCREENABLE or HIGH_FREQUENCY_NAME."""
         if rng.random() >= DEFECTS["truncated_name"]:
             return name
-        self.counters.defect("truncated_name")
         return name.split()[-1] if rng.random() < 0.5 else name[: max(3, len(name) // 2)].strip()
 
     # --- populations ----------------------------------------------------------
 
-    def _cohort_for(self, rng: random.Random) -> str:
-        """TRD §11.2 population mix."""
-        roll = rng.random()
-        if roll < 0.62:
-            return "RETAIL_NORMAL"
-        if roll < 0.80:
-            return "BUSINESS_NORMAL"
-        if roll < 0.88:
-            return "CONTROL_CLEAN"
-        if roll < 0.96:
-            return "EDGE_AMBIGUOUS"
-        return "INJECTED_CANDIDATE"
+    def assign_cohorts(self) -> None:
+        """TRD §11.2 population mix, assigned as exact counts rather than drawn
+        per party, so the shares hold at every scale including the CI profile.
+
+        Every real business is in the business cohort. §11.1's volumes put real
+        businesses at ~11% of parties (1,200 of ~10,400) against §11.2's ~18%,
+        so the rest of the business cohort is individual sole traders (UMKM
+        wallet merchants), who transact like merchants. Control, edge and
+        injected cohorts are drawn from individuals.
+        """
+        rng = self.rng["cohort"]
+        parties = [p for p in self.parties.values() if p.cohort != "ER_TEST"]
+        total = len(parties)
+        individuals = [p for p in parties if not p.is_business]
+        for party in parties:
+            if party.is_business:
+                party.cohort = "BUSINESS_NORMAL"
+        rng.shuffle(individuals)
+        quotas = (
+            ("BUSINESS_NORMAL", max(0, round(total * COHORT_SHARES["BUSINESS_NORMAL"]) - (total - len(individuals)))),
+            ("CONTROL_CLEAN", round(total * COHORT_SHARES["CONTROL_CLEAN"])),
+            ("EDGE_AMBIGUOUS", round(total * COHORT_SHARES["EDGE_AMBIGUOUS"])),
+            ("INJECTED_CANDIDATE", round(total * COHORT_SHARES["INJECTED_CANDIDATE"])),
+        )
+        cursor = 0
+        for cohort, quota in quotas:
+            for party in individuals[cursor:cursor + quota]:
+                party.cohort = cohort
+            cursor += quota
+        for party in individuals[cursor:]:
+            party.cohort = "RETAIL_NORMAL"
 
     def build_customers(self) -> None:
         rng = self.rng["party"]
@@ -279,10 +310,10 @@ class RawDatasetGenerator:
             dob = date(rng.randrange(1960, 2007), rng.randrange(1, 13), rng.randrange(1, 29))
             address, city, province, postcode = self._address(rng)
             gender = rng.choice(("M", "F"))
-            name = self._maybe_truncate(rng, self._person_name(rng, gender))
+            full_name = self._person_name(rng, gender)
+            name = self._maybe_truncate(rng, full_name)
             # Born somewhere, living somewhere else most of the time.
             birth_city = city if rng.random() < 0.35 else rng.choice(CITIES)[0]
-            cohort = self._cohort_for(rng)
             source_id = f"CUST-{i:06d}"
             self.customers.append({
                 "source_customer_id": source_id,
@@ -305,8 +336,11 @@ class RawDatasetGenerator:
                 "onboarding_date": (self.period_start - timedelta(days=rng.randrange(30, 1500))).isoformat(),
                 "kyc_status": rng.choices(("COMPLETE", "PARTIAL", "PENDING"), weights=(80, 15, 5))[0],
                 "customer_status": rng.choices(("ACTIVE", "SUSPENDED", "CLOSED"), weights=(94, 3, 3))[0],
+                # Row-level defect marker; never written (see _defect_counts).
+                "_defects": ["truncated_name"] if name != full_name else [],
             })
-            self.parties[source_id] = Party(source_id, name, cohort)
+            # Cohort is assigned once the whole population exists (assign_cohorts).
+            self.parties[source_id] = Party(source_id, name, UNASSIGNED)
         self._build_er_population()
 
     # TRD §11.5. NOTE: these sum to 820, while §11.1 describes "~600 duplicate
@@ -401,7 +435,7 @@ class RawDatasetGenerator:
             # TRD §11.4: 4% of businesses ship with no beneficial owner at all,
             # which is both a data-quality defect and a risk factor (FRD E02).
             if i in without_bo:
-                self.counters.defect("missing_bo")
+                self._without_bo.add(source_id)
                 continue
             self._build_beneficial_owners(rng, source_id)
 
@@ -435,7 +469,9 @@ class RawDatasetGenerator:
         for _ in range(_scaled(40, self.factor, 2)):
             donor = rng.choice(self.beneficial_owners)
             other = rng.choice(self.businesses)["source_business_id"]
-            if other == donor["source_business_id"]:
+            # A business shipped without an owner must stay without one, or the
+            # BO_MISSING defect would silently disappear.
+            if other == donor["source_business_id"] or other in self._without_bo:
                 continue
             clone = dict(donor)
             clone["source_bo_id"] = f"BO-{len(self.beneficial_owners) + 1:05d}"
@@ -584,36 +620,40 @@ class RawDatasetGenerator:
             "status_from_source": rng.choices(("SETTLED", "PENDING", "REVERSED"), weights=(96, 3, 1))[0],
         }
 
+        applied: list[str] = []
         if apply_defects:
             # Defects are applied only to background traffic, never to an
             # injected scenario: a corrupted row would silently change whether
             # the scenario fires, and the label would then be a lie.
-            if rng.random() < DEFECTS["missing_counterparty"]:
-                row["counterparty_reference"] = ""
-                self.counters.defect("missing_counterparty")
-            if rng.random() < DEFECTS["missing_device"]:
-                row["source_device_id"] = ""
-                self.counters.defect("missing_device")
-            if rng.random() < DEFECTS["malformed_date"]:
-                row["value_datetime"] = when.strftime("%d/%m/%Y %H:%M")
-                self.counters.defect("malformed_date")
-            if rng.random() < DEFECTS["invalid_currency"]:
-                row["currency_original"] = rng.choice(("IDRR", "ID", "1DR", "id r"))
-                self.counters.defect("invalid_currency")
-            if rng.random() < DEFECTS["invalid_amount"]:
-                row["amount_original"] = rng.choice(("0.00", "-125000.00"))
-                self.counters.defect("invalid_amount")
-            if rng.random() < DEFECTS["unresolved_account"]:
-                row["source_account_id"] = f"ACC-9{rng.randrange(10**5, 10**6 - 1)}"
-                self.counters.defect("unresolved_account")
             if rng.random() < DEFECTS["late_arrival"]:
                 # Backdated well before the batch business date: the loader
-                # flags LATE_ARRIVAL and computes lag_days (FR-106).
-                shifted = when - timedelta(days=rng.randrange(5, 100))
-                row["value_datetime"] = shifted.isoformat()
-                row["business_date"] = shifted.astimezone(JAKARTA).date().isoformat()
-                self.counters.defect("late_arrival")
+                # flags LATE_ARRIVAL and computes lag_days (FR-106). Applied
+                # first so that a row which is also malformed stays malformed.
+                when = when - timedelta(days=rng.randrange(5, 100))
+                row["value_datetime"] = when.isoformat()
+                row["business_date"] = when.astimezone(JAKARTA).date().isoformat()
+                applied.append("late_arrival")
+            if rng.random() < DEFECTS["missing_counterparty"]:
+                row["counterparty_reference"] = ""
+                applied.append("missing_counterparty")
+            if rng.random() < DEFECTS["missing_device"]:
+                row["source_device_id"] = ""
+                applied.append("missing_device")
+            if rng.random() < DEFECTS["malformed_date"]:
+                row["value_datetime"] = when.strftime("%d/%m/%Y %H:%M")
+                applied.append("malformed_date")
+            if rng.random() < DEFECTS["invalid_currency"]:
+                row["currency_original"] = rng.choice(("IDRR", "ID", "1DR", "id r"))
+                applied.append("invalid_currency")
+            if rng.random() < DEFECTS["invalid_amount"]:
+                row["amount_original"] = rng.choice(("0.00", "-125000.00"))
+                applied.append("invalid_amount")
+            if rng.random() < DEFECTS["unresolved_account"]:
+                row["source_account_id"] = f"ACC-9{rng.randrange(10**5, 10**6 - 1)}"
+                applied.append("unresolved_account")
 
+        # Row-level defect marker; never written (see _defect_counts).
+        row["_defects"] = applied
         self.transactions.append(row)
         return row
 
@@ -659,7 +699,9 @@ class RawDatasetGenerator:
                 when = self._random_moment(rng, day)
                 account = rng.choice(party.accounts)
                 device = rng.choice(party.devices) if party.devices else None
-                if party.is_business:
+                # Sole traders are individuals in the business cohort, so they
+                # transact like merchants rather than like retail customers.
+                if party.is_business or party.cohort == "BUSINESS_NORMAL":
                     amount = rng.lognormvariate(12.5, 1.1)
                     channel, ttype = "PAYMENT", "MERCHANT_PAYMENT"
                     merchant = rng.choice(merchant_ids) if merchant_ids else ""
@@ -700,13 +742,15 @@ class RawDatasetGenerator:
         if not self.transactions:
             return
         for _ in range(int(len(self.transactions) * DEFECTS["exact_duplicate"])):
-            self.transactions.append(dict(rng.choice(self.transactions)))
-            self.counters.defect("exact_duplicate")
+            duplicate = dict(rng.choice(self.transactions))
+            # Counted once, as a duplicate, whatever its source row carried.
+            duplicate["_defects"] = ["exact_duplicate"]
+            self.transactions.append(duplicate)
         for _ in range(max(1, int(len(self.transactions) * DEFECTS["idempotency_conflict"]))):
             conflict = dict(rng.choice(self.transactions))
             conflict["amount_original"] = _money(float(conflict["amount_original"] or 1000) + 77_000)
+            conflict["_defects"] = ["idempotency_conflict"]
             self.transactions.append(conflict)
-            self.counters.defect("idempotency_conflict")
 
     # --- injected scenarios ---------------------------------------------------
 
@@ -724,15 +768,47 @@ class RawDatasetGenerator:
         })
         self.counters.label(f"{pattern}_{label_type}")
 
-    def _scenario_parties(self, rng: random.Random, count: int) -> list[Party]:
-        pool = [p for p in self.parties.values()
-                if p.accounts and p.cohort in ("INJECTED_CANDIDATE", "RETAIL_NORMAL", "BUSINESS_NORMAL")]
-        if not pool:
-            return []
-        return [rng.choice(pool) for _ in range(count)]
+    SPILL_ORDER = ("RETAIL_NORMAL", "BUSINESS_NORMAL")
+
+    def _pool(self, cohort: str) -> list[Party]:
+        if cohort not in self._pools:
+            members = [p for p in self.parties.values() if p.cohort == cohort and p.accounts]
+            self.rng["scenario"].shuffle(members)
+            self._pools[cohort] = members
+        return self._pools[cohort]
+
+    def _take(self, count: int, *, primary: str, individuals_only: bool = False) -> list[Party]:
+        """Claim `count` distinct parties for a scenario: from the `primary`
+        cohort first, spilling to ordinary retail and then business parties
+        when it runs out.
+
+        Every claimed party carries exactly one scenario. A party holding both
+        a positive and an edge label makes the edge label a lie, and P05 carves
+        its dormancy gap by deleting history, which would silently remove
+        another scenario's transactions. Control-clean parties are never
+        claimed, so a scenario can never land on the control cohort.
+        """
+        taken: list[Party] = []
+        for cohort in (primary, *self.SPILL_ORDER):
+            pool = self._pool(cohort)
+            i = len(pool) - 1
+            while i >= 0 and len(taken) < count:
+                party = pool[i]
+                if party.source_id in self._claimed:
+                    pool.pop(i)  # claimed elsewhere (P10 takes businesses via their merchant)
+                elif not (individuals_only and party.is_business):
+                    pool.pop(i)
+                    self._claimed.add(party.source_id)
+                    self._placement[primary][cohort] += 1
+                    taken.append(party)
+                i -= 1
+            if len(taken) == count:
+                break
+        return taken
 
     def inject_scenarios(self) -> None:
         rng = self.rng["scenario"]
+        self._customer_rows = {c["source_customer_id"]: c for c in self.customers}
         builders = {
             "P01": self._inject_p01, "P02": self._inject_p02, "P03": self._inject_p03,
             "P04": self._inject_p04, "P05": self._inject_p05, "P06": self._inject_p06,
@@ -760,7 +836,7 @@ class RawDatasetGenerator:
         return earliest + timedelta(days=rng.randrange(0, (latest - earliest).days))
 
     def _inject_p01(self, rng: random.Random, scenario_id: str) -> None:
-        party = self._scenario_parties(rng, 1)
+        party = self._take(1, primary="INJECTED_CANDIDATE")
         if not party:
             return
         party = party[0]
@@ -775,7 +851,7 @@ class RawDatasetGenerator:
     def _inject_p02(self, rng: random.Random, scenario_id: str) -> None:
         """Deliberately built to satisfy the implemented detector: 3-5
         transactions inside [350M, 500M) within 7 days, aggregate >= 500M."""
-        party = self._scenario_parties(rng, 1)
+        party = self._take(1, primary="INJECTED_CANDIDATE")
         if not party:
             return
         party = party[0]
@@ -791,7 +867,7 @@ class RawDatasetGenerator:
                     start + timedelta(days=6), f"{count} deposits in band within a 7-day window")
 
     def _inject_p03(self, rng: random.Random, scenario_id: str) -> None:
-        party = self._scenario_parties(rng, 1)
+        party = self._take(1, primary="INJECTED_CANDIDATE")
         if not party:
             return
         party = party[0]
@@ -808,7 +884,7 @@ class RawDatasetGenerator:
                     "Funds in and substantially out again within the same day")
 
     def _inject_p04(self, rng: random.Random, scenario_id: str) -> None:
-        party = self._scenario_parties(rng, 1)
+        party = self._take(1, primary="INJECTED_CANDIDATE")
         if not party:
             return
         party = party[0]
@@ -822,7 +898,7 @@ class RawDatasetGenerator:
                     start + timedelta(days=3), "Transaction count far above the entity's own baseline")
 
     def _inject_p05(self, rng: random.Random, scenario_id: str) -> None:
-        party = self._scenario_parties(rng, 1)
+        party = self._take(1, primary="INJECTED_CANDIDATE")
         if not party:
             return
         party = party[0]
@@ -842,7 +918,7 @@ class RawDatasetGenerator:
                     day - timedelta(days=150), day, "150 dormant days, then a material credit")
 
     def _inject_p06(self, rng: random.Random, scenario_id: str) -> None:
-        party = self._scenario_parties(rng, 1)
+        party = self._take(1, primary="INJECTED_CANDIDATE")
         if not party:
             return
         party = party[0]
@@ -856,7 +932,7 @@ class RawDatasetGenerator:
                     start + timedelta(days=10), f"Repeated identical round amount {amount:,}")
 
     def _inject_p07(self, rng: random.Random, scenario_id: str) -> None:
-        party = self._scenario_parties(rng, 1)
+        party = self._take(1, primary="INJECTED_CANDIDATE")
         if not party:
             return
         party = party[0]
@@ -873,7 +949,7 @@ class RawDatasetGenerator:
                     start + timedelta(days=35), "Weekly value stepping up by 2-3x")
 
     def _inject_p08(self, rng: random.Random, scenario_id: str) -> None:
-        party = self._scenario_parties(rng, 1)
+        party = self._take(1, primary="INJECTED_CANDIDATE")
         if not party:
             return
         party = party[0]
@@ -888,7 +964,7 @@ class RawDatasetGenerator:
                     start + timedelta(days=20), f"Exposure concentrated on listed geography {country}")
 
     def _inject_p09(self, rng: random.Random, scenario_id: str) -> None:
-        parties = self._scenario_parties(rng, rng.randrange(4, 8))
+        parties = self._take(rng.randrange(4, 8), primary="INJECTED_CANDIDATE")
         if len(parties) < 3 or not self.devices:
             return
         shared = rng.choice(self.devices)["source_device_id"]
@@ -904,12 +980,16 @@ class RawDatasetGenerator:
                         start + timedelta(days=14), f"Device {shared} shared by {len(parties)} unrelated entities")
 
     def _inject_p10(self, rng: random.Random, scenario_id: str) -> None:
-        if not self.merchants:
+        candidates = [
+            m for m in self.merchants
+            if m["source_business_id"] not in self._claimed and self.parties[m["source_business_id"]].accounts
+        ]
+        if not candidates:
             return
-        merchant = rng.choice(self.merchants)
-        business = self.parties.get(merchant["source_business_id"])
-        if business is None or not business.accounts:
-            return
+        merchant = rng.choice(candidates)
+        business = self.parties[merchant["source_business_id"]]
+        self._claimed.add(business.source_id)
+        self._placement["INJECTED_CANDIDATE"]["BUSINESS_NORMAL (P10 merchant)"] += 1
         start = self._window_start(rng, 25)
         # Ticket sizes an order of magnitude away from what the MCC implies.
         for _ in range(rng.randrange(20, 45)):
@@ -922,8 +1002,8 @@ class RawDatasetGenerator:
                     start + timedelta(days=25), f"Ticket size inconsistent with MCC {merchant['mcc']}")
 
     def _inject_p11(self, rng: random.Random, scenario_id: str) -> None:
-        senders = self._scenario_parties(rng, rng.randrange(8, 16))
-        collector = self._scenario_parties(rng, 1)
+        senders = self._take(rng.randrange(8, 16), primary="INJECTED_CANDIDATE")
+        collector = self._take(1, primary="INJECTED_CANDIDATE")
         if len(senders) < 5 or not collector or not self.devices:
             return
         collector = collector[0]
@@ -948,10 +1028,16 @@ class RawDatasetGenerator:
         if not self.watchlist or not self.customers:
             return
         listed = rng.choice(self.watchlist)
-        customer = rng.choice([c for c in self.customers if not c["source_customer_id"].startswith("CUST-ER")])
+        taken = self._take(1, primary="INJECTED_CANDIDATE", individuals_only=True)
+        if not taken:
+            return
+        customer = self._customer_rows[taken[0].source_id]
         # A near-name, never an exact copy: screening stops at potential match
         # (FRD §3.5) and the reviewer is the one who decides.
         customer["full_name"] = listed["primary_name"].replace("i", "y", 1)
+        taken[0].name = customer["full_name"]
+        # A renamed record is no longer a truncated one.
+        customer["_defects"] = [d for d in customer["_defects"] if d != "truncated_name"]
         self._label(scenario_id, "INJECTED_POSITIVE", "P12", customer["source_customer_id"],
                     self.period_start, self.reference_date,
                     f"Name close to list record {listed['list_record_id']} ({listed['list_type']})")
@@ -960,7 +1046,7 @@ class RawDatasetGenerator:
         """Legitimate activity built to sit close to the injected positives
         (TRD §11.2). If these were trivially separable, the false-positive
         discussion would be meaningless."""
-        party = self._scenario_parties(rng, 1)
+        party = self._take(1, primary="EDGE_AMBIGUOUS")
         if not party:
             return
         party = party[0]
@@ -994,7 +1080,7 @@ class RawDatasetGenerator:
         """Exactly on the threshold, where the rule must be unambiguous. For
         P02 the band's lower bound is inclusive and the reporting threshold is
         exclusive, so 500,000,000 must NOT be in band."""
-        party = self._scenario_parties(rng, 1)
+        party = self._take(1, primary="EDGE_AMBIGUOUS")
         if not party:
             return
         party = party[0]
@@ -1008,6 +1094,45 @@ class RawDatasetGenerator:
                     f"Exactly at threshold ({amount:,.0f}) — must not fire at default parameters")
 
     # --- output ---------------------------------------------------------------
+
+    def _defect_counts(self) -> dict[str, int]:
+        """Defects present in what is actually written, counted from the rows
+        rather than tallied as they are injected: P05 deletes history to carve
+        its dormancy gaps, and a running tally kept counting the defect rows it
+        removed."""
+        counts: Counter[str] = Counter()
+        for row in (*self.customers, *self.transactions):
+            counts.update(row.get("_defects", ()))
+        counts["placeholder_address"] = sum(
+            1 for row in (*self.customers, *self.businesses) if row["address_line"] in PLACEHOLDER_ADDRESSES
+        )
+        owned = {bo["source_business_id"] for bo in self.beneficial_owners}
+        counts["missing_bo"] = sum(1 for b in self.businesses if b["source_business_id"] not in owned)
+        return {name: counts.get(name, 0) for name in DEFECTS}
+
+    def _population(self) -> dict[str, Any]:
+        parties = [p for p in self.parties.values() if p.cohort != "ER_TEST"]
+        total = len(parties)
+        tags = Counter(p.cohort for p in parties)
+        spec = {"RETAIL_NORMAL": round(1 - sum(COHORT_SHARES.values()), 2), **COHORT_SHARES}
+        return {
+            "parties_excluding_er_test": total,
+            "cohorts": {
+                cohort: {"count": tags[cohort], "share": round(tags[cohort] / total, 4) if total else 0.0,
+                         "spec_share": spec[cohort]}
+                for cohort in COHORT_ORDER
+            },
+            "real_businesses": sum(1 for p in parties if p.is_business),
+            "individual_sole_traders_in_business_cohort": sum(
+                1 for p in parties if p.cohort == "BUSINESS_NORMAL" and not p.is_business
+            ),
+            # Where each scenario's parties came from: its own cohort first,
+            # then spilled to ordinary parties when that cohort ran out.
+            "scenario_placement": {
+                "positives_and_participants": dict(sorted(self._placement["INJECTED_CANDIDATE"].items())),
+                "edge_and_boundary": dict(sorted(self._placement["EDGE_AMBIGUOUS"].items())),
+            },
+        }
 
     def _write_csv(self, out_dir: Path, spec: FileSpec, rows: list[dict[str, Any]]) -> dict[str, Any]:
         path = out_dir / spec.name
@@ -1070,7 +1195,8 @@ class RawDatasetGenerator:
             "period_start": self.period_start.isoformat(),
             "generated_at": manifest["generated_at"],
             "row_counts": dict(sorted(self.counters.rows.items())),
-            "defect_counts": dict(sorted(self.counters.defects.items())),
+            "defect_counts": self._defect_counts(),
+            "population": self._population(),
             "label_counts": dict(sorted(self.counters.labels.items())),
             "file_checksums": {f["name"]: f["sha256"] for f in files},
         }
@@ -1108,7 +1234,11 @@ class RawDatasetGenerator:
                 rule = " ".join(part for part in (f.rule, f.defect and f"**Defect:** {f.defect}") if part) or "—"
                 lines.append(f"| `{f.name}` | {f.type} | {'yes' if f.required else 'no'} | {allowed} | {rule} |")
             lines.append("")
+        produced = self._defect_counts()
         lines += ["## Deliberate quality defects (TRD §11.4)", "",
+                  "Produced counts are taken from the rows actually written. An exact-duplicate row counts",
+                  "once, as `exact_duplicate`, whatever its source row carried — so a symptom such as an",
+                  "unparseable date can appear on a few more rows than its own count.", "",
                   "| Defect | Target rate | Expected handling |", "|---|---|---|"]
         handling = {
             "missing_counterparty": "Loaded; lowers referential-integrity metric; drives the Entity 360 banner",
@@ -1125,7 +1255,7 @@ class RawDatasetGenerator:
             "truncated_name": "Loaded; some become `NOT_SCREENABLE`, others `HIGH_FREQUENCY_NAME`",
         }
         for name, rate in DEFECTS.items():
-            actual = self.counters.defects.get(name, 0)
+            actual = produced[name]
             lines.append(f"| `{name}` | {rate:.2%} | {handling[name]} (produced: {actual:,}) |")
         return "\n".join(lines) + "\n"
 
@@ -1160,6 +1290,25 @@ class RawDatasetGenerator:
                 f"| `{pattern}` | {name} | {constructions[pattern]} | `{EXPECTED_REASON[pattern]}` | "
                 f"{positives} positive, {edges} edge |"
             )
+        population = self._population()
+        lines += [
+            "",
+            "## Population (TRD §11.2)",
+            "",
+            "Assigned as exact counts, so the shares hold at every scale. Real businesses are all in the",
+            "business cohort; §11.1's volumes leave them short of §11.2's share, and individual sole traders",
+            "make up the difference.",
+            "",
+            "| Cohort | Entities | Share | Spec |",
+            "|---|---|---|---|",
+        ]
+        for cohort, entry in population["cohorts"].items():
+            lines.append(f"| `{cohort}` | {entry['count']:,} | {entry['share']:.1%} | ~{entry['spec_share']:.0%} |")
+        lines += [
+            "",
+            f"Business cohort: {population['real_businesses']:,} real businesses + "
+            f"{population['individual_sole_traders_in_business_cohort']:,} individual sole traders.",
+        ]
         lines += [
             "",
             "## Control cohort (FRD §8.14)",
@@ -1186,6 +1335,7 @@ class RawDatasetGenerator:
     def generate(self) -> None:
         self.build_customers()
         self.build_businesses()
+        self.assign_cohorts()
         self.share_beneficial_owners()
         self.build_accounts()
         self.build_merchants()

@@ -1,6 +1,6 @@
 # FCIP — Progress Status
 
-**As of 23 September 2026 · Week 4 of 16 · ~17% of MVP scope**
+**As of 25 September 2026 · Week 4 of 16 · ~17% of MVP scope**
 
 Supersedes any earlier progress figure. Scope definitions, architecture and open
 questions are unchanged — see `PROJECT_CONTEXT.md`.
@@ -20,7 +20,7 @@ questions are unchanged — see `PROJECT_CONTEXT.md`.
 | NFRs proven by measurement | 3 of 18 | 17% |
 | TRD components | ~6 full + ~5 partial of 30 | ~25% |
 
-**226 backend tests pass** (2 excluded as `slow`). Frontend typechecks and builds.
+**231 backend tests pass** (2 excluded as `slow`). Frontend typechecks and builds.
 
 Pure FR counting gives ~10%; ~17% weights the foundation work already done.
 Neither document assigns effort weights, so the percentage is an estimate — the
@@ -88,15 +88,16 @@ bands) · `devices.csv` · `transactions.csv` (16) · `watchlist.csv` ·
 `generation_report.json` · `seeds.json`
 
 Three profiles: `tiny` 1% (CI), `small` 5% (default), `full` 100%.
-Full profile: **408,226 transactions in 6 seconds**, every volume inside the
+Full profile: **407,019 transactions in 6 seconds**, every volume inside the
 TRD §11.1 target bands.
 
-Four properties that make it usable as evidence rather than just volume:
+Five properties that make it usable as evidence rather than just volume:
 
 1. **Deterministic** — same seed reproduces every file byte-for-byte (T-GEN-01). Without it no detection metric is reproducible
 2. **Provably synthetic but structurally correct** — NIK-shaped IDs encoding gender the real way (female birth day +40), on province prefix `99` which is never issued; `+62899` phone block; RFC 5737 IP ranges
-3. **Labelled** — all 12 patterns get injected positives, behavioural look-alikes and exact-threshold boundary cases, each writing a row to `labels.csv` with entity, window and expected reason code
-4. **Deliberately defective** — 12 defect types at controlled rates (TRD §11.4), so the quality pipeline has real work to do
+3. **Labelled** — all 12 patterns get injected positives, behavioural look-alikes and exact-threshold boundary cases, each writing a row to `labels.csv` with entity, window and expected reason code. Each entity carries at most one label, and the control cohort is never touched
+4. **Population mix held exactly** (TRD §11.2) — retail 62 / business 18 / control 8 / edge 8 / injected 4, as exact counts at every scale
+5. **Deliberately defective** — 12 defect types at controlled rates (TRD §11.4), so the quality pipeline has real work to do
 
 Plus the entity-resolution population per TRD §11.5: five constructions, each
 stating what resolution must do with it.
@@ -107,11 +108,15 @@ transaction type) — that gap is the distance to the full pipeline, reported
 rather than hidden.
 
 **Verified end-to-end through the real API on the `small` profile:**
-20,173 rows read · 19,751 accepted · 422 quarantined across every defect type.
-P02 then catches **2/2** injected positives, fires on **0/2** labelled
-look-alikes, and raises **nothing** on the 42-entity control cohort (FRD §8.14).
-One further alert emerges from background traffic, which is what TRD §11.1
-expects — alerts emerge, they are never generated directly.
+20,509 rows read · 20,058 accepted · 451 quarantined across every defect type.
+P02 then raises exactly 2 alerts: it catches **2/2** injected positives, fires
+on **0/2** labelled look-alikes, and raises **nothing** on the 42-entity
+control cohort (FRD §8.14).
+
+On the `full` profile, checked offline against the generated files: 45/45
+positives, 0/30 look-alikes, 0/830 control entities — plus 17 cross-pattern
+hits on entities labelled P07 or P08, whose values step into P02's band. Those
+are genuinely suspicious entities, not false positives on clean ones.
 
 ---
 
