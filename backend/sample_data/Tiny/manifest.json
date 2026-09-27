@@ -1,0 +1,52 @@
+{
+  "source_system_code": "NDP_WALLET_CORE",
+  "business_date": "2026-09-30",
+  "contract_version": "1",
+  "files": [
+    {
+      "name": "customers.csv",
+      "sha256": "866d13667187bcc5f3281fe33ae678d8016824e899e86d6a0ecb28a8ae2fffe8",
+      "record_count": 100
+    },
+    {
+      "name": "business_customers.csv",
+      "sha256": "aa45692cbe2d0048dc73c73c7d822792f07e700bad09eb128e4f0ec37422c0b5",
+      "record_count": 12
+    },
+    {
+      "name": "beneficial_owners.csv",
+      "sha256": "b04fc70a4cf92eec09368f90711f6132ef3d5c4f7d7ab504206b9789a8df14bd",
+      "record_count": 26
+    },
+    {
+      "name": "accounts.csv",
+      "sha256": "f7c7c5584f6d3c7d37cc82b3accf5704fb43727f9b35a21157b77fb1b3a37ce2",
+      "record_count": 134
+    },
+    {
+      "name": "merchants.csv",
+      "sha256": "485b214c9c8f6e016615b20cd807c6bda5666fbb2d72c291a50dc821c22553d9",
+      "record_count": 15
+    },
+    {
+      "name": "devices.csv",
+      "sha256": "9125fe7a567d0b11f43f1d4136c8a50636bb1f9e25daebdd165263c4e297294b",
+      "record_count": 100
+    },
+    {
+      "name": "transactions.csv",
+      "sha256": "843d99aa3650ec0d0e3191fe954f30cbaf33d45f4bce587c6d4b20c856c0d82d",
+      "record_count": 4186
+    },
+    {
+      "name": "watchlist.csv",
+      "sha256": "97314bddcf0255e583cc2319e0dd7137a259cb975ba9439c14f498e318e23c9f",
+      "record_count": 25
+    }
+  ],
+  "generated_at": "2026-09-26T00:35:25.081567+00:00",
+  "synthetic_declaration": true,
+  "generator_version": "1.0.0",
+  "profile": "tiny",
+  "seed": 20260923
+}
