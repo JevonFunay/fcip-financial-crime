@@ -34,3 +34,8 @@ backend/sample_data/transactions_bulk.csv
 # (TRD §11.0.1), so it is regenerated rather than committed:
 #   python -m app.scripts.generate_raw_dataset --profile small
 backend/sample_data/raw/
+
+# The bridge writes its projection next to the dataset it read, including the
+# shared datasets committed under backend/sample_data/<Tiny|Small|Full>/.
+# It is derived, and ~70 MB for the full profile, so it is never committed.
+backend/sample_data/*/transactions_app_format.csv

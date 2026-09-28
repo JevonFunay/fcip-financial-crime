@@ -249,4 +249,7 @@ FILE_SPECS: tuple[FileSpec, ...] = (
 )
 
 CONTRACT_VERSION = "1"
-GENERATOR_VERSION = "1.0.0"
+# TRD §11.7: the version travels with every dataset so two outputs can be told
+# apart. Bump it whenever the same seed and profile would produce different
+# bytes — 1.1.0 is the §11.2 population fix, whose output 1.0.0 also claimed.
+GENERATOR_VERSION = "1.1.0"
