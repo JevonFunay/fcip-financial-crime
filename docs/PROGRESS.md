@@ -1,6 +1,6 @@
 # FCIP — Progress Status
 
-**As of 25 September 2026 · Week 4 of 16 · ~17% of MVP scope**
+**As of 28 September 2026 · Week 4 of 16 · ~17% of MVP scope**
 
 Supersedes any earlier progress figure. Scope definitions, architecture and open
 questions are unchanged — see `PROJECT_CONTEXT.md`.
@@ -20,7 +20,7 @@ questions are unchanged — see `PROJECT_CONTEXT.md`.
 | NFRs proven by measurement | 3 of 18 | 17% |
 | TRD components | ~6 full + ~5 partial of 30 | ~25% |
 
-**231 backend tests pass** (2 excluded as `slow`). Frontend typechecks and builds.
+**247 backend tests pass** (5 more marked `slow`, all passing). Frontend typechecks and builds.
 
 Pure FR counting gives ~10%; ~17% weights the foundation work already done.
 Neither document assigns effort weights, so the percentage is an estimate — the
@@ -52,6 +52,45 @@ Partial: FR-306, FR-309, FR-310, FR-1103, FR-808, FR-612.
 ---
 
 ## Built since the last progress report
+
+### 28 September — shared datasets, generator 1.1.0, custom scale
+
+**Shared datasets (PR #1).** A teammate committed `backend/sample_data/Tiny`,
+`Small` and `Full`. They are byte-for-byte generator 1.0.0 output at seed
+20260923 (12/12 files identical per profile when that version is re-run) —
+produced before the §11.2 population fix, so they still carry the business
+cohort at ~27% and, on `Full`, 20 entities labelled both positive and
+look-alike. No schema change was needed; the app now loads them directly:
+
+- `load_raw_dataset.py --shared tiny|small|full`
+- **Manifest checks before parsing** (TRD §6.1): refused unless declared
+  synthetic (FR-501) and every file matches its SHA-256 — the guard for data
+  anyone can edit in git
+- Provenance printed; a warning when another generator version produced it
+- The bridge's projection is gitignored, so loading never dirties the repo
+
+Through the real API, `Small` gives 20,182 read · 19,751 accepted · 431
+quarantined, and 3 P02 alerts: 2/2 positives, 0/2 look-alikes, 0/42 control,
+plus one cross-pattern hit on a P08 positive.
+
+**Generator 1.1.0.** The population fix changed the output for the same seed
+without bumping the version, so two different datasets both claimed "1.0.0".
+TRD §11.7 makes the version what tells datasets apart; it is now 1.1.0.
+
+**Custom scale — `--target-transactions N`.** For the office's request of a
+100,000-transaction dataset. Every volume derives from N by the full profile's
+ratio; the row count is calibrated to land exactly on N using unlabelled
+parties only; each pattern is floored at 5 scenarios; minimum target 20,000.
+The presets are byte-for-byte unaffected (14/14 files per profile checked).
+
+Measured at 100,000: **generated in 1.4 s**, exactly 100,000 transactions
+(96,781 generated + 3,219 calibrated), 2,381 customers, 286 business customers,
+3,202 accounts, 357 merchants, 2,381 devices, 595 watchlist, 688 labels. Only
+the 12 boundary cases needed the floor (1 → 5). Through the real API: 97,691
+accepted · 2,309 quarantined · 16 P02 alerts — 11/11 positives, 0/11
+look-alikes, 0/198 control, 5 cross-pattern hits on P07/P08 positives.
+
+---
 
 ### Ingestion batch + processing log (FR-101, FR-105)
 Every upload now runs inside a registered batch. Batch status reflects what
@@ -177,4 +216,5 @@ narrative (MQ-05), graph (MQ-06), screening review.
 - **The A/B split never happened.** Each group builds both engine and UI, so FRD §6's ownership column, FRD §13, TRD §17, the 11 interfaces and GATE 1 have no counterparty. Due now — GATE 1 falls in Week 4
 - **FRD §14.6 item C2** ("the Must set is achievable") has never been ticked. 84 Must requirements were scoped across two groups
 - **New spec inconsistency found:** TRD §11.1 says "~600 duplicate source records" for entity resolution; the §11.5 table sums to 820. The generator follows §11.5 as the more specific. Flagged, not silently resolved
+- **Team decision — refresh the shared datasets?** `backend/sample_data/Tiny|Small|Full` are generator 1.0.0 output. Regenerating them with 1.1.0 fixes the composition and label issues, but `Full` adds ~85 MB to the repository history on every change. Options: refresh all three; refresh Tiny/Small and stop tracking Full (it is reproducible from the seed in 6 s); or keep them as a frozen 1.0.0 reference
 - **Undecided design point:** UAT-12 asks for one correlation ID from batch to report, but an alert's evidence window can span several batches, so a single chain isn't well defined. Batch and alert currently chain separately, linked via `transaction.ingestion_batch_id`

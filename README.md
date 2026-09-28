@@ -240,7 +240,45 @@ docker compose exec backend python -m app.scripts.generate_raw_dataset --profile
 | `small` | 5% | local development (default) | ~20,500 |
 | `full` | 100% | integration and final demo | ~407,000 |
 
-Output lands in `backend/sample_data/raw/<profile>/`:
+### Custom scale
+
+For any other size, pass a transaction count instead of a profile:
+
+```bash
+docker compose exec backend python -m app.scripts.generate_raw_dataset --target-transactions 100000
+```
+
+Every other volume is derived from it by the same ratio as the full profile
+(`target / 420,000` against TRD §11.1's targets), so no new numbers are
+hardcoded. Three things differ from the presets, and all three are recorded in
+the `scale` block of `generation_report.json`:
+
+- **Exact row count.** Background generation lands ~2.5% short of any target;
+  a final calibration adds (or removes) rows on unlabelled parties only, with
+  defects and duplicates at their declared rates, so the file holds exactly the
+  requested number. Labelled entities are never touched, so every label stays
+  true.
+- **Per-pattern floor.** Each pattern's positives, look-alikes and boundary
+  cases are floored at 5 (`--min-per-pattern`), so every pattern keeps enough
+  samples to test. Where the floor overrode pure proportion is listed.
+- **Minimum target of 20,000.** One label per entity means the floors need
+  distinct parties; measured below ~16,000 some scenarios cannot be placed and
+  calibration can no longer land exactly.
+
+Cases are not generated at any scale: TRD §11.6 seeds them through the service
+layer so their audit trail is authentic, and they are not source data. The
+report records the proportional target (43 at 100,000) for a later seeding
+script. The preset profiles are byte-for-byte unaffected by this option.
+
+**Measured at 100,000:** generated in 1.4 s — 100,000 transactions (96,781
+generated, +3,219 calibrated), 2,381 customers, 286 business customers, 626
+beneficial owners, 3,202 accounts, 357 merchants, 2,381 devices, 595 watchlist
+records, 688 labels. Only the boundary cases needed the floor (1 → 5 for each
+of the 12 patterns). Through the real API: 97,691 accepted, 2,309 quarantined;
+P02 raises 16 alerts — 11/11 injected positives, 0/11 look-alikes, 0/198
+control entities, plus 5 cross-pattern hits on P07/P08 positives.
+
+Output lands in `backend/sample_data/raw/<profile>/` (or `raw/custom-<target>/`):
 
 | File | Contents |
 |---|---|
@@ -311,8 +349,16 @@ endpoint takes a narrower CSV, so a bridge script loads the master data and
 projects the transactions onto that shape:
 
 ```bash
-docker compose exec backend python -m app.scripts.load_raw_dataset --profile small
+docker compose exec backend python -m app.scripts.load_raw_dataset --profile small            # generated locally
+docker compose exec backend python -m app.scripts.load_raw_dataset --profile custom-100000
+docker compose exec backend python -m app.scripts.load_raw_dataset --shared small             # committed to the repo
 ```
+
+Before reading anything it checks the manifest the way TRD §6.1 requires of any
+source drop: the dataset must declare `synthetic_declaration: true` (FR-501) and
+every file must match its recorded SHA-256, otherwise it is refused. It prints
+the dataset's provenance and warns when a different generator version produced
+it.
 
 It prints exactly which columns it could not carry across (merchant, device,
 IP, source status, business date, transaction type) — that gap **is** the
@@ -339,6 +385,23 @@ control entities, and additionally fires on 17 entities labelled for *other*
 patterns — mostly P07 (weekly values stepping into P02's band) and P08
 (remittances inside the band). Those are cross-pattern hits on genuinely
 suspicious entities, not false positives on clean ones.
+
+### Shared datasets in the repository
+
+`backend/sample_data/Tiny`, `Small` and `Full` were committed by a teammate
+(PR #1) so everyone can load the same data without running the generator. They
+are byte-for-byte generator **1.0.0** output at seed 20260923 — produced before
+the §11.2 population fix — so they still carry what that fix removed: the
+business cohort at ~27% instead of 18%, and on `Full` 20 entities labelled both
+positive and look-alike. The bridge loads them (`--shared small`) with a
+version warning, and `tests/test_load_raw_dataset.py` checks them against their
+manifests and the source contract so a hand edit is caught. Refreshing them with
+the current generator is a team decision, since `Full` adds ~85 MB to the
+repository history each time it changes.
+
+Loaded through the real API, `Small` gives 20,182 read, 19,751 accepted, 431
+quarantined, and 3 P02 alerts: 2/2 positives, 0/2 look-alikes, 0/42 control,
+and one cross-pattern hit on a P08 positive.
 
 > **Spec inconsistency, flagged not resolved:** TRD §11.1 describes "~600
 > duplicate source records" for entity resolution, but the §11.5 table sums to

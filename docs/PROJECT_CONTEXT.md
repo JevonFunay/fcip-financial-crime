@@ -4,7 +4,7 @@
 Intelligence Platform capstone: what the project is, what the spec demands, what
 is actually built, what is deliberately not built, and what is still undecided.
 
-Last updated: **25 September 2026** · Week 4 of 16 · ~17% of MVP scope
+Last updated: **28 September 2026** · Week 4 of 16 · ~17% of MVP scope
 
 ---
 
@@ -103,7 +103,7 @@ percentage is an estimate — the counts underneath it are not.
 | NFRs proven by measurement | 3 of 18 | 17% |
 | TRD components | ~6 full + ~5 partial of 30 | ~25% |
 
-**231 backend tests pass** (2 excluded as `slow`). Frontend has no automated
+**247 backend tests pass** (5 more marked `slow`). Frontend has no automated
 tests in the repo; it was verified with a scripted Playwright click-through.
 
 ### Per domain
@@ -157,7 +157,7 @@ backend/
     scripts/       seed.py, run_detection.py, generate_bulk_transactions.py,
                    generate_raw_dataset.py, raw_contract.py, load_raw_dataset.py
   alembic/versions/  0001 … 0004
-  tests/             14 test modules, 231 passing
+  tests/             15 test modules, 247 passing
 frontend/src/
   api/           client.ts (token refresh), alerts, cases, data, audit, auth
   pages/         Login, Overview, AlertQueue, AlertDetail, CaseDetail, Audit
@@ -247,7 +247,14 @@ Files: `customers.csv` (20 cols), `business_customers.csv` (16), `beneficial_own
 `data_dictionary.md`, `scenario_catalogue.md`, `generation_report.json`, `seeds.json`.
 
 Profiles: `tiny` 1% (CI), `small` 5% (default), `full` 100% (~407k transactions in 6s).
-All volumes land inside TRD §11.1 targets.
+All volumes land inside TRD §11.1 targets. Generator version **1.1.0** (TRD §11.7:
+bumped whenever the same seed would produce different bytes).
+
+**Custom scale:** `--target-transactions N` (min 20,000) derives every volume
+from N by the full profile's ratio, calibrates the row count to exactly N using
+unlabelled parties only, and floors each pattern at 5 scenarios, recording all
+three in the report's `scale` block. At 100,000: 1.4 s, exactly 100,000 rows,
+only the 12 boundary cases floored (1 → 5). Presets are byte-for-byte unaffected.
 
 Key properties:
 - **Deterministic** — same seed reproduces every file byte-for-byte (T-GEN-01)
@@ -268,6 +275,13 @@ P02's band — genuinely suspicious entities, not false positives.
 `app/scripts/load_raw_dataset.py` bridges it into the skeleton and **prints
 which columns it could not carry across** (merchant, device, IP, source status,
 business date, transaction type) — that gap is the distance to the full pipeline.
+It checks the manifest first (TRD §6.1): refused unless declared synthetic
+(FR-501) and every file matches its SHA-256.
+
+**Shared datasets:** `backend/sample_data/Tiny|Small|Full` (committed by a
+teammate, PR #1) are byte-for-byte generator **1.0.0** output — before the
+§11.2 fix — and load with `--shared small` plus a version warning. Whether to
+refresh them is an open team decision (Full is ~85 MB per change in history).
 
 ### Frontend
 `/login`, `/` (Overview: tiles, transaction table with search/filter/paging,

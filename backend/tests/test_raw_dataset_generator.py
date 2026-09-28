@@ -11,6 +11,7 @@ import csv
 import hashlib
 import json
 import random
+import time
 from collections import Counter
 from datetime import date, datetime, timedelta
 from decimal import Decimal
@@ -19,7 +20,18 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.scripts.generate_raw_dataset import COHORT_SHARES, DEFECTS, JAKARTA, RawDatasetGenerator
+from app.scripts.generate_raw_dataset import (
+    COHORT_SHARES,
+    DEFECTS,
+    EDGE_PER_PATTERN,
+    BOUNDARY_PER_PATTERN,
+    FULL_TARGETS,
+    JAKARTA,
+    MIN_TARGET_TRANSACTIONS,
+    SCENARIO_TARGETS,
+    RawDatasetGenerator,
+)
+from app.scripts.load_raw_dataset import check_manifest
 from app.scripts.raw_contract import CONTRACT_VERSION, FILE_SPECS, LABELS
 from app.services.detection.p02_structuring import P02Parameters, find_clusters
 
@@ -436,3 +448,152 @@ def test_data_dictionary_documents_every_generated_column(dataset):
         assert f"`{spec.name}`" in dictionary
         for field in spec.fields:
             assert f"`{field.name}`" in dictionary, f"{spec.name}.{field.name} undocumented"
+
+
+# --- custom scale (--target-transactions) --------------------------------------
+
+def _build_custom(tmp_path: Path, target: int, name: str = "custom") -> tuple[Path, dict]:
+    generator = RawDatasetGenerator(seed=SEED, reference_date=REFERENCE_DATE, target_transactions=target)
+    generator.generate()
+    out_dir = tmp_path / name
+    return out_dir, generator.write(out_dir)
+
+
+def _expected_count(full_count: int, factor: float, floor: int = 5) -> int:
+    return max(floor, round(full_count * factor))
+
+
+def test_custom_target_lands_exactly_on_the_requested_count(tmp_path):
+    out_dir, report = _build_custom(tmp_path, MIN_TARGET_TRANSACTIONS)
+
+    assert report["row_counts"]["transactions.csv"] == MIN_TARGET_TRANSACTIONS
+    calibration = report["scale"]["calibration"]
+    assert calibration["final"] == MIN_TARGET_TRANSACTIONS
+    assert calibration["generated_before_calibration"] + calibration["added"] - calibration["removed"] == (
+        MIN_TARGET_TRANSACTIONS
+    )
+
+
+def test_custom_scale_floors_every_pattern_and_records_where_it_did(tmp_path):
+    """At the smallest custom scale pure proportion would leave most patterns
+    with one or zero samples; every one must get the floor, be placed on a
+    distinct entity, and be reported as an adjustment."""
+    _, report = _build_custom(tmp_path, MIN_TARGET_TRANSACTIONS)
+    scale = report["scale"]
+    factor = scale["scale_factor"]
+
+    for pattern, full in SCENARIO_TARGETS.items():
+        for kind, full_count in (("positives", full), ("edge", EDGE_PER_PATTERN), ("boundary", BOUNDARY_PER_PATTERN)):
+            entry = scale["scenarios"][pattern][kind]
+            assert entry["requested"] == _expected_count(full_count, factor), f"{pattern} {kind}"
+            assert entry["placed"] == entry["requested"], f"{pattern} {kind} placed {entry['placed']}"
+    for adjustment in scale["floor_adjustments"]:
+        assert adjustment["proportional"] < scale["min_per_pattern"] == adjustment["applied"]
+
+
+def test_a_profile_and_a_target_together_are_rejected():
+    with pytest.raises(ValueError, match="either a profile or target_transactions"):
+        RawDatasetGenerator(profile="small", seed=SEED, reference_date=REFERENCE_DATE, target_transactions=50_000)
+
+
+def test_a_target_below_the_minimum_is_rejected():
+    """Below the minimum the per-pattern floor needs more distinct entities
+    than the population has, and calibration can no longer land exactly."""
+    with pytest.raises(ValueError, match="at least"):
+        RawDatasetGenerator(seed=SEED, reference_date=REFERENCE_DATE, target_transactions=MIN_TARGET_TRANSACTIONS - 1)
+
+
+def test_the_presets_carry_no_custom_scale_metadata(dataset):
+    """The custom option is purely additive: preset outputs are unchanged."""
+    out_dir, report = dataset
+
+    assert "scale" not in report
+    assert "target_transactions" not in json.loads((out_dir / "manifest.json").read_text())
+    assert "calibrate" not in json.loads((out_dir / "seeds.json").read_text())["derived"]
+
+
+def _without_generated_at(path: Path) -> dict:
+    payload = json.loads(path.read_text())
+    payload.pop("generated_at", None)
+    return payload
+
+
+@pytest.mark.slow
+def test_100k_custom_dataset_is_exact_proportional_labelled_and_reproducible(tmp_path):
+    """--target-transactions 100000, the scale the office asked for.
+
+    Excluded from the default run; run explicitly with
+        pytest -m slow -v -s tests/test_raw_dataset_generator.py
+    """
+    target = 100_000
+    started = time.perf_counter()
+    out_dir, report = _build_custom(tmp_path, target, name="a")
+    elapsed = time.perf_counter() - started
+    scale = report["scale"]
+    factor = target / FULL_TARGETS["transactions"]
+    counts = report["row_counts"]
+    print(f"\n100k custom dataset generated in {elapsed:.1f}s: {counts}")
+
+    # Exactly the requested number of transactions (B1 calibration).
+    assert counts["transactions.csv"] == target
+
+    # Every entity volume derived by the full-profile ratio. Accounts follow
+    # from the parties (1-3 each), so they are held to a tolerance instead.
+    for name, file in (("customers", "customers.csv"), ("business_customers", "business_customers.csv"),
+                       ("merchants", "merchants.csv"), ("devices", "devices.csv"), ("watchlist", "watchlist.csv")):
+        assert counts[file] == round(FULL_TARGETS[name] * factor), name
+    assert abs(counts["accounts.csv"] - round(FULL_TARGETS["accounts"] * factor)) <= 0.02 * FULL_TARGETS["accounts"] * factor
+
+    # TRD §11.2 composition, exact.
+    population = report["population"]
+    total = population["parties_excluding_er_test"]
+    for cohort, share in COHORT_SHARES.items():
+        assert population["cohorts"][cohort]["count"] == round(total * share), cohort
+
+    # TRD §11.3 per-pattern counts: proportional, floored at 5, all placed.
+    floored = set()
+    for pattern, full in SCENARIO_TARGETS.items():
+        for kind, full_count in (("positives", full), ("edge", EDGE_PER_PATTERN), ("boundary", BOUNDARY_PER_PATTERN)):
+            entry = scale["scenarios"][pattern][kind]
+            assert entry["requested"] == _expected_count(full_count, factor), f"{pattern} {kind}"
+            assert entry["placed"] == entry["requested"], f"{pattern} {kind}"
+            if round(full_count * factor) < 5:
+                floored.add((pattern, kind))
+    assert {(a["pattern"], a["kind"]) for a in scale["floor_adjustments"]} == floored
+
+    # TRD §11.4 defects at their declared rates, not fixed counts.
+    for name in ("malformed_date", "invalid_currency", "invalid_amount", "unresolved_account", "late_arrival",
+                 "missing_counterparty", "missing_device"):
+        rate = report["defect_counts"][name] / target
+        assert DEFECTS[name] / 2 <= rate <= DEFECTS[name] * 2, f"{name} at {rate:.4%}"
+    assert abs(report["defect_counts"]["exact_duplicate"] / target - DEFECTS["exact_duplicate"]) < 0.002
+
+    # Calibration touched no labelled entity: the labels still tell the truth.
+    params = P02Parameters()
+    grouped = _in_band_by_entity(out_dir, params)
+    labels = _rows(out_dir, LABELS.name)
+    fired = {entity for entity, rows in grouped.items() if find_clusters(rows, params)}
+    positives = {l["entity_source_id"] for l in labels if l["pattern_code"] == "P02" and l["label_type"] == "INJECTED_POSITIVE"}
+    look_alikes = {l["entity_source_id"] for l in labels if l["pattern_code"] == "P02" and l["label_type"] == "EDGE_CASE"}
+    control = {l["entity_source_id"] for l in labels if l["label_type"] == "CONTROL_CLEAN"}
+    assert positives <= fired
+    assert not (look_alikes & fired)
+    assert not (control & fired)
+    assert max(Counter(l["entity_source_id"] for l in labels).values()) == 1
+
+    # Contract and deliverables, and the bridge accepts it without warnings.
+    manifest = json.loads((out_dir / "manifest.json").read_text())
+    assert manifest["synthetic_declaration"] is True
+    assert (manifest["profile"], manifest["target_transactions"]) == ("custom", target)
+    for name in ("labels.csv", "data_dictionary.md", "scenario_catalogue.md", "generation_report.json", "seeds.json"):
+        assert (out_dir / name).exists(), name
+    assert check_manifest(out_dir)[1] == []
+
+    # T-GEN-01 at this scale: the same seed reproduces it.
+    again, _ = _build_custom(tmp_path, target, name="b")
+    for spec in (*FILE_SPECS, LABELS):
+        assert (out_dir / spec.name).read_bytes() == (again / spec.name).read_bytes(), spec.name
+    for name in ("seeds.json", "data_dictionary.md", "scenario_catalogue.md"):
+        assert (out_dir / name).read_bytes() == (again / name).read_bytes(), name
+    for name in ("manifest.json", "generation_report.json"):
+        assert _without_generated_at(out_dir / name) == _without_generated_at(again / name), name

@@ -12,6 +12,7 @@ collide with a real one.
 Run:
     python -m app.scripts.generate_raw_dataset --profile small
     python -m app.scripts.generate_raw_dataset --profile full --seed 20260923
+    python -m app.scripts.generate_raw_dataset --target-transactions 100000
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ import csv
 import hashlib
 import json
 import random
+import time
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
@@ -54,6 +56,18 @@ FULL_TARGETS = {
     "watchlist": 2_500,
 }
 PROFILES = {"tiny": 0.01, "small": 0.05, "full": 1.0}
+
+# Custom scale: every volume is derived from a requested transaction count by
+# the same ratio as the full profile (target / 420,000), so nothing new is
+# hardcoded. Unlike the presets, it floors each pattern's scenario counts so
+# every pattern keeps enough samples to test, and it calibrates the row count
+# onto the target exactly.
+CUSTOM_PROFILE = "custom"
+DEFAULT_MIN_PER_PATTERN = 5
+# Every labelled entity carries exactly one scenario, so the per-pattern floor
+# needs a minimum number of distinct parties. Below this target the population
+# is too small to place them all and pure proportion stops holding.
+MIN_TARGET_TRANSACTIONS = 20_000
 
 # TRD §11.3 injected-scenario counts at the full profile.
 SCENARIO_TARGETS = {
@@ -190,11 +204,37 @@ class Counters:
 
 
 class RawDatasetGenerator:
-    def __init__(self, *, profile: str, seed: int, reference_date: date) -> None:
-        if profile not in PROFILES:
-            raise ValueError(f"unknown profile {profile!r}; choose from {', '.join(PROFILES)}")
-        self.profile = profile
-        self.factor = PROFILES[profile]
+    def __init__(
+        self,
+        *,
+        profile: str | None = None,
+        seed: int,
+        reference_date: date,
+        target_transactions: int | None = None,
+        min_per_pattern: int = DEFAULT_MIN_PER_PATTERN,
+    ) -> None:
+        if target_transactions is not None:
+            if profile not in (None, CUSTOM_PROFILE):
+                raise ValueError("pass either a profile or target_transactions, not both")
+            if target_transactions < MIN_TARGET_TRANSACTIONS:
+                raise ValueError(
+                    f"target_transactions must be at least {MIN_TARGET_TRANSACTIONS:,}: below that the population "
+                    f"is too small to place {min_per_pattern} scenarios per pattern on distinct entities"
+                )
+            if min_per_pattern < 1:
+                raise ValueError("min_per_pattern must be at least 1")
+            self.profile = CUSTOM_PROFILE
+            self.factor = target_transactions / FULL_TARGETS["transactions"]
+        else:
+            if profile not in PROFILES:
+                raise ValueError(f"unknown profile {profile!r}; choose from {', '.join(PROFILES)}")
+            self.profile = profile
+            self.factor = PROFILES[profile]
+        self.target_transactions = target_transactions
+        self.min_per_pattern = min_per_pattern
+        self._floor_adjustments: list[dict[str, Any]] = []
+        self._requested_scenarios: dict[str, dict[str, int]] = {}
+        self._calibration: dict[str, int] = {}
         self.master_seed = seed
         self.reference_date = reference_date
         # TRD §11.1: six months ending on the demo reference date. The longest
@@ -683,9 +723,11 @@ class RawDatasetGenerator:
         if not active:
             return
 
-        days = [self.period_start + timedelta(days=n) for n in range((self.reference_date - self.period_start).days + 1)]
-        weights = [self._day_weight(d) for d in days]
-        merchant_ids = [m["source_merchant_id"] for m in self.merchants]
+        self._days = [
+            self.period_start + timedelta(days=n) for n in range((self.reference_date - self.period_start).days + 1)
+        ]
+        self._day_weights = [self._day_weight(d) for d in self._days]
+        self._merchant_ids = [m["source_merchant_id"] for m in self.merchants]
 
         per_party = max(4, budget // max(1, len(active)))
         for party in active:
@@ -695,29 +737,7 @@ class RawDatasetGenerator:
             if party.cohort == "CONTROL_CLEAN":
                 count = max(3, count // 2)
             for _ in range(count):
-                day = rng.choices(days, weights=weights)[0]
-                when = self._random_moment(rng, day)
-                account = rng.choice(party.accounts)
-                device = rng.choice(party.devices) if party.devices else None
-                # Sole traders are individuals in the business cohort, so they
-                # transact like merchants rather than like retail customers.
-                if party.is_business or party.cohort == "BUSINESS_NORMAL":
-                    amount = rng.lognormvariate(12.5, 1.1)
-                    channel, ttype = "PAYMENT", "MERCHANT_PAYMENT"
-                    merchant = rng.choice(merchant_ids) if merchant_ids else ""
-                    direction = "IN"
-                else:
-                    amount = rng.lognormvariate(11.2, 1.2)
-                    channel, ttype = rng.choice((("QRIS", "MERCHANT_PAYMENT"), ("TRANSFER", "P2P_TRANSFER"),
-                                                 ("TOPUP", "WALLET_TOPUP"), ("PAYMENT", "BILL_PAYMENT")))
-                    merchant = rng.choice(merchant_ids) if merchant_ids and ttype == "MERCHANT_PAYMENT" else ""
-                    direction = rng.choices(("OUT", "IN"), weights=(70, 30))[0]
-                if party.cohort == "CONTROL_CLEAN":
-                    amount = min(amount, 120_000_000)
-                self._emit(
-                    account_id=account, when=when, amount=max(1000.0, amount), direction=direction,
-                    channel=channel, transaction_type=ttype, device_id=device, merchant_id=merchant,
-                )
+                self._emit_background(rng, party)
             if party.cohort == "CONTROL_CLEAN":
                 # TRD §11.3 labels the control cohort too: an alert on any of
                 # these is a rule defect, so the test needs the entity list.
@@ -734,6 +754,33 @@ class RawDatasetGenerator:
                 self.counters.label("CONTROL_CLEAN")
 
         self._inject_exact_duplicates()
+
+    def _emit_background(self, rng: random.Random, party: Party) -> dict[str, Any]:
+        """One row of ordinary behaviour for `party`, defects drawn at the
+        declared rates. Shared by background traffic and calibration."""
+        day = rng.choices(self._days, weights=self._day_weights)[0]
+        when = self._random_moment(rng, day)
+        account = rng.choice(party.accounts)
+        device = rng.choice(party.devices) if party.devices else None
+        # Sole traders are individuals in the business cohort, so they
+        # transact like merchants rather than like retail customers.
+        if party.is_business or party.cohort == "BUSINESS_NORMAL":
+            amount = rng.lognormvariate(12.5, 1.1)
+            channel, ttype = "PAYMENT", "MERCHANT_PAYMENT"
+            merchant = rng.choice(self._merchant_ids) if self._merchant_ids else ""
+            direction = "IN"
+        else:
+            amount = rng.lognormvariate(11.2, 1.2)
+            channel, ttype = rng.choice((("QRIS", "MERCHANT_PAYMENT"), ("TRANSFER", "P2P_TRANSFER"),
+                                         ("TOPUP", "WALLET_TOPUP"), ("PAYMENT", "BILL_PAYMENT")))
+            merchant = rng.choice(self._merchant_ids) if self._merchant_ids and ttype == "MERCHANT_PAYMENT" else ""
+            direction = rng.choices(("OUT", "IN"), weights=(70, 30))[0]
+        if party.cohort == "CONTROL_CLEAN":
+            amount = min(amount, 120_000_000)
+        return self._emit(
+            account_id=account, when=when, amount=max(1000.0, amount), direction=direction,
+            channel=channel, transaction_type=ttype, device_id=device, merchant_id=merchant,
+        )
 
     def _inject_exact_duplicates(self) -> None:
         """TRD §11.4: 1% exact duplicates (suppressed by idempotency but still
@@ -816,17 +863,137 @@ class RawDatasetGenerator:
             "P10": self._inject_p10, "P11": self._inject_p11, "P12": self._inject_p12,
         }
         for pattern, target in SCENARIO_TARGETS.items():
-            count = _scaled(target, self.factor, 1)
+            count = self._scenario_count(pattern, "positives", target)
             for n in range(1, count + 1):
                 builders[pattern](rng, f"{pattern}-POS-{n:04d}")
 
         # Behavioural look-alikes and exact-threshold boundary cases. Both are
         # EDGE_CASE: legitimate activity that a badly tuned rule would catch.
         for pattern in SCENARIO_TARGETS:
-            for n in range(1, _scaled(EDGE_PER_PATTERN, self.factor, 1) + 1):
+            for n in range(1, self._scenario_count(pattern, "edge", EDGE_PER_PATTERN) + 1):
                 self._inject_edge(rng, pattern, f"{pattern}-EDGE-{n:04d}")
-            for n in range(1, _scaled(BOUNDARY_PER_PATTERN, self.factor, 1) + 1):
+            for n in range(1, self._scenario_count(pattern, "boundary", BOUNDARY_PER_PATTERN) + 1):
                 self._inject_boundary(rng, pattern, f"{pattern}-BOUND-{n:04d}")
+
+    def _scenario_count(self, pattern: str, kind: str, full_count: int) -> int:
+        """How many scenarios of one kind to inject at this scale.
+
+        The presets keep their original minimum of one. The custom scale floors
+        every count at min_per_pattern so each pattern keeps enough samples to
+        test, and records wherever the floor overrode pure proportion.
+        """
+        if self.target_transactions is None:
+            count = _scaled(full_count, self.factor, 1)
+        else:
+            proportional = round(full_count * self.factor)
+            count = max(self.min_per_pattern, proportional)
+            if count != proportional:
+                self._floor_adjustments.append({
+                    "pattern": pattern, "kind": kind, "full_profile": full_count,
+                    "proportional": proportional, "applied": count,
+                })
+        self._requested_scenarios.setdefault(pattern, {})[kind] = count
+        return count
+
+    def calibrate_to_target(self) -> None:
+        """Land the transaction count exactly on target_transactions (B1).
+
+        Background generation undershoots by ~2.5% — integer division per
+        party, control parties at half volume, the gauss floor — so the
+        difference is made up, or if generation ever overshoots, removed, using
+        only ordinary parties that carry no label and no scenario. Labelled
+        entities are never touched, so P05's dormancy gaps, the look-alike
+        spacing and the control cohort stay exactly as labelled.
+
+        Added rows use the same background shape and the same per-row defect
+        draw, and exact duplicates and idempotency conflicts are added at their
+        declared rates, so defect rates hold across the whole file. Removal
+        takes a uniform sample of single-copy rows, which leaves per-row
+        defect rates unchanged.
+        """
+        # Its own stream, created only here, so the preset profiles' seeds.json
+        # does not change.
+        rng = self.rng.setdefault("calibrate", random.Random(_seed_for(self.master_seed, "calibrate")))
+        eligible = [
+            p for p in self.parties.values()
+            if p.accounts and p.source_id not in self._claimed and p.cohort not in ("CONTROL_CLEAN", "ER_TEST")
+        ]
+        generated = len(self.transactions)
+        delta = self.target_transactions - generated
+        if delta > 0:
+            if not eligible:
+                raise RuntimeError("no unlabelled parties left to carry calibration rows")
+            duplicates = round(delta * DEFECTS["exact_duplicate"])
+            conflicts = round(delta * DEFECTS["idempotency_conflict"])
+            fresh = [self._emit_background(rng, rng.choice(eligible)) for _ in range(delta - duplicates - conflicts)]
+            for _ in range(duplicates):
+                duplicate = dict(rng.choice(fresh))
+                duplicate["_defects"] = ["exact_duplicate"]
+                self.transactions.append(duplicate)
+            for _ in range(conflicts):
+                conflict = dict(rng.choice(fresh))
+                conflict["amount_original"] = _money(float(conflict["amount_original"] or 1000) + 77_000)
+                conflict["_defects"] = ["idempotency_conflict"]
+                self.transactions.append(conflict)
+        elif delta < 0:
+            eligible_ids = {p.source_id for p in eligible}
+            owner = {a["source_account_id"]: a["owner_source_id"] for a in self.accounts}
+            copies = Counter(r["source_transaction_reference"] for r in self.transactions)
+            candidates = [
+                i for i, r in enumerate(self.transactions)
+                if owner.get(r["source_account_id"]) in eligible_ids and copies[r["source_transaction_reference"]] == 1
+            ]
+            drop = set(rng.sample(candidates, min(-delta, len(candidates))))
+            self.transactions = [r for i, r in enumerate(self.transactions) if i not in drop]
+        self._calibration = {
+            "generated_before_calibration": generated,
+            "added": max(0, len(self.transactions) - generated),
+            "removed": max(0, generated - len(self.transactions)),
+            "final": len(self.transactions),
+        }
+        if len(self.transactions) != self.target_transactions:
+            # Only reachable below MIN_TARGET_TRANSACTIONS, where the scenario
+            # floors leave too few unlabelled parties to add to or trim from.
+            raise RuntimeError(
+                f"calibration could not land on {self.target_transactions:,} transactions "
+                f"(got {len(self.transactions):,}): too few unlabelled parties at this scale"
+            )
+
+    def _scale_report(self) -> dict[str, Any]:
+        # A scenario is "placed" when its label was written; P09 writes one
+        # label row per participating party, hence the set of scenario ids.
+        markers = {"positives": "-POS-", "edge": "-EDGE-", "boundary": "-BOUND-"}
+        placed_ids = {label["scenario_id"] for label in self.labels}
+        scenarios = {
+            pattern: {
+                kind: {
+                    "requested": requested,
+                    "placed": sum(1 for sid in placed_ids if sid.startswith(f"{pattern}{markers[kind]}")),
+                }
+                for kind, requested in kinds.items()
+            }
+            for pattern, kinds in self._requested_scenarios.items()
+        }
+        return {
+            "target_transactions": self.target_transactions,
+            "scale_factor": round(self.factor, 6),
+            "derived_from": "TRD §11.1 full-profile targets x (target_transactions / 420,000)",
+            "entity_targets": {name: round(full * self.factor) for name, full in FULL_TARGETS.items()},
+            "min_per_pattern": self.min_per_pattern,
+            "floor_adjustments": self._floor_adjustments,
+            "scenarios": scenarios,
+            "calibration": self._calibration,
+            # TRD §11.6 seeds cases through the normal service path so their
+            # audit trail is authentic, and cases are not part of the §6.1
+            # source contract, so this generator does not produce them.
+            "not_generated": {"cases": {"proportional_target": round(180 * self.factor),
+                                        "reason": "TRD §11.6: seeded through the service layer, not source data"}},
+        }
+
+    def _scale_label(self) -> str:
+        if self.target_transactions is None:
+            return ""
+        return f" (target {self.target_transactions:,} transactions, scale factor {self.factor:.6f})"
 
     def _window_start(self, rng: random.Random, span_days: int) -> date:
         latest = self.reference_date - timedelta(days=span_days + 1)
@@ -1176,6 +1343,8 @@ class RawDatasetGenerator:
             "profile": self.profile,
             "seed": self.master_seed,
         }
+        if self.target_transactions is not None:
+            manifest["target_transactions"] = self.target_transactions
         (out_dir / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 
         (out_dir / "seeds.json").write_text(
@@ -1200,6 +1369,8 @@ class RawDatasetGenerator:
             "label_counts": dict(sorted(self.counters.labels.items())),
             "file_checksums": {f["name"]: f["sha256"] for f in files},
         }
+        if self.target_transactions is not None:
+            report["scale"] = self._scale_report()
         (out_dir / "generation_report.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
 
         (out_dir / "data_dictionary.md").write_text(self._data_dictionary(), encoding="utf-8")
@@ -1213,7 +1384,7 @@ class RawDatasetGenerator:
             "# Data dictionary — FCIP synthetic raw source files",
             "",
             f"Generator `{GENERATOR_VERSION}`, contract version `{CONTRACT_VERSION}`, "
-            f"profile `{self.profile}`, seed `{self.master_seed}`.",
+            f"profile `{self.profile}`{self._scale_label()}, seed `{self.master_seed}`.",
             "",
             "Generated from `app/scripts/raw_contract.py`, which is also what the generator writes the",
             "CSVs from — this file cannot describe columns that were not produced.",
@@ -1263,7 +1434,7 @@ class RawDatasetGenerator:
         lines = [
             "# Scenario catalogue — injected positives, edge cases and control cohort",
             "",
-            f"Profile `{self.profile}`, seed `{self.master_seed}`. Every row below has matching rows in",
+            f"Profile `{self.profile}`{self._scale_label()}, seed `{self.master_seed}`. Every row below has matching rows in",
             "`labels.csv`, so recall and control-cohort tests are mechanical rather than eyeballed (TRD §11.3).",
             "",
             "| Pattern | Scenario | Construction | Expected reason code | Labelled |",
@@ -1343,30 +1514,66 @@ class RawDatasetGenerator:
         self.build_watchlist()
         self.build_background_traffic()
         self.inject_scenarios()
+        if self.target_transactions is not None:
+            self.calibrate_to_target()
         # Deterministic, and chronological like a real source extract.
         self.transactions.sort(key=lambda r: (r["business_date"], r["source_transaction_reference"]))
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Generate the synthetic raw source dataset (TRD §6.1, §11).")
-    parser.add_argument("--profile", choices=sorted(PROFILES), default="small",
-                        help="tiny=1%% (CI), small=5%% (local dev), full=100%% (integration and demo)")
+    scale = parser.add_mutually_exclusive_group()
+    scale.add_argument("--profile", choices=sorted(PROFILES),
+                       help="tiny=1%% (CI), small=5%% (local dev, default), full=100%% (integration and demo)")
+    scale.add_argument("--target-transactions", type=int,
+                       help=f"custom scale: derive every volume from this transaction count "
+                            f"(min {MIN_TARGET_TRANSACTIONS:,}); lands on it exactly")
+    parser.add_argument("--min-per-pattern", type=int, default=None,
+                        help=f"custom scale only: floor for each pattern's positives, look-alikes and "
+                             f"boundary cases (default {DEFAULT_MIN_PER_PATTERN})")
     parser.add_argument("--seed", type=int, default=20260923, help="master seed; same seed reproduces the dataset")
     parser.add_argument("--reference-date", type=date.fromisoformat, default=date(2026, 9, 30),
                         help="last business date of the six-month period (YYYY-MM-DD)")
-    parser.add_argument("--out", type=Path, default=None, help="output directory (default: sample_data/raw/<profile>)")
+    parser.add_argument("--out", type=Path, default=None,
+                        help="output directory (default: sample_data/raw/<profile> or sample_data/raw/custom-<target>)")
     args = parser.parse_args()
+    if args.min_per_pattern is not None and args.target_transactions is None:
+        parser.error("--min-per-pattern only applies with --target-transactions")
 
-    out_dir = args.out or (DEFAULT_OUT / args.profile)
-    generator = RawDatasetGenerator(profile=args.profile, seed=args.seed, reference_date=args.reference_date)
+    started = time.perf_counter()
+    try:
+        if args.target_transactions is not None:
+            generator = RawDatasetGenerator(
+                seed=args.seed, reference_date=args.reference_date, target_transactions=args.target_transactions,
+                min_per_pattern=args.min_per_pattern or DEFAULT_MIN_PER_PATTERN,
+            )
+            out_dir = args.out or (DEFAULT_OUT / f"{CUSTOM_PROFILE}-{args.target_transactions}")
+        else:
+            profile = args.profile or "small"
+            generator = RawDatasetGenerator(profile=profile, seed=args.seed, reference_date=args.reference_date)
+            out_dir = args.out or (DEFAULT_OUT / profile)
+    except ValueError as exc:
+        parser.error(str(exc))
     generator.generate()
     report = generator.write(out_dir)
+    elapsed = time.perf_counter() - started
 
-    print(f"profile={args.profile} seed={args.seed} -> {out_dir}")
+    print(f"profile={generator.profile}{generator._scale_label()} seed={args.seed} -> {out_dir}  ({elapsed:.1f}s)")
     for name, count in report["row_counts"].items():
         print(f"  {name:<26} {count:>9,}")
     print(f"  {'defects injected':<26} {sum(report['defect_counts'].values()):>9,}")
     print(f"  {'labels written':<26} {sum(report['label_counts'].values()):>9,}")
+    if "scale" in report:
+        scale = report["scale"]
+        calibration = scale["calibration"]
+        print(f"  calibration: generated {calibration['generated_before_calibration']:,}, "
+              f"+{calibration['added']:,} / -{calibration['removed']:,} -> {calibration['final']:,}")
+        floored = [f"{a['pattern']} {a['kind']} {a['proportional']}->{a['applied']}" for a in scale["floor_adjustments"]]
+        print(f"  floor (min {scale['min_per_pattern']}): {', '.join(floored) if floored else 'no pattern needed it'}")
+        short = [f"{p} {k} {v['placed']}/{v['requested']}" for p, kinds in scale["scenarios"].items()
+                 for k, v in kinds.items() if v["placed"] < v["requested"]]
+        if short:
+            print(f"  ! not all requested scenarios could be placed on distinct entities: {', '.join(short)}")
 
 
 if __name__ == "__main__":
