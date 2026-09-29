@@ -388,20 +388,31 @@ suspicious entities, not false positives on clean ones.
 
 ### Shared datasets in the repository
 
-`backend/sample_data/Tiny`, `Small` and `Full` were committed by a teammate
-(PR #1) so everyone can load the same data without running the generator. They
-are byte-for-byte generator **1.0.0** output at seed 20260923 — produced before
-the §11.2 population fix — so they still carry what that fix removed: the
-business cohort at ~27% instead of 18%, and on `Full` 20 entities labelled both
-positive and look-alike. The bridge loads them (`--shared small`) with a
-version warning, and `tests/test_load_raw_dataset.py` checks them against their
-manifests and the source contract so a hand edit is caught. Refreshing them with
-the current generator is a team decision, since `Full` adds ~85 MB to the
-repository history each time it changes.
+`backend/sample_data/Tiny` and `Small` are committed so the whole team loads
+the same data without running the generator:
 
-Loaded through the real API, `Small` gives 20,182 read, 19,751 accepted, 431
-quarantined, and 3 P02 alerts: 2/2 positives, 0/2 look-alikes, 0/42 control,
-and one cross-pattern hit on a P08 positive.
+```bash
+docker compose exec backend python -m app.scripts.load_raw_dataset --shared small
+```
+
+They must always be exactly what the current generator produces, and
+`tests/test_load_raw_dataset.py` enforces it byte for byte. **If you change the
+generator, regenerate them in the same commit** — the failing test prints the
+command:
+
+```bash
+docker compose exec backend python -m app.scripts.generate_raw_dataset --profile tiny  --out sample_data/Tiny
+docker compose exec backend python -m app.scripts.generate_raw_dataset --profile small --out sample_data/Small
+```
+
+The full profile is **not** committed: at ~85 MB it would add that much to the
+history on every change, and it is reproducible byte for byte from the seed in
+~6 s. Generate it on demand and load it with `--profile full`.
+
+(History: the first copies, committed in PR #1, were generator 1.0.0 output
+made from a checkout that did not yet have the §11.2 population fix. They were
+replaced with 1.1.0 output, and the byte-for-byte test was added so a stale
+shared copy cannot slip in again.)
 
 > **Spec inconsistency, flagged not resolved:** TRD §11.1 describes "~600
 > duplicate source records" for entity resolution, but the §11.5 table sums to

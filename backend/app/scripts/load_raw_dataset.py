@@ -17,12 +17,13 @@ and the script prints it rather than hiding it.
 Before anything is read, the dataset's manifest is checked the way TRD §6.1
 requires of any source drop: `synthetic_declaration` must be true (FR-501) and
 every file must match its recorded SHA-256. That matters most for the shared
-datasets committed under `sample_data/<Tiny|Small|Full>/`, which anyone with
-repository access can edit by hand.
+datasets committed under `sample_data/<Tiny|Small>/`, which anyone with
+repository access can edit by hand. The full profile is not committed; generate
+it locally and load it with `--profile full`.
 
 Run:
     python -m app.scripts.load_raw_dataset --shared small        # dataset committed to the repo
-    python -m app.scripts.load_raw_dataset --profile small       # dataset you generated locally
+    python -m app.scripts.load_raw_dataset --profile full        # dataset you generated locally
     python -m app.scripts.load_raw_dataset --raw-dir <dir> --master-data-only
 """
 
@@ -47,8 +48,9 @@ from app.scripts.generate_raw_dataset import BACKEND_DIR, DEFAULT_OUT
 from app.scripts.raw_contract import FILE_SPECS, GENERATOR_VERSION
 
 # Datasets committed to the repository so the whole team loads the same data
-# without running the generator.
-SHARED_DATASETS = {"tiny": "Tiny", "small": "Small", "full": "Full"}
+# without running the generator. Full is deliberately not among them (~85 MB per
+# change in the history); it is regenerated on demand with --profile full.
+SHARED_DATASETS = {"tiny": "Tiny", "small": "Small"}
 SHARED_ROOT = BACKEND_DIR / "sample_data"
 
 # The app's ingestion contract (see app/services/ingestion.py).
@@ -223,7 +225,7 @@ def main() -> None:
     source = parser.add_mutually_exclusive_group()
     source.add_argument("--profile", help="a dataset you generated locally, under sample_data/raw/<profile> (default: small)")
     source.add_argument("--shared", choices=sorted(SHARED_DATASETS),
-                        help="a dataset committed to the repository, under sample_data/<Tiny|Small|Full>")
+                        help="a dataset committed to the repository, under sample_data/<Tiny|Small>")
     source.add_argument("--raw-dir", type=Path, help="any dataset directory")
     parser.add_argument("--master-data-only", action="store_true", help="load customers/accounts, skip the CSV projection")
     args = parser.parse_args()

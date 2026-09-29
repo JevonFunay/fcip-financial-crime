@@ -1,10 +1,12 @@
 """The bridge's TRD §6.1 manifest checks, and the shared datasets committed to
 the repository.
 
-The shared datasets under sample_data/<Tiny|Small|Full>/ are data anyone with
+The shared datasets under sample_data/<Tiny|Small>/ are data anyone with
 repository access can edit by hand, so the checks that guard a source drop —
 declared synthetic, every file matching its checksum — are what keep them
-trustworthy.
+trustworthy. They must also be exactly what the current generator produces:
+teammates load them instead of running the generator, so a stale copy quietly
+puts the whole team on old data.
 """
 
 import csv
@@ -116,16 +118,49 @@ def _shared(name: str) -> Path:
     return folder
 
 
-@pytest.mark.parametrize("name", ["tiny", "small", pytest.param("full", marks=pytest.mark.slow)])
-def test_shared_dataset_passes_the_manifest_checks(name):
+@pytest.mark.parametrize("name", sorted(SHARED_DATASETS))
+def test_shared_dataset_passes_the_manifest_checks_without_warnings(name):
     folder = _shared(name)
 
-    manifest, _ = check_manifest(folder)
+    manifest, warnings = check_manifest(folder)
 
     assert manifest["profile"] == name
+    assert warnings == [], "shared dataset was produced by another generator version"
 
 
-@pytest.mark.parametrize("name", ["tiny", "small", pytest.param("full", marks=pytest.mark.slow)])
+@pytest.mark.parametrize("name", sorted(SHARED_DATASETS))
+def test_shared_dataset_is_exactly_what_the_current_generator_produces(name, tmp_path):
+    """Regenerated from its own manifest (profile, seed, business date), the
+    shared dataset must come back byte-for-byte. This fails whenever the
+    generator's output changes and the shared copy is not refreshed in the same
+    commit — including a change that forgot to bump GENERATOR_VERSION."""
+    folder = _shared(name)
+    manifest = json.loads((folder / "manifest.json").read_text())
+    generator = RawDatasetGenerator(
+        profile=manifest["profile"], seed=manifest["seed"],
+        reference_date=date.fromisoformat(manifest["business_date"]),
+    )
+    generator.generate()
+    fresh = tmp_path / "fresh"
+    generator.write(fresh)
+
+    stale = [
+        name_ for name_ in (*(spec.name for spec in FILE_SPECS), "labels.csv", "seeds.json",
+                            "data_dictionary.md", "scenario_catalogue.md")
+        if (fresh / name_).read_bytes() != (folder / name_).read_bytes()
+    ]
+    assert stale == [], (
+        f"sample_data/{folder.name} is out of date ({', '.join(stale)}). Regenerate it in the same commit: "
+        f"python -m app.scripts.generate_raw_dataset --profile {name} --out sample_data/{folder.name}"
+    )
+
+
+def test_the_full_profile_is_not_shared_through_the_repository():
+    """~85 MB per change in the history; reproducible from the seed instead."""
+    assert "full" not in SHARED_DATASETS
+
+
+@pytest.mark.parametrize("name", sorted(SHARED_DATASETS))
 def test_shared_dataset_matches_the_source_contract(name):
     folder = _shared(name)
     for spec in FILE_SPECS:

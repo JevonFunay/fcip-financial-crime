@@ -1,6 +1,6 @@
 # FCIP — Progress Status
 
-**As of 28 September 2026 · Week 4 of 16 · ~17% of MVP scope**
+**As of 29 September 2026 · Week 4 of 16 · ~17% of MVP scope**
 
 Supersedes any earlier progress figure. Scope definitions, architecture and open
 questions are unchanged — see `PROJECT_CONTEXT.md`.
@@ -20,7 +20,7 @@ questions are unchanged — see `PROJECT_CONTEXT.md`.
 | NFRs proven by measurement | 3 of 18 | 17% |
 | TRD components | ~6 full + ~5 partial of 30 | ~25% |
 
-**247 backend tests pass** (5 more marked `slow`, all passing). Frontend typechecks and builds.
+**250 backend tests pass** (3 more marked `slow`, all passing). Frontend typechecks and builds.
 
 Pure FR counting gives ~10%; ~17% weights the foundation work already done.
 Neither document assigns effort weights, so the percentage is an estimate — the
@@ -52,6 +52,17 @@ Partial: FR-306, FR-309, FR-310, FR-1103, FR-808, FR-612.
 ---
 
 ## Built since the last progress report
+
+### 29 September — shared datasets refreshed, Full no longer in git
+
+`backend/sample_data/Tiny` and `Small` regenerated with generator 1.1.0; `Full`
+removed from the repository (reproducible from the seed in ~6 s, and ~85 MB of
+history per change). The bridge's `--shared` now covers Tiny and Small only.
+A new test requires the shared copies to match the current generator byte for
+byte, so changing the generator without refreshing them fails — it fails
+against the old PR #1 data, as intended. Through the real API the refreshed
+`Small` gives 20,509 read · 20,058 accepted · 451 quarantined, 2 P02 alerts
+(2/2 positives, 0/2 look-alikes, 0/42 control), no entity with two labels.
 
 ### 28 September — shared datasets, generator 1.1.0, custom scale
 
@@ -216,5 +227,4 @@ narrative (MQ-05), graph (MQ-06), screening review.
 - **The A/B split never happened.** Each group builds both engine and UI, so FRD §6's ownership column, FRD §13, TRD §17, the 11 interfaces and GATE 1 have no counterparty. Due now — GATE 1 falls in Week 4
 - **FRD §14.6 item C2** ("the Must set is achievable") has never been ticked. 84 Must requirements were scoped across two groups
 - **New spec inconsistency found:** TRD §11.1 says "~600 duplicate source records" for entity resolution; the §11.5 table sums to 820. The generator follows §11.5 as the more specific. Flagged, not silently resolved
-- **Team decision — refresh the shared datasets?** `backend/sample_data/Tiny|Small|Full` are generator 1.0.0 output. Regenerating them with 1.1.0 fixes the composition and label issues, but `Full` adds ~85 MB to the repository history on every change. Options: refresh all three; refresh Tiny/Small and stop tracking Full (it is reproducible from the seed in 6 s); or keep them as a frozen 1.0.0 reference
 - **Undecided design point:** UAT-12 asks for one correlation ID from batch to report, but an alert's evidence window can span several batches, so a single chain isn't well defined. Batch and alert currently chain separately, linked via `transaction.ingestion_batch_id`

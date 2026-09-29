@@ -1,37 +1,80 @@
 {
-  "generator_version": "1.0.0",
+  "generator_version": "1.1.0",
   "profile": "tiny",
   "seed": 20260923,
   "reference_date": "2026-09-30",
   "period_start": "2026-04-01",
-  "generated_at": "2026-09-26T00:35:25.081567+00:00",
+  "generated_at": "2026-09-29T01:57:58.387833+00:00",
   "row_counts": {
     "accounts.csv": 134,
-    "beneficial_owners.csv": 26,
+    "beneficial_owners.csv": 28,
     "business_customers.csv": 12,
     "customers.csv": 100,
     "devices.csv": 100,
     "labels.csv": 60,
     "merchants.csv": 15,
-    "transactions.csv": 4186,
+    "transactions.csv": 4239,
     "watchlist.csv": 25
   },
   "defect_counts": {
+    "missing_counterparty": 105,
+    "missing_device": 194,
+    "malformed_date": 18,
+    "invalid_currency": 11,
+    "invalid_amount": 11,
+    "unresolved_account": 25,
     "exact_duplicate": 39,
     "idempotency_conflict": 1,
-    "invalid_amount": 12,
-    "invalid_currency": 9,
-    "late_arrival": 53,
-    "malformed_date": 8,
+    "late_arrival": 51,
     "missing_bo": 1,
-    "missing_counterparty": 108,
-    "missing_device": 184,
-    "placeholder_address": 2,
-    "truncated_name": 4,
-    "unresolved_account": 25
+    "placeholder_address": 1,
+    "truncated_name": 2
+  },
+  "population": {
+    "parties_excluding_er_test": 102,
+    "cohorts": {
+      "RETAIL_NORMAL": {
+        "count": 64,
+        "share": 0.6275,
+        "spec_share": 0.62
+      },
+      "BUSINESS_NORMAL": {
+        "count": 18,
+        "share": 0.1765,
+        "spec_share": 0.18
+      },
+      "CONTROL_CLEAN": {
+        "count": 8,
+        "share": 0.0784,
+        "spec_share": 0.08
+      },
+      "EDGE_AMBIGUOUS": {
+        "count": 8,
+        "share": 0.0784,
+        "spec_share": 0.08
+      },
+      "INJECTED_CANDIDATE": {
+        "count": 4,
+        "share": 0.0392,
+        "spec_share": 0.04
+      }
+    },
+    "real_businesses": 12,
+    "individual_sole_traders_in_business_cohort": 6,
+    "scenario_placement": {
+      "positives_and_participants": {
+        "BUSINESS_NORMAL (P10 merchant)": 1,
+        "INJECTED_CANDIDATE": 4,
+        "RETAIL_NORMAL": 24
+      },
+      "edge_and_boundary": {
+        "EDGE_AMBIGUOUS": 8,
+        "RETAIL_NORMAL": 16
+      }
+    }
   },
   "label_counts": {
-    "CONTROL_CLEAN": 9,
+    "CONTROL_CLEAN": 8,
     "ER_AMBIGUOUS_BAND": 2,
     "ER_IDENTIFIER_CONFLICT": 2,
     "ER_SAME_ID_NAME_VARIANT": 2,
@@ -54,7 +97,7 @@
     "P08_EDGE_CASE": 2,
     "P08_INJECTED_POSITIVE": 1,
     "P09_EDGE_CASE": 2,
-    "P09_INJECTED_POSITIVE": 6,
+    "P09_INJECTED_POSITIVE": 7,
     "P10_EDGE_CASE": 2,
     "P10_INJECTED_POSITIVE": 1,
     "P11_EDGE_CASE": 2,
@@ -63,13 +106,13 @@
     "P12_INJECTED_POSITIVE": 1
   },
   "file_checksums": {
-    "customers.csv": "866d13667187bcc5f3281fe33ae678d8016824e899e86d6a0ecb28a8ae2fffe8",
-    "business_customers.csv": "aa45692cbe2d0048dc73c73c7d822792f07e700bad09eb128e4f0ec37422c0b5",
-    "beneficial_owners.csv": "b04fc70a4cf92eec09368f90711f6132ef3d5c4f7d7ab504206b9789a8df14bd",
+    "customers.csv": "a0be725bedc7ae72e5db68ecc1910200c267b970d8dd308d63cb0995cfb8e304",
+    "business_customers.csv": "c583196a6a88471a2272436256dffe117870d16e9ece8546f7dbfbd283df67fb",
+    "beneficial_owners.csv": "a66cf67d7d10b74aba319295bd77a9bc7d17ea46e732033a45f2a0b198811cc3",
     "accounts.csv": "f7c7c5584f6d3c7d37cc82b3accf5704fb43727f9b35a21157b77fb1b3a37ce2",
-    "merchants.csv": "485b214c9c8f6e016615b20cd807c6bda5666fbb2d72c291a50dc821c22553d9",
+    "merchants.csv": "f077495f7f055a53902b18d899e47c39f0e1bd158637e1e2e841055f8806f6ca",
     "devices.csv": "9125fe7a567d0b11f43f1d4136c8a50636bb1f9e25daebdd165263c4e297294b",
-    "transactions.csv": "843d99aa3650ec0d0e3191fe954f30cbaf33d45f4bce587c6d4b20c856c0d82d",
+    "transactions.csv": "6af45748905b3deb2a58ed02af97a3fab170a55400a7b4c53ebbd9d50bc98db0",
     "watchlist.csv": "97314bddcf0255e583cc2319e0dd7137a259cb975ba9439c14f498e318e23c9f"
   }
 }

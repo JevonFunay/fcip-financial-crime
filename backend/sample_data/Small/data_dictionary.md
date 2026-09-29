@@ -1,6 +1,6 @@
 # Data dictionary — FCIP synthetic raw source files
 
-Generator `1.0.0`, contract version `1`, profile `small`, seed `20260923`.
+Generator `1.1.0`, contract version `1`, profile `small`, seed `20260923`.
 
 Generated from `app/scripts/raw_contract.py`, which is also what the generator writes the
 CSVs from — this file cannot describe columns that were not produced.
@@ -183,17 +183,21 @@ Ground truth for every injected scenario (TRD §11.3), so recall and control-coh
 
 ## Deliberate quality defects (TRD §11.4)
 
+Produced counts are taken from the rows actually written. An exact-duplicate row counts
+once, as `exact_duplicate`, whatever its source row carried — so a symptom such as an
+unparseable date can appear on a few more rows than its own count.
+
 | Defect | Target rate | Expected handling |
 |---|---|---|
-| `missing_counterparty` | 3.00% | Loaded; lowers referential-integrity metric; drives the Entity 360 banner (produced: 581) |
-| `missing_device` | 5.00% | Loaded; feature marked `DATA_UNAVAILABLE` (produced: 1,006) |
-| `malformed_date` | 0.40% | Quarantined `INVALID_DATE_FORMAT` (produced: 67) |
-| `invalid_currency` | 0.20% | Quarantined `INVALID_CURRENCY` (produced: 35) |
-| `invalid_amount` | 0.20% | Quarantined `INVALID_AMOUNT` (produced: 39) |
-| `unresolved_account` | 0.50% | Held to end of batch, then quarantined `UNRESOLVED_ACCOUNT` (produced: 91) |
-| `exact_duplicate` | 1.00% | Suppressed by idempotency, still counted (produced: 194) |
+| `missing_counterparty` | 3.00% | Loaded; lowers referential-integrity metric; drives the Entity 360 banner (produced: 593) |
+| `missing_device` | 5.00% | Loaded; feature marked `DATA_UNAVAILABLE` (produced: 986) |
+| `malformed_date` | 0.40% | Quarantined `INVALID_DATE_FORMAT` (produced: 72) |
+| `invalid_currency` | 0.20% | Quarantined `INVALID_CURRENCY` (produced: 39) |
+| `invalid_amount` | 0.20% | Quarantined `INVALID_AMOUNT` (produced: 35) |
+| `unresolved_account` | 0.50% | Held to end of batch, then quarantined `UNRESOLVED_ACCOUNT` (produced: 100) |
+| `exact_duplicate` | 1.00% | Suppressed by idempotency, still counted (produced: 197) |
 | `idempotency_conflict` | 0.05% | Quarantined `IDEMPOTENCY_CONFLICT` (produced: 9) |
-| `late_arrival` | 1.50% | Flagged `LATE_ARRIVAL`, triggers targeted re-evaluation (produced: 287) |
+| `late_arrival` | 1.50% | Flagged `LATE_ARRIVAL`, triggers targeted re-evaluation (produced: 282) |
 | `missing_bo` | 4.00% | Loaded; flagged `BO_MISSING`; feeds a risk factor (produced: 2) |
-| `placeholder_address` | 2.00% | Loaded; produces a `LOW_SPECIFICITY` graph edge (produced: 7) |
-| `truncated_name` | 3.00% | Loaded; some become `NOT_SCREENABLE`, others `HIGH_FREQUENCY_NAME` (produced: 12) |
+| `placeholder_address` | 2.00% | Loaded; produces a `LOW_SPECIFICITY` graph edge (produced: 10) |
+| `truncated_name` | 3.00% | Loaded; some become `NOT_SCREENABLE`, others `HIGH_FREQUENCY_NAME` (produced: 15) |

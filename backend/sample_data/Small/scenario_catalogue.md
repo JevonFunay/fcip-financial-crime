@@ -13,10 +13,26 @@ Profile `small`, seed `20260923`. Every row below has matching rows in
 | `P06` | Uniform round amounts | 6-12 repetitions of one identical round amount | `P06_UNIFORM_ROUND_AMOUNTS` | 2 positive, 2 edge |
 | `P07` | Stepped weekly value increase | Weekly value stepping up 2-3x for five consecutive weeks | `P07_STEPPED_WEEKLY_VALUE_INCREASE` | 2 positive, 2 edge |
 | `P08` | Concentrated high-risk geography exposure | 8-18 remittances concentrated on one listed geography | `P08_CONCENTRATED_HIGH-RISK_GEOGRAPHY_EXPOSURE` | 2 positive, 2 edge |
-| `P09` | Device shared by unrelated entities | One device used by 4-7 otherwise unrelated entities | `P09_DEVICE_SHARED_BY_UNRELATED_ENTITIES` | 8 positive, 2 edge |
+| `P09` | Device shared by unrelated entities | One device used by 4-7 otherwise unrelated entities | `P09_DEVICE_SHARED_BY_UNRELATED_ENTITIES` | 11 positive, 2 edge |
 | `P10` | Merchant activity inconsistent with its MCC | 20-45 payments at 100-1000x the ticket size the MCC implies | `P10_MERCHANT_ACTIVITY_INCONSISTENT_WITH_ITS_MCC` | 2 positive, 2 edge |
 | `P11` | Many-to-one funnel with device overlap | 8-16 senders converging on one account within 5 days, sharing a device | `P11_MANY-TO-ONE_FUNNEL_WITH_DEVICE_OVERLAP` | 2 positive, 2 edge |
 | `P12` | Name similar to a synthetic list record | Customer name one character away from a synthetic list record | `P12_NAME_SIMILAR_TO_A_SYNTHETIC_LIST_RECORD` | 4 positive, 2 edge |
+
+## Population (TRD §11.2)
+
+Assigned as exact counts, so the shares hold at every scale. Real businesses are all in the
+business cohort; §11.1's volumes leave them short of §11.2's share, and individual sole traders
+make up the difference.
+
+| Cohort | Entities | Share | Spec |
+|---|---|---|---|
+| `RETAIL_NORMAL` | 321 | 61.9% | ~62% |
+| `BUSINESS_NORMAL` | 93 | 17.9% | ~18% |
+| `CONTROL_CLEAN` | 42 | 8.1% | ~8% |
+| `EDGE_AMBIGUOUS` | 42 | 8.1% | ~8% |
+| `INJECTED_CANDIDATE` | 21 | 4.0% | ~4% |
+
+Business cohort: 60 real businesses + 33 individual sole traders.
 
 ## Control cohort (FRD §8.14)
 

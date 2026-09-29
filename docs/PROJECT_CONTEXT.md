@@ -4,7 +4,7 @@
 Intelligence Platform capstone: what the project is, what the spec demands, what
 is actually built, what is deliberately not built, and what is still undecided.
 
-Last updated: **28 September 2026** · Week 4 of 16 · ~17% of MVP scope
+Last updated: **29 September 2026** · Week 4 of 16 · ~17% of MVP scope
 
 ---
 
@@ -103,7 +103,7 @@ percentage is an estimate — the counts underneath it are not.
 | NFRs proven by measurement | 3 of 18 | 17% |
 | TRD components | ~6 full + ~5 partial of 30 | ~25% |
 
-**247 backend tests pass** (5 more marked `slow`). Frontend has no automated
+**250 backend tests pass** (3 more marked `slow`). Frontend has no automated
 tests in the repo; it was verified with a scripted Playwright click-through.
 
 ### Per domain
@@ -157,7 +157,7 @@ backend/
     scripts/       seed.py, run_detection.py, generate_bulk_transactions.py,
                    generate_raw_dataset.py, raw_contract.py, load_raw_dataset.py
   alembic/versions/  0001 … 0004
-  tests/             15 test modules, 247 passing
+  tests/             15 test modules, 250 passing
 frontend/src/
   api/           client.ts (token refresh), alerts, cases, data, audit, auth
   pages/         Login, Overview, AlertQueue, AlertDetail, CaseDetail, Audit
@@ -278,10 +278,11 @@ business date, transaction type) — that gap is the distance to the full pipeli
 It checks the manifest first (TRD §6.1): refused unless declared synthetic
 (FR-501) and every file matches its SHA-256.
 
-**Shared datasets:** `backend/sample_data/Tiny|Small|Full` (committed by a
-teammate, PR #1) are byte-for-byte generator **1.0.0** output — before the
-§11.2 fix — and load with `--shared small` plus a version warning. Whether to
-refresh them is an open team decision (Full is ~85 MB per change in history).
+**Shared datasets:** `backend/sample_data/Tiny` and `Small` are committed so
+the team loads the same data without running the generator (`--shared small`).
+A test requires them to match the current generator byte for byte — **change
+the generator, regenerate them in the same commit**. `Full` is not committed
+(~85 MB of history per change); generate it on demand with `--profile full`.
 
 ### Frontend
 `/login`, `/` (Overview: tiles, transaction table with search/filter/paging,

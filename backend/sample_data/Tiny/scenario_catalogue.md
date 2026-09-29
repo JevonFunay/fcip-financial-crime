@@ -13,14 +13,30 @@ Profile `tiny`, seed `20260923`. Every row below has matching rows in
 | `P06` | Uniform round amounts | 6-12 repetitions of one identical round amount | `P06_UNIFORM_ROUND_AMOUNTS` | 1 positive, 2 edge |
 | `P07` | Stepped weekly value increase | Weekly value stepping up 2-3x for five consecutive weeks | `P07_STEPPED_WEEKLY_VALUE_INCREASE` | 1 positive, 2 edge |
 | `P08` | Concentrated high-risk geography exposure | 8-18 remittances concentrated on one listed geography | `P08_CONCENTRATED_HIGH-RISK_GEOGRAPHY_EXPOSURE` | 1 positive, 2 edge |
-| `P09` | Device shared by unrelated entities | One device used by 4-7 otherwise unrelated entities | `P09_DEVICE_SHARED_BY_UNRELATED_ENTITIES` | 6 positive, 2 edge |
+| `P09` | Device shared by unrelated entities | One device used by 4-7 otherwise unrelated entities | `P09_DEVICE_SHARED_BY_UNRELATED_ENTITIES` | 7 positive, 2 edge |
 | `P10` | Merchant activity inconsistent with its MCC | 20-45 payments at 100-1000x the ticket size the MCC implies | `P10_MERCHANT_ACTIVITY_INCONSISTENT_WITH_ITS_MCC` | 1 positive, 2 edge |
 | `P11` | Many-to-one funnel with device overlap | 8-16 senders converging on one account within 5 days, sharing a device | `P11_MANY-TO-ONE_FUNNEL_WITH_DEVICE_OVERLAP` | 1 positive, 2 edge |
 | `P12` | Name similar to a synthetic list record | Customer name one character away from a synthetic list record | `P12_NAME_SIMILAR_TO_A_SYNTHETIC_LIST_RECORD` | 1 positive, 2 edge |
 
+## Population (TRD §11.2)
+
+Assigned as exact counts, so the shares hold at every scale. Real businesses are all in the
+business cohort; §11.1's volumes leave them short of §11.2's share, and individual sole traders
+make up the difference.
+
+| Cohort | Entities | Share | Spec |
+|---|---|---|---|
+| `RETAIL_NORMAL` | 64 | 62.7% | ~62% |
+| `BUSINESS_NORMAL` | 18 | 17.6% | ~18% |
+| `CONTROL_CLEAN` | 8 | 7.8% | ~8% |
+| `EDGE_AMBIGUOUS` | 8 | 7.8% | ~8% |
+| `INJECTED_CANDIDATE` | 4 | 3.9% | ~4% |
+
+Business cohort: 12 real businesses + 6 individual sole traders.
+
 ## Control cohort (FRD §8.14)
 
-9 entities are generated with deliberately modest,
+8 entities are generated with deliberately modest,
 well-spread behaviour and must raise **zero** alerts at approved default parameters. A control-cohort
 alert is a rule defect, not a finding.
 

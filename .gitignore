@@ -36,6 +36,11 @@ backend/sample_data/transactions_bulk.csv
 backend/sample_data/raw/
 
 # The bridge writes its projection next to the dataset it read, including the
-# shared datasets committed under backend/sample_data/<Tiny|Small|Full>/.
-# It is derived, and ~70 MB for the full profile, so it is never committed.
+# shared datasets committed under backend/sample_data/<Tiny|Small>/. It is
+# derived, so it is never committed.
 backend/sample_data/*/transactions_app_format.csv
+
+# The full profile is not shared through git: at ~85 MB it would add that much
+# to the history on every change, and it is reproducible byte-for-byte from the
+# seed in ~6 s (python -m app.scripts.generate_raw_dataset --profile full).
+backend/sample_data/Full/
