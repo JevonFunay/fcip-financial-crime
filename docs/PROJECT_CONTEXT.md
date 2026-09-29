@@ -97,13 +97,13 @@ percentage is an estimate — the counts underneath it are not.
 | FR (full-equivalent) | ~16 of 120 | 13% |
 | FR priority **Must** only | ~15 of 84 | 18% |
 | Detection patterns | 1 of 12 (P02) | 8% |
-| Database tables | 12 of ~90 | 13% |
+| Database tables | 15 of ~90 | 17% |
 | API endpoints | 17 of 80 | 21% |
 | RBAC roles | 4 of 9 | 44% |
 | NFRs proven by measurement | 3 of 18 | 17% |
 | TRD components | ~6 full + ~5 partial of 30 | ~25% |
 
-**250 backend tests pass** (3 more marked `slow`). Frontend has no automated
+**300 backend tests pass** (3 more marked `slow`). Frontend has no automated
 tests in the repo; it was verified with a scripted Playwright click-through.
 
 ### Per domain
@@ -113,7 +113,7 @@ tests in the repo; it was verified with a scripted Playwright click-through.
 | D1 Ingestion (10 FR) | **~40%** — batch registration, checksum, validation, quarantine, processing log, reconciliation all work. Missing: DQ metrics, reprocessing, late-arrival handling, source configuration |
 | D2 Entity Resolution (6) | **0%** — `customer_id` stands in for `entity_id` |
 | D3 Risk Scoring (7) | **0%** |
-| D4 Rules Engine + Detection (12) | **~22%** — FR-307/308 solid. Rules are hardcoded Python: no `rule`/`rule_version` table, no simulation, no maker-checker, no priority scoring |
+| D4 Rules Engine + Detection (12) | **~26%** — FR-307/308 solid. Rules are data: `rule`/`rule_version`/`simulation_result` tables with DB-enforced immutability, P02 is RUL-0001 v1 and every alert names its version (FR-301/302 partial). No rule endpoints, no simulation yet (deferred, §11), no maker-checker, no priority scoring |
 | D5 Anomaly + Graph (6) | **0%** |
 | D6 Screening (8) | **0%** |
 | D7 Alert & Triage (12) | **~35%** — strongest domain. Queue, detail, disposition, escalate, case linking. Missing: assignment, SLA, bulk, reopen, export |
@@ -150,14 +150,15 @@ and evidence are at zero.
 backend/
   app/
     core/          security.py, rbac.py
-    models/        12 SQLAlchemy models
+    models/        15 SQLAlchemy models
     routers/       alerts, audit, auth, cases, detection, ingestion, overview, transactions
     schemas/       Pydantic request/response models
-    services/      ingestion.py, audit.py, detection/p02_structuring.py
+    services/      ingestion.py, audit.py, detection/p02_structuring.py,
+                   detection/active_rules.py
     scripts/       seed.py, run_detection.py, generate_bulk_transactions.py,
                    generate_raw_dataset.py, raw_contract.py, load_raw_dataset.py
-  alembic/versions/  0001 … 0004
-  tests/             15 test modules, 250 passing
+  alembic/versions/  0001 … 0006
+  tests/             16 test modules, 300 passing
 frontend/src/
   api/           client.ts (token refresh), alerts, cases, data, audit, auth
   pages/         Login, Overview, AlertQueue, AlertDetail, CaseDetail, Audit
@@ -456,8 +457,34 @@ Expected on the sample file: 29 rows, 22 accepted, 7 quarantined, then exactly
 Ordered by what unblocks the most, and by what does *not* depend on unanswered
 questions.
 
+**Current priority (mentor directive, 29 Sep): the ML pipeline.** "Dataset
+harus dalam bentuk enterprise, jadi butuh ribuan data. Data masuk model, lalu
+di-training. Kalau sudah, dites pakai dataset baru, lalu dikembangkan ke live
+monitoring." Plan under review before any code.
+
+**Rule as data — stages 1–2 done, stages 3–4 DEFERRED (29 Sep).** Done: the
+`rule` / `rule_version` / `simulation_result` tables with DB-enforced
+immutability (migration 0005), and P02 moved to RUL-0001 v1 with every alert
+naming its version (migration 0006). **Deferred by the mentor's directive
+above**, not because of a blocker: stage 3 (rule CRUD + versioning endpoints,
+FR-301/302) and stage 4 (simulation, FR-303). The schema for both already
+exists, so resuming needs no migration. Decisions waiting for when it resumes:
+
+- **Rule reference for P02.** TRD §18.8 (rule inventory) and the §8.6 example
+  call P02's rule `RUL-0007`, with `RUL-0001` being P01. The seed uses
+  `RUL-0001`; recommendation is to keep it (the inventory numbers read as a
+  delivery-time history with gaps, not reserved numbers). Unconfirmed
+- **Reason codes must be "unik dan terdaftar"** (FRD §5.3, guard on draft
+  creation). FRD §8.1–8.12 give exactly one reason code per pattern, so stage 3
+  should accept only the registered code for the pattern, not free text. With
+  FR-301 AC2 that means at most one live rule per pattern
+- **Simulation period ≤ 6 months** (FRD §5.3, guard DRAFT → IN_SIMULATION).
+  Stage 4 should default to the last 6 months of data and reject longer. The
+  5%-of-transactions volume cap (FRD §5.3 exceptions) belongs to FR-304, but
+  the simulation result should already record the rate
+
 **Safe to build now** (independent of MQ-01…MQ-10):
-1. **Rule as data** — `rule` / `rule_version` tables, versioned parameters, simulation (FR-301…FR-303). The largest pending refactor, and the remaining 11 patterns will inherit whatever shape is chosen. Doing this before adding patterns is much cheaper than after
+1. **Rule as data, stages 3–4** — deferred, see above
 2. **Case lifecycle** (FR-804) and case queue (FR-808) — columns exist, endpoints don't
 3. **Alert assignment** (FR-603) and SLA tracking (FR-607)
 4. **DQ metrics** (FR-108) — the generator already produces the defects to measure

@@ -14,13 +14,13 @@ questions are unchanged — see `PROJECT_CONTEXT.md`.
 | Functional requirements (full-equivalent) | ~16 of 120 | 13% |
 | FR priority **Must** only | ~15 of 84 | 18% |
 | Detection patterns | 1 of 12 (P02) | 8% |
-| Database tables | 12 of ~90 | 13% |
+| Database tables | 15 of ~90 | 17% |
 | API endpoints | 17 of 80 | 21% |
 | RBAC roles | 4 of 9 | 44% |
 | NFRs proven by measurement | 3 of 18 | 17% |
 | TRD components | ~6 full + ~5 partial of 30 | ~25% |
 
-**250 backend tests pass** (3 more marked `slow`, all passing). Frontend typechecks and builds.
+**300 backend tests pass** (3 more marked `slow`, all passing). Frontend typechecks and builds.
 
 Pure FR counting gives ~10%; ~17% weights the foundation work already done.
 Neither document assigns effort weights, so the percentage is an estimate — the
@@ -52,6 +52,28 @@ Partial: FR-306, FR-309, FR-310, FR-1103, FR-808, FR-612.
 ---
 
 ## Built since the last progress report
+
+### 29 September — rules as data, stages 1–2 (FR-301 … FR-303, partial)
+
+**Schema (migration 0005).** `rule`, `rule_version` and `simulation_result`.
+The database itself guarantees what FR-302 and BR-302.1 require: a version's
+content never changes in any state (only `state` does, and an ACTIVE version
+can only be suspended or retired), no version is ever deleted, an ACTIVE reason
+code is unique, and reason code, severity and description are never blank.
+All seven rule states exist, so FR-304/305 need no migration. Severity is the
+FRD §8.0 scale (CRITICAL/HIGH/MEDIUM/LOW).
+
+**P02 is now data (migration 0006).** Its parameters left the Python code and
+became RUL-0001 v1 — exactly the former constants, and reason code
+`RC-STRUCT-01` / severity `HIGH` as FRD §8.2 specifies. The detector reads the
+ACTIVE version from the database; every alert records the version that raised
+it; the alert detail page shows the rule's description verbatim (FR-301 AC3,
+BR-301.2). The seed is written straight as ACTIVE, **bypassing maker-checker**
+until FR-304 and `ROLE_MLRO` exist, and says so in the version itself and in
+an audit event. All 250 earlier tests still pass with unchanged expectations.
+
+**Stages 3–4 (rule endpoints, simulation) deferred** by the mentor's ML
+directive — see `PROJECT_CONTEXT.md` §11.
 
 ### 29 September — shared datasets refreshed, Full no longer in git
 
@@ -177,7 +199,7 @@ are genuinely suspicious entities, not false positives on clean ones.
 | D1 Ingestion | **~40%** | was ~15%. Batch, checksum, processing log, reconciliation added |
 | D2 Entity Resolution | 0% | `customer_id` still stands in for `entity_id` |
 | D3 Risk Scoring | 0% | |
-| D4 Rules Engine + Detection | ~22% | rules still hardcoded Python |
+| D4 Rules Engine + Detection | ~26% | rules are data (P02 = RUL-0001 v1); endpoints + simulation deferred |
 | D5 Anomaly + Graph | 0% | |
 | D6 Screening | 0% | |
 | D7 Alert & Triage | ~35% | strongest domain |
@@ -209,7 +231,8 @@ AI, maker-checker, dashboards.
 
 **Safe to build now** — independent of the unanswered MQ-01…MQ-10:
 
-1. **Rule as data** — `rule` / `rule_version` tables, versioned parameters, simulation (FR-301…FR-303). Largest pending refactor; the remaining 11 patterns inherit whatever shape is chosen, so doing it before adding patterns is far cheaper
+0. **ML pipeline** — current priority by mentor directive (29 Sep); plan under review
+1. **Rule as data, stages 3–4** (rule endpoints FR-301/302, simulation FR-303) — deferred for the ML pipeline; schema already in place
 2. **Case lifecycle** (FR-804) and case queue (FR-808) — columns exist, endpoints don't
 3. **Alert assignment** (FR-603) and SLA tracking (FR-607)
 4. **Data quality metrics** (FR-108) — the generator already produces the defects to measure
