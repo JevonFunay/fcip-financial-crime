@@ -353,11 +353,11 @@ def _in_band_by_entity(out_dir: Path, params: P02Parameters) -> dict[str, list]:
     return grouped
 
 
-def test_injected_p02_positives_satisfy_the_implemented_detector(dataset):
+def test_injected_p02_positives_satisfy_the_implemented_detector(dataset, p02_params):
     """The label says these are structuring; the detector has to agree, or the
     recall figure it produces means nothing."""
     out_dir, _ = dataset
-    params = P02Parameters()
+    params = p02_params
     grouped = _in_band_by_entity(out_dir, params)
     positives = [r for r in _rows(out_dir, LABELS.name)
                  if r["pattern_code"] == "P02" and r["label_type"] == "INJECTED_POSITIVE"]
@@ -368,12 +368,12 @@ def test_injected_p02_positives_satisfy_the_implemented_detector(dataset):
         assert clusters, f"{label['scenario_id']} is labelled P02 but raises no cluster"
 
 
-def test_p02_edge_cases_do_not_satisfy_the_detector(dataset):
+def test_p02_edge_cases_do_not_satisfy_the_detector(dataset, p02_params):
     """The P02 edge constructions are legitimate activity deliberately spread
     past the 7-day window, and the boundary cases sit exactly on the threshold
     (which is exclusive). Neither may fire at default parameters."""
     out_dir, _ = dataset
-    params = P02Parameters()
+    params = p02_params
     grouped = _in_band_by_entity(out_dir, params)
     edges = [r for r in _rows(out_dir, LABELS.name)
              if r["pattern_code"] == "P02" and r["label_type"] == "EDGE_CASE"]
@@ -384,10 +384,10 @@ def test_p02_edge_cases_do_not_satisfy_the_detector(dataset):
         assert not clusters, f"{label['scenario_id']} is a legitimate look-alike but fired: {label['note']}"
 
 
-def test_control_cohort_raises_nothing_at_default_parameters(dataset):
+def test_control_cohort_raises_nothing_at_default_parameters(dataset, p02_params):
     """FRD §8.14: an alert on the control cohort is a rule defect, not a finding."""
     out_dir, _ = dataset
-    params = P02Parameters()
+    params = p02_params
     grouped = _in_band_by_entity(out_dir, params)
     control = [r["entity_source_id"] for r in _rows(out_dir, LABELS.name) if r["label_type"] == "CONTROL_CLEAN"]
 
@@ -519,7 +519,7 @@ def _without_generated_at(path: Path) -> dict:
 
 
 @pytest.mark.slow
-def test_100k_custom_dataset_is_exact_proportional_labelled_and_reproducible(tmp_path):
+def test_100k_custom_dataset_is_exact_proportional_labelled_and_reproducible(tmp_path, p02_params):
     """--target-transactions 100000, the scale the office asked for.
 
     Excluded from the default run; run explicitly with
@@ -569,7 +569,7 @@ def test_100k_custom_dataset_is_exact_proportional_labelled_and_reproducible(tmp
     assert abs(report["defect_counts"]["exact_duplicate"] / target - DEFECTS["exact_duplicate"]) < 0.002
 
     # Calibration touched no labelled entity: the labels still tell the truth.
-    params = P02Parameters()
+    params = p02_params
     grouped = _in_band_by_entity(out_dir, params)
     labels = _rows(out_dir, LABELS.name)
     fired = {entity for entity, rows in grouped.items() if find_clusters(rows, params)}

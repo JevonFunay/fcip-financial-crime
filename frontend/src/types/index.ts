@@ -2,6 +2,16 @@ export type UserRole = "ROLE_DATA_OPS" | "ROLE_ANALYST" | "ROLE_TRIAGE" | "ROLE_
 export type AlertStatus = "OPEN" | "DISPOSED" | "ESCALATED";
 export type CaseStatus = "OPEN" | "IN_PROGRESS" | "CLOSED";
 export type DispositionDecision = "false_positive" | "escalate";
+export type RuleState =
+  | "DRAFT"
+  | "IN_SIMULATION"
+  | "PENDING_APPROVAL"
+  | "ACTIVE"
+  | "SUSPENDED"
+  | "RETIRED"
+  | "REJECTED";
+// FRD §8.0 severity scale.
+export type RuleSeverity = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 export type Direction = "CREDIT" | "DEBIT";
 
 export interface User {
@@ -83,7 +93,7 @@ export interface OverviewSummary {
 }
 
 export type IngestionBatchStatus = "REGISTERED" | "COMPLETED" | "NEEDS_REVIEW" | "FAILED";
-export type AuditObjectType = "ALERT" | "CASE" | "BATCH" | "DETECTION_RUN" | "AUDIT_EXPORT";
+export type AuditObjectType = "ALERT" | "CASE" | "BATCH" | "DETECTION_RUN" | "AUDIT_EXPORT" | "RULE_VERSION";
 
 export interface IngestionSummary {
   file_name: string;
@@ -152,19 +162,39 @@ export interface AuditFilters {
 export interface DetectionRunSummary {
   pattern_code: string;
   detection_run_id: string;
+  rules_evaluated: { rule_ref: string; version: number }[];
   alerts_created: number;
   alerts_already_existing: number;
   alerts: {
     alert_id: string;
     customer_ref: string;
+    rule_ref: string;
+    rule_version: number;
     txn_count_in_band: number;
     aggregate_amount: string;
     created: boolean;
   }[];
 }
 
+/** The exact rule version that raised an alert (FR-302), as it was then. */
+export interface AlertRule {
+  rule_id: string;
+  rule_ref: string;
+  version: number;
+  state: RuleState;
+  template_version: string;
+  reason_code: string;
+  severity: RuleSeverity;
+  description: string;
+  parameters: Record<string, unknown>;
+  window_type: "ROLLING" | "CALENDAR";
+  /** ISO-8601 duration, e.g. "P7D". */
+  window_length: string;
+}
+
 export interface AlertDetail extends AlertSummary {
   correlation_id: string;
+  rule: AlertRule;
   detection_details: Record<string, unknown>;
   disposed_by: string | null;
   disposed_by_email: string | null;

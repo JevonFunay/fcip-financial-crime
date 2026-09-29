@@ -11,6 +11,8 @@ OBJECT_BATCH = "BATCH"
 OBJECT_DETECTION_RUN = "DETECTION_RUN"
 # FRD §4.1.10: an auditor's own export is itself an audited action.
 OBJECT_AUDIT_EXPORT = "AUDIT_EXPORT"
+# FR-301..FR-303: rule states belong to versions, so rule events point at one.
+OBJECT_RULE_VERSION = "RULE_VERSION"
 
 OBJECT_TYPES = (
     OBJECT_ALERT,
@@ -18,6 +20,7 @@ OBJECT_TYPES = (
     OBJECT_BATCH,
     OBJECT_DETECTION_RUN,
     OBJECT_AUDIT_EXPORT,
+    OBJECT_RULE_VERSION,
 )
 
 

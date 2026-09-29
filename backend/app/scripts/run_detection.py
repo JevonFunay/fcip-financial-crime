@@ -16,11 +16,13 @@ def run() -> None:
         db.close()
 
     print(f"{summary.pattern_code} run {summary.detection_run_id}")
+    rules = ", ".join(f"{r.rule_ref} v{r.version}" for r in summary.rules_evaluated)
+    print(f"rule versions evaluated: {rules or 'none (no ACTIVE rule version)'}")
     print(f"alerts created: {summary.alerts_created}, already existing: {summary.alerts_already_existing}")
     for alert in summary.alerts:
         status = "NEW" if alert.created else "existing"
         print(
-            f"  [{status}] {alert.customer_ref}: {alert.txn_count_in_band} txns, "
+            f"  [{status}] {alert.rule_ref} v{alert.rule_version} {alert.customer_ref}: {alert.txn_count_in_band} txns, "
             f"aggregate {alert.aggregate_amount:,.0f}, window {alert.window_start.date()} -> {alert.window_end.date()} "
             f"(alert {alert.alert_id})"
         )

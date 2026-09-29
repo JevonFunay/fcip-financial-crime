@@ -7,7 +7,7 @@ import { createCase } from "../api/cases";
 import { errorMessage } from "../api/errors";
 import { StatusBadge } from "../components/StatusBadge";
 import { useAuth } from "../context/AuthContext";
-import { formatAmount, formatDateTime, formatDetailValue } from "../format";
+import { formatAmount, formatDateTime, formatDetailValue, formatDuration } from "../format";
 import type { AlertDetail, DispositionDecision } from "../types";
 
 const MIN_REASON_LENGTH = 20;
@@ -98,6 +98,27 @@ export function AlertDetailPage() {
               </dd>
             </>
           )}
+        </dl>
+      </section>
+
+      <section className="card">
+        <h2>Rule</h2>
+        {/* FR-301 AC3 / BR-301.2: the rule's own words, verbatim, on every alert. */}
+        <p>{alert.rule.description}</p>
+        <dl className="facts">
+          <dt>Rule</dt>
+          <dd className="mono">
+            {alert.rule.rule_ref} v{alert.rule.version}
+            {alert.rule.state !== "ACTIVE" && <span className="muted"> (now {alert.rule.state})</span>}
+          </dd>
+          <dt>Reason code</dt>
+          <dd className="mono">{alert.rule.reason_code}</dd>
+          <dt>Severity</dt>
+          <dd>{alert.rule.severity}</dd>
+          <dt>Window</dt>
+          <dd>
+            {alert.rule.window_type.toLowerCase()} {formatDuration(alert.rule.window_length)}
+          </dd>
         </dl>
       </section>
 

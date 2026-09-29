@@ -43,3 +43,42 @@ class CaseStatus(str, enum.Enum):
     OPEN = "OPEN"
     IN_PROGRESS = "IN_PROGRESS"
     CLOSED = "CLOSED"
+
+
+class RuleState(str, enum.Enum):
+    """TRD §8.2 / §17.2. All seven values exist now so FR-304 (submit, approve,
+    reject) and FR-305 (suspend, retire) need no schema migration; until those
+    are built only DRAFT -> IN_SIMULATION is reachable through the API."""
+
+    DRAFT = "DRAFT"
+    IN_SIMULATION = "IN_SIMULATION"
+    PENDING_APPROVAL = "PENDING_APPROVAL"
+    ACTIVE = "ACTIVE"
+    SUSPENDED = "SUSPENDED"
+    RETIRED = "RETIRED"
+    REJECTED = "REJECTED"
+
+
+class RuleWindowType(str, enum.Enum):
+    # FR-307: "any 24 hours" and "one calendar day" are distinct configured types.
+    ROLLING = "ROLLING"
+    CALENDAR = "CALENDAR"
+
+
+class RuleEntityScope(str, enum.Enum):
+    # FR-301 flow step 2.
+    CUSTOMER = "CUSTOMER"
+    MERCHANT = "MERCHANT"
+    ACCOUNT = "ACCOUNT"
+    DEVICE = "DEVICE"
+
+
+class RuleSeverity(str, enum.Enum):
+    """FRD §8.0: "Skala tingkat keparahan: CRITICAL, HIGH, MEDIUM, LOW". It drives
+    priority scoring (FR-311) and SLA targets (FR-607). Declared low-to-high so
+    the Postgres enum orders, and compares, by severity."""
+
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+    CRITICAL = "CRITICAL"

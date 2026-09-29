@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import DateTime, ForeignKey, String, text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
@@ -32,6 +32,11 @@ class AuditLog(Base):
     from_state: Mapped[str | None] = mapped_column(String, nullable=True)
     to_state: Mapped[str] = mapped_column(String, nullable=False)
     reason: Mapped[str | None] = mapped_column(String, nullable=True)
+    # TRD §8.8 `action` (e.g. RULE_VERSION_CREATED) and structured detail such
+    # as a parameter-level diff (the TRD's before/after values). Null on events
+    # that predate these columns, whose meaning is carried by the transition.
+    action: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    details: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

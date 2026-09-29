@@ -429,8 +429,11 @@ shared copy cannot slip in again.)
 
 ## Detection: P02 Structuring
 
-Implemented in `backend/app/services/detection/p02_structuring.py`. Parameters
-(FRD §8.2) live in `P02Parameters`:
+The logic is in `backend/app/services/detection/p02_structuring.py`. The
+parameters (FRD §8.2) are **data**: the ACTIVE version of rule `RUL-0001`,
+seeded by migration `0006_seed_p02_rule` from what used to be the
+`P02Parameters` constants (see [Rules as data](#rules-as-data-fr-301--fr-303)).
+Version 1 holds:
 
 | Parameter | Value | Meaning |
 |---|---|---|
@@ -439,6 +442,11 @@ Implemented in `backend/app/services/detection/p02_structuring.py`. Parameters
 | MIN_COUNT | 3 | at least this many in-band transactions in one window |
 | AGGREGATE_MULTIPLE | 1.0× → IDR 500,000,000 | the window's in-band total must reach this |
 | Window | 7 days rolling | opens at an in-band transaction, end is exclusive |
+
+A run evaluates **every ACTIVE P02 rule version** and says which ones
+(`rules_evaluated`); with none, it evaluates nothing and the audit entry says
+so. Every alert records the exact version that raised it
+(`alert.rule_version_id`).
 
 Aggregation is per entity across **all** of its accounts and channels, in both
 directions (CREDIT and DEBIT). Only IDR transactions are considered because
@@ -480,6 +488,67 @@ hand-checkable scenario:
 | CUST-004 | 3 × exactly 500M | no alert (at threshold, not in band — would be reported normally) |
 | CUST-005 | 4 × 300M, plus a USD transaction | no alert (below band; non-IDR ignored) |
 | CUST-006 | 3 × exactly 350M over 3 days | **alert** (band lower bound is inclusive; CV = 0) |
+
+## Rules as data (FR-301 … FR-303) — in progress
+
+A pattern's logic is code; a **rule** is data: one typed parameter set bound to
+that code (TRD ADR-006, §7.3). Migration `0005_rule_as_data` adds the tables;
+`0006_seed_p02_rule` makes P02 the first rule. The endpoints and simulation
+come in the next stages.
+
+| Table | Holds |
+|---|---|
+| `rule` | identity: `rule_ref` (`RUL-0001`, …), `pattern_code`, a `correlation_id` shared by every audit event of the rule |
+| `rule_version` | one row per version: `parameters` (JSONB), `window_type`/`window_length`, `entity_scope`, `severity`, `reason_code`, `description`, `state`, lineage (`parent_version`), `change_summary`, `changed_by`/`changed_at` |
+| `simulation_result` | FR-303 output attached to a rule version: period, counts, daily distribution, overlap with other active rules, top-20 sample |
+
+Guarantees enforced **in the database**, not just in the API:
+
+- **A version's content never changes, in any state.** Every change is a new
+  version (FR-302); a trigger lets only `state` change. An `ACTIVE` version
+  may only move to `SUSPENDED` or `RETIRED` (TRD §7.3).
+- **No version is ever deleted** (BR-302.1). `rule` and `simulation_result`
+  rows are append-only too.
+- **An ACTIVE reason code is unique**, case-insensitively (FR-301 AC2), and a
+  rule has at most one ACTIVE version.
+- Reason code, severity and description can never be blank (FR-301 AC1).
+- All seven TRD §8.2 states exist in the enum, so FR-304 (submit/approve) and
+  FR-305 (suspend/retire) need no schema change. Until they are built, only
+  `DRAFT → IN_SIMULATION` is reachable.
+
+`audit_log` gains two nullable columns: `action` (TRD §8.8, e.g.
+`RULE_VERSION_CREATED`) and `details` (JSONB, e.g. a parameter-level diff).
+
+Severity is the FRD §8.0 scale, `CRITICAL` / `HIGH` / `MEDIUM` / `LOW`
+("skala tingkat keparahan"), which drives priority scoring (FR-311) and SLA
+targets (FR-607). It is stored low-to-high so severities compare in order.
+
+### P02 is rule RUL-0001 v1
+
+- **Parameters** are exactly the former `P02Parameters` defaults, which never
+  changed since the baseline commit. `P02Parameters` is now only the typed
+  form of a version (no default values), built with
+  `P02Parameters.from_rule_version(...)`. No threshold is left in the code.
+- **Every alert names its rule version** (`alert.rule_version_id`, FR-302
+  flow 3, BR-302.2). Alerts raised before this change were backfilled to v1.
+  `GET /alerts/{id}` returns a `rule` block (reference, version, state, reason
+  code, severity, parameters, window, and the description **verbatim**, FR-301
+  AC3), and the alert detail page shows it to the triage analyst (BR-301.2).
+  An alert keeps showing its own version after the rule moves on (FR-302 AC2).
+- **Reason code `RC-STRUCT-01` and severity `HIGH` are FRD §8.2's own** for
+  P02. The description is the sentence the TRD §8.6 alert example shows for
+  this rule, an English rendering of FRD §8.2's defensive logic statement.
+- A new version of the same rule that finds the same evidence does not raise
+  it again: re-run idempotence is keyed by rule, not by version.
+
+> **Temporary bypass of maker-checker.** A rule should only become ACTIVE
+> through FR-304 (an analyst submits, an MLRO approves). Neither FR-304 nor
+> `ROLE_MLRO` exists yet, so migration `0006_seed_p02_rule` writes RUL-0001 v1
+> **straight as ACTIVE, with no approver**. This is stated in the version's
+> own `change_summary` and in an audit event (`action = RULE_SEEDED_ACTIVE`,
+> `details.maker_checker = BYPASSED`), and must be replaced by a real
+> approval once FR-304 is built.
+
 
 ## Alerts and triage
 
@@ -617,8 +686,9 @@ here so they're easy to explain and are tracked for follow-up:
 - **P02 interpretation choices** (to confirm against FRD §8.2): the aggregate
   is the sum of the *in-band* transactions in the window; both CREDIT and
   DEBIT count; non-IDR transactions are ignored (no FX conversion); windows
-  are non-overlapping. Each is a one-line change in `P02Parameters` /
-  `find_clusters` if the FRD says otherwise.
+  are non-overlapping. These are logic, not parameters, so a rule version
+  cannot change them: each is a small change in `evaluate` / `find_clusters`
+  plus a `TEMPLATE_VERSION` bump if the FRD says otherwise.
 - **No scheduler.** Detection is triggered manually (script or endpoint).
 - **No CSRF token on `/auth/*`.** `SameSite=Strict` on the refresh cookie
   already blocks cross-site requests from carrying it; a dedicated CSRF token

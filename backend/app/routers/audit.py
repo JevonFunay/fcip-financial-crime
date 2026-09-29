@@ -114,7 +114,7 @@ def _rows(
 @router.get("", response_model=AuditListResponse, dependencies=[Depends(require_role(*ALL_ROLES))])
 def search_audit(
     correlation_id: uuid.UUID | None = Query(None),
-    object_type: str | None = Query(None, description="ALERT, CASE, BATCH, DETECTION_RUN, AUDIT_EXPORT"),
+    object_type: str | None = Query(None, description="ALERT, CASE, BATCH, DETECTION_RUN, AUDIT_EXPORT, RULE_VERSION"),
     object_id: uuid.UUID | None = Query(None),
     actor_email: str | None = Query(None),
     date_from: datetime | None = Query(None),

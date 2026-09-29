@@ -1,4 +1,5 @@
 import uuid
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
@@ -16,9 +17,7 @@ from app.models.transaction import Transaction
 from app.scripts.seed import seed_master_data
 from app.services.audit import OBJECT_ALERT, OBJECT_DETECTION_RUN
 from app.services.detection.p02_structuring import (
-    DEFAULT_PARAMETERS,
     PATTERN_CODE,
-    P02Parameters,
     find_clusters,
     run_p02_structuring,
 )
@@ -33,11 +32,11 @@ def _txn(day: float, amount_millions: int = 400) -> SimpleNamespace:
     return SimpleNamespace(transaction_date=DAY0 + timedelta(days=day), amount=amount_millions * M)
 
 
-# --- find_clusters: pure window logic, no database ---------------------------------
+# --- find_clusters: pure window logic; parameters are the seeded ACTIVE version ------
 
 
-def test_three_in_band_transactions_within_a_week_form_one_cluster():
-    clusters = find_clusters([_txn(0), _txn(1), _txn(2)], DEFAULT_PARAMETERS)
+def test_three_in_band_transactions_within_a_week_form_one_cluster(p02_params):
+    clusters = find_clusters([_txn(0), _txn(1), _txn(2)], p02_params)
 
     assert len(clusters) == 1
     assert len(clusters[0].transactions) == 3
@@ -45,48 +44,48 @@ def test_three_in_band_transactions_within_a_week_form_one_cluster():
     assert clusters[0].window_end == DAY0 + timedelta(days=7)
 
 
-def test_fewer_than_min_count_does_not_cluster():
-    assert find_clusters([_txn(0), _txn(1)], DEFAULT_PARAMETERS) == []
+def test_fewer_than_min_count_does_not_cluster(p02_params):
+    assert find_clusters([_txn(0), _txn(1)], p02_params) == []
 
 
-def test_transactions_spread_beyond_the_window_do_not_cluster():
-    assert find_clusters([_txn(0), _txn(8), _txn(16)], DEFAULT_PARAMETERS) == []
+def test_transactions_spread_beyond_the_window_do_not_cluster(p02_params):
+    assert find_clusters([_txn(0), _txn(8), _txn(16)], p02_params) == []
 
 
-def test_window_end_is_exclusive():
-    assert find_clusters([_txn(0), _txn(1), _txn(7)], DEFAULT_PARAMETERS) == []
-    assert len(find_clusters([_txn(0), _txn(1), _txn(6.99)], DEFAULT_PARAMETERS)) == 1
+def test_window_end_is_exclusive(p02_params):
+    assert find_clusters([_txn(0), _txn(1), _txn(7)], p02_params) == []
+    assert len(find_clusters([_txn(0), _txn(1), _txn(6.99)], p02_params)) == 1
 
 
-def test_window_can_start_at_a_later_transaction():
-    clusters = find_clusters([_txn(0), _txn(6), _txn(7), _txn(8)], DEFAULT_PARAMETERS)
+def test_window_can_start_at_a_later_transaction(p02_params):
+    clusters = find_clusters([_txn(0), _txn(6), _txn(7), _txn(8)], p02_params)
 
     assert len(clusters) == 1
     assert clusters[0].window_start == DAY0 + timedelta(days=6)
     assert [t.transaction_date for t in clusters[0].transactions] == [DAY0 + timedelta(days=d) for d in (6, 7, 8)]
 
 
-def test_each_transaction_is_evidence_for_at_most_one_cluster():
+def test_each_transaction_is_evidence_for_at_most_one_cluster(p02_params):
     txns = [_txn(d) for d in (0, 1, 2, 5, 6, 8, 9)]
 
-    clusters = find_clusters(txns, DEFAULT_PARAMETERS)
+    clusters = find_clusters(txns, p02_params)
 
     assert [len(c.transactions) for c in clusters] == [5, 2] or [len(c.transactions) for c in clusters] == [5]
     all_dates = [t.transaction_date for c in clusters for t in c.transactions]
     assert len(all_dates) == len(set(all_dates))
 
 
-def test_aggregate_minimum_matters_when_band_is_wide():
-    params = P02Parameters(band_lower_ratio=Decimal("0.10"))
+def test_aggregate_minimum_matters_when_band_is_wide(p02_params):
+    params = replace(p02_params, band_lower_ratio=Decimal("0.10"))
 
     assert find_clusters([_txn(0, 100), _txn(1, 100), _txn(2, 100)], params) == []
     assert len(find_clusters([_txn(0, 200), _txn(1, 200), _txn(2, 100)], params)) == 1
 
 
-def test_parameters_derive_band_and_aggregate_minimum():
-    assert DEFAULT_PARAMETERS.band_lower == Decimal("350000000.00")
-    assert DEFAULT_PARAMETERS.aggregate_minimum == Decimal("500000000.00")
-    assert DEFAULT_PARAMETERS.window == timedelta(days=7)
+def test_parameters_derive_band_and_aggregate_minimum(p02_params):
+    assert p02_params.band_lower == Decimal("350000000.00")
+    assert p02_params.aggregate_minimum == Decimal("500000000.00")
+    assert p02_params.window == timedelta(days=7)
 
 
 # --- run_p02_structuring against the synthetic sample file ----------------------------

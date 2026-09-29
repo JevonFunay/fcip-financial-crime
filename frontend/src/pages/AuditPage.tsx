@@ -8,7 +8,7 @@ import { formatDateTime } from "../format";
 import type { AuditFilters } from "../types";
 
 const PAGE_SIZE = 50;
-const OBJECT_TYPES = ["", "ALERT", "CASE", "BATCH", "DETECTION_RUN", "AUDIT_EXPORT"];
+const OBJECT_TYPES = ["", "ALERT", "CASE", "BATCH", "DETECTION_RUN", "AUDIT_EXPORT", "RULE_VERSION"];
 
 /** FR-1105 / UAT-12: find a whole chain from one correlation ID, without
  *  database access (NFR-13). Deep-linked from alert and case detail. */

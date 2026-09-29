@@ -17,6 +17,11 @@ class Alert(Base):
         UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
     )
     pattern_code: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    # FR-302 flow 3 / BR-302.2: the exact rule version that produced this
+    # alert, permanently, even after the rule is changed or retired.
+    rule_version_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("rule_version.id"), nullable=False, index=True
+    )
     status: Mapped[AlertStatus] = mapped_column(
         SAEnum(AlertStatus, name="alert_status"), nullable=False, default=AlertStatus.OPEN
     )

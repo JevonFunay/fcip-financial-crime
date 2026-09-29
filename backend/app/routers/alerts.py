@@ -11,11 +11,13 @@ from app.models.account import Account
 from app.models.alert import Alert, AlertTransaction
 from app.models.customer import Customer
 from app.models.enums import AlertStatus, UserRole
+from app.models.rule import Rule, RuleVersion
 from app.models.transaction import Transaction
 from app.models.user import User
 from app.schemas.alert import (
     AlertDetail,
     AlertListResponse,
+    AlertRule,
     AlertSummary,
     DispositionDecision,
     DispositionRequest,
@@ -74,17 +76,32 @@ def _evidence(db: Session, alert_id: uuid.UUID) -> list[TransactionOut]:
 def _detail(db: Session, alert_id: uuid.UUID) -> AlertDetail:
     disposer = aliased(User)
     row = db.execute(
-        select(Alert, Customer, disposer.email)
+        select(Alert, Customer, disposer.email, RuleVersion, Rule)
         .join(Customer, Alert.customer_id == Customer.id)
+        .join(RuleVersion, Alert.rule_version_id == RuleVersion.id)
+        .join(Rule, RuleVersion.rule_id == Rule.id)
         .outerjoin(disposer, Alert.disposed_by == disposer.id)
         .where(Alert.id == alert_id)
     ).one_or_none()
     if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Alert not found")
-    alert, customer, disposed_by_email = row
+    alert, customer, disposed_by_email, version, rule = row
     return AlertDetail(
         **_summary(alert, customer).model_dump(),
         correlation_id=alert.correlation_id,
+        rule=AlertRule(
+            rule_id=rule.id,
+            rule_ref=rule.rule_ref,
+            version=version.version,
+            state=version.state,
+            template_version=version.template_version,
+            reason_code=version.reason_code,
+            severity=version.severity,
+            description=version.description,
+            parameters=version.parameters,
+            window_type=version.window_type,
+            window_length=version.window_length,
+        ),
         detection_details=alert.detection_details,
         disposed_by=alert.disposed_by,
         disposed_by_email=disposed_by_email,

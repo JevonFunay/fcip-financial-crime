@@ -198,7 +198,13 @@ permanently manual (FR-306). This is a reasonable solo-build decision but it is
 - `GET /ingestion/batches`, `GET /ingestion/batches/{id}` (with full processing log)
 
 ### Detection: P02 Structuring (FR-307, FR-308)
-`backend/app/services/detection/p02_structuring.py`. Parameters in `P02Parameters`:
+Logic in `backend/app/services/detection/p02_structuring.py`. Parameters are
+**data** since 29 Sep: the ACTIVE version of rule `RUL-0001`, seeded by
+migration 0006 from the former `P02Parameters` constants (v1 holds exactly
+these values). Every alert references its rule version. The seed was written
+straight as ACTIVE, **bypassing maker-checker** until FR-304 and `ROLE_MLRO`
+exist; the version's `change_summary` and an audit event
+(`RULE_SEEDED_ACTIVE`) say so.
 
 | Parameter | Value |
 |---|---|
@@ -348,6 +354,17 @@ ratification**.
 **MQ-02 is the most urgent.** If the mentor picks the other option, the P02
 detector is redesigned.
 
+### Our own assumptions — not from the FRD/TRD, awaiting ratification
+
+Where the spec is silent, the build still had to pick something. These are
+**our choices, not spec values**, tracked here the same way as MQ-01…MQ-10
+until the mentor ratifies or replaces them. The `AS-` IDs are ours, not the
+FRD's.
+
+| ID | Where the spec is silent | Our assumption | Status in code |
+|---|---|---|---|
+| AS-01 | ~~Rule severity vocabulary~~ | **Retracted 29 Sep, not an assumption.** FRD §8.0 defines the scale: "Skala tingkat keparahan: CRITICAL, HIGH, MEDIUM, LOW". The first search looked for "severity"; the FRD says "tingkat keparahan" | the `rule_severity` enum matches FRD §8.0 exactly; a test pins it |
+
 ### TRD §1.5 — conflicts still open
 
 - **CF-01** (tied to MQ-09): boundary between forbidden autonomous closure and permitted exact-duplicate suppression
@@ -417,10 +434,10 @@ docker compose exec backend python -m app.scripts.load_raw_dataset --profile sma
 
 Tests run against a separate `<db>_test` database, truncated before every test.
 The suite refuses to run if the target database name doesn't end in `_test`.
-
-**Note:** when editing a migration that has already been applied, drop the test
-database so conftest rebuilds it: `docker compose exec db psql -U fcip -d
-postgres -c 'DROP DATABASE IF EXISTS fcip_test;'`
+The test database is **dropped and rebuilt from the migrations at the start of
+every run**, so an edited migration can never leave a stale schema behind.
+Reference data a migration seeds (the P02 rule) is restored after every
+truncate.
 
 ### Demo path (GATE 2, ~5 minutes)
 
