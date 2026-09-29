@@ -369,7 +369,80 @@ FRD's.
 ### TRD §1.5 — conflicts still open
 
 - **CF-01** (tied to MQ-09): boundary between forbidden autonomous closure and permitted exact-duplicate suppression
-- **CF-05**: anomaly score must not raise an alert alone, but there is no anomaly rule among the twelve patterns. Proposed: anomaly stays a supporting signal
+- **CF-05**: anomaly score must not raise an alert alone, but there is no anomaly rule among the twelve patterns. Proposed: anomaly stays a supporting signal. **The ML pipeline is built so both answers work** (see "Mentor directives" below): (a) the score is a supporting factor on rule alerts, or (b) a score above a threshold raises its own alert — as a rule with pattern `ML_SCORE`, seeded DRAFT, which matches FRD BR-401.2 ("unless an anomaly rule is explicitly configured and approved via §5.3"). Choosing (b) is a state change on that rule, not a code change. **Waiting for the mentor**
+
+### Mentor directives, 29 September — ML pipeline, Fraud and AML
+
+Two directives changed the plan:
+
+1. *"Dataset harus dalam bentuk enterprise, jadi butuh ribuan data. Data masuk
+   model, lalu di-training. Kalau sudah, dites pakai dataset baru, lalu
+   dikembangkan ke live monitoring."*
+2. *"Scope Financial Crime ada 2 dan harus dikerjakan semua: Fraud dan AML.
+   Use case boleh memilih, tapi project harus tetap ada Fraud dan AML."*
+
+**Conflict with the TRD, decided by the team, awaiting mentor ratification.**
+The TRD's model is *unsupervised*: a per-entity 90-day baseline with
+standardized deviations (FR-401, ADR-007, TRD §10.2), with the generator's
+labels as evaluation ground truth only (TRD §10.6). Directive 1 asks for a
+model trained on labels. Decision (29 Sep): build the supervised model, feed
+it the FR-401 baseline deviations as features, and report an FR-401-style
+unsupervised score next to it in every evaluation. If the unsupervised score
+does nearly as well, that is a finding, not a failure. FRD §3.2 keeps it in
+scope: "satu proses fit offline yang dapat direproduksi dengan artefak
+berversi"; automated retraining and MLOps promotion stay out of scope.
+
+**Domain map.** The FRD does not split the twelve patterns into AML and
+Fraud; it only names one role for both ("AML/Fraud Analyst", FRD §4.1.3).
+This map is ours, proposed by the team and corrected against each pattern's
+FRD §8 logic. Every evaluation metric is reported separately per domain.
+
+| Domain | Patterns | Why |
+|---|---|---|
+| AML | P01, P02, P06, P07, P08, P12 | threshold, structuring, round-amount, value-step, geography and watchlist typologies |
+| Fraud | P04, P10, **ATO** (new) | velocity bursts, merchant misuse (P10 also has a transaction-laundering, i.e. AML, angle), account takeover |
+| Overlap (mule networks) | P03, P05, P09, P11 | pass-through, dormant accounts receiving funds, shared devices, funnels |
+
+Two moves from the team's first proposal, pending confirmation: **P03**
+(funds in and out within 24 h is the defining mule behaviour) and **P05**
+(generator 1.1.0 builds it as a dormant account receiving one large *credit*,
+which is a sleeper/mule shape; the fraud side of dormancy is covered by ATO).
+
+**ATO (account takeover) is a project extension, not one of the FRD's twelve
+patterns.** Dormancy, then a device never seen for that entity, then a burst of
+outgoing transactions. It is the Fraud use case, scored **per transaction**.
+Its label code and any reason code need ratification.
+
+**Fraud detection stops at an alert (NG-01).** A fraud score or a fraud alert
+never blocks, holds, reverses or declines a transaction; the platform has no
+write path to any payment system. "Live" fraud monitoring means scoring a
+transaction as it arrives and raising an alert for a human, nothing more.
+
+**Open items from this work:**
+- **RC-ML-01**: an alert raised by a model score (CF-05 option b) needs a
+  reason code, and the FRD catalogue (one code per pattern, §8.1–8.12) has
+  none for it. Proposed `RC-ML-01`. Needs ratification
+- **ATO label and reason code**: not in the FRD catalogue. Needs ratification
+- Language discipline still applies to fraud output: alert text describes what
+  was observed ("first use of a device never seen for this customer, after 137
+  days without activity"), never "fraud" as a conclusion (BR-406.2, NFR-16)
+
+### Generator 1.1.0 scenario artefacts (found 29 Sep, fix planned as 1.2.0)
+
+Comparing the transactions inside each labelled positive window with ordinary
+background traffic in the Full profile shows traces of *how* a scenario was
+built, not of the behaviour it represents. A model would learn them:
+
+| | background | P04 | P03 | P10 | P06 | P08 | P07 |
+|---|---|---|---|---|---|---|---|
+| transactions with no device | 5.5% | 98.6% | 87.8% | 86.5% | 80.1% | 73.0% | 69.2% |
+
+Scenario rows are emitted without the entity's device (background only lacks
+one 5% of the time, as a declared defect), and P03's inbound credit always
+lands at 09:xx. Static customer attributes, ID numbering, amount cents and time
+of day otherwise show no difference. Planned fix in generator 1.2.0: scenario
+rows use the entity's own device, and the non-quarantining defects (missing
+device, missing counterparty) apply to them at the declared rates.
 
 ### Spec inconsistency found while building
 
@@ -460,7 +533,15 @@ questions.
 **Current priority (mentor directive, 29 Sep): the ML pipeline.** "Dataset
 harus dalam bentuk enterprise, jadi butuh ribuan data. Data masuk model, lalu
 di-training. Kalau sudah, dites pakai dataset baru, lalu dikembangkan ke live
-monitoring." Plan under review before any code.
+monitoring." Plus a second directive: Fraud **and** AML must both be covered
+(see §8, "Mentor directives"). Revised plan under review before any code.
+
+**Must not be missed in the ML integration stage:** the app's `transaction`
+table does not carry `device_id`, `counterparty_country`, `transaction_type`
+or `merchant_id` (the bridge drops them). The Fraud side cannot score in the
+app without `device_id`, so extending the ingestion contract and the table is
+**mandatory** there, not optional. Adding LightGBM to the backend image also
+needs `libgomp1` in the Dockerfile (`python:3.11-slim` lacks it).
 
 **Rule as data — stages 1–2 done, stages 3–4 DEFERRED (29 Sep).** Done: the
 `rule` / `rule_version` / `simulation_result` tables with DB-enforced
