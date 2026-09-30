@@ -20,7 +20,7 @@ questions are unchanged — see `PROJECT_CONTEXT.md`.
 | NFRs proven by measurement | 3 of 18 | 17% |
 | TRD components | ~6 full + ~5 partial of 30 | ~25% |
 
-**391 backend tests pass** (5 more marked `slow`, all passing). Frontend typechecks and builds.
+**396 backend tests pass** (5 more marked `slow`, all passing). Frontend typechecks and builds.
 
 Pure FR counting gives ~10%; ~17% weights the foundation work already done.
 Neither document assigns effort weights, so the percentage is an estimate — the
@@ -52,6 +52,18 @@ Partial: FR-306, FR-309, FR-310, FR-1103, FR-808, FR-612.
 ---
 
 ## Built since the last progress report
+
+### 30 September — ML stage 3: evaluation on the unseen test seed
+
+`app/ml/evaluate.py`, report in `docs/ml/evaluation_v1.md`. LightGBM recall
+100% (AML, 529 labels) and 99% (Fraud, 155), but the FRD rules reach the same
+recall on this generator; the model's gain is precision (7 vs 231 look-alike
+labels flagged for AML, background 0.2 vs 28.8 entity-weeks a week). Left out
+of training, distinctive patterns are not found (P02, P06, P10, P04, P05
+0–13%): the models learn the typologies they are given. The Fraud model flags
+one control-clean entity on the test seed (fails T-DET-CONTROL-01); the AML
+model flags 389/390 P11 senders; the TRD's unsupervised anomaly score detects
+almost nothing (AP 0.04). Stage 4 waits for Jevon and the mentor.
 
 ### 30 September — ML stage 2: labels and training
 

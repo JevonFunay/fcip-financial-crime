@@ -588,6 +588,24 @@ triumph: stage 3 tests on the unseen seed and checks whether the models
 recognise behaviour or memorise the generator's recipes (leave-one-pattern-out,
 feature ablation).
 
+### ML evaluation (stage 3)
+
+```bash
+cd backend
+python -m app.ml.evaluate ml_data/test_full_s20261001 --train ml_data/train_full_s20260923 \
+    --markdown ../docs/ml/evaluation_v1.md      # ~3 min with the robustness retrainings
+```
+
+Scores the unseen test seed with the thresholds chosen in stage 2 (nothing is
+tuned on it) and writes [`docs/ml/evaluation_v1.md`](docs/ml/evaluation_v1.md):
+recall per INJECTED_POSITIVE label with 95% intervals against SM-05's 90%,
+false positives on look-alikes, boundary cases, control and background kept
+apart, the Fraud model's takeover latency and flags on ordinary phone changes,
+slices without history or baseline, each model's reach into the other's
+patterns, and two robustness experiments (each pattern left out of training;
+each pattern's own features removed). Every figure is synthetic (TRD §10.6,
+L-01).
+
 ### Loading it into the skeleton
 
 The skeleton models customers, accounts and transactions, and its ingestion

@@ -543,6 +543,49 @@ transaction as it arrives and raising an alert for a human, nothing more.
   was observed ("first use of a device never seen for this customer, after 137
   days without activity"), never "fraud" as a conclusion (BR-406.2, NFR-16)
 
+### ML stage 3 results (30 Sep) — input for the stage-4 decision
+
+Test seed 20261001, thresholds from stage 2's validation split, full report in
+`docs/ml/evaluation_v1.md`. Synthetic data only (TRD §10.6, L-01).
+
+| | AML model (529 positive labels) | Fraud model (155) |
+|---|---|---|
+| LightGBM recall / look-alike labels flagged / control entities flagged | **100%** / 7 of 417 / 0 | **99%** (P05 38/40) / 27 of 417 / **1 of 830** |
+| FRD default rules (offline) | 100% / 231 of 417 / 0 | 99% / 43 of 417 / 0 |
+| Logistic regression | 98% / 39 / 0 | 97% / 77 / 6 |
+| TRD §10.2 anomaly score | 12% / 59 / 0 | 3% / 14 / 0 |
+| Background load (LightGBM vs rules) | 0.2 vs 28.8 entity-weeks a week | 0.08 vs 0.34 per 1,000 transactions |
+
+What it means, honestly:
+- **Recall is at the ceiling for every scorer built from the scenario
+  definitions.** The FRD rules also reach 100%, because the generator builds
+  each positive to meet its FRD §8 definition, and the test seed uses the same
+  recipes. The model's measurable gain is **precision**: far fewer look-alikes
+  and background flags than the rules at the same recall
+- **Robustness: the models learn the typologies they are given, not
+  "suspiciousness" in general.** Left out of training, patterns with a
+  distinctive shape collapse (P02 11%, P06 0%, P10 0%, P04 13%, P05 0%, P03
+  42%, P11 49%); those that share behaviour with a taught one survive (P01,
+  P07, P08 100%, P09 96%, ATO 83% through P04/P05). Removing a pattern's own
+  features barely matters (redundant features), except P05 (95% → 80%)
+- **T-DET-CONTROL-01 fails for the Fraud model on the test seed**: one
+  control-clean entity is flagged (one 839k payment at 04:00 to a first-time
+  merchant, no device; score 0.29 vs threshold 0.18). Validation had flagged
+  none. A threshold above it would cost one P05 detection; not adopted, since
+  it would be tuning on the test set
+- **The AML model flags 389 of 390 P11 senders** (participants sharing the
+  funnel's device), left out of every count by the label policy. In the app
+  they would be alerts; whether they are true positives is a label decision
+- **The TRD's unsupervised FR-401 score barely detects anything here** (AP
+  0.04): most scenario entities are quiet and have no baseline (NO_BASELINE,
+  no score), and where it scores, deviation alone does not separate them
+- Rows without a baseline (AML 67–72%, Fraud 38–43%): the models still detect
+  there (AML 906/924 positive units flagged without a baseline, 9 of 100,638
+  negatives), because absolute features carry them; reported as a limitation
+  all the same. Under 30 days of history: 28/31 AML positive units flagged
+- The takeover is flagged on its first row in all 60 cases; 9 of 30 ATO
+  look-alikes are flagged too (dormancy + new phone is not enough to clear them)
+
 ### Generator 1.1.0 scenario artefacts (found 29 Sep, fix planned as 1.2.0)
 
 Comparing the transactions inside each labelled positive window with ordinary
@@ -748,7 +791,8 @@ monitoring." Plus a second directive: Fraud **and** AML must both be covered
 (see §8, "Mentor directives"). Plan approved 30 Sep, stages: 1a generator
 1.2.0 and 1.3.0 (**done 30 Sep**) · 1b feature library + leakage tests (**done 30 Sep**) ·
 generator 1.4.0, TRD §11.2 in full (**done 30 Sep**) · fs_v2 (**done 30 Sep**) · 2 labels +
-training (two models, **done 30 Sep**) · 3 evaluation per domain · 4 integration, whose target
+training (two models, **done 30 Sep**) · 3 evaluation per domain (**done 30 Sep**, results in §8;
+stage 4 waits for Jevon and the mentor) · 4 integration, whose target
 is **§13 "Konsep produk"**.
 
 **Must not be missed in the ML integration stage:** the app's `transaction`
