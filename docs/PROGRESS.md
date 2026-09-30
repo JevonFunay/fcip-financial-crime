@@ -20,7 +20,7 @@ questions are unchanged — see `PROJECT_CONTEXT.md`.
 | NFRs proven by measurement | 3 of 18 | 17% |
 | TRD components | ~6 full + ~5 partial of 30 | ~25% |
 
-**320 backend tests pass** (4 more marked `slow`, all passing). Frontend typechecks and builds.
+**347 backend tests pass** (5 more marked `slow`, all passing). Frontend typechecks and builds.
 
 Pure FR counting gives ~10%; ~17% weights the foundation work already done.
 Neither document assigns effort weights, so the percentage is an estimate — the
@@ -52,6 +52,22 @@ Partial: FR-306, FR-309, FR-310, FR-1103, FR-808, FR-612.
 ---
 
 ## Built since the last progress report
+
+### 30 September — ML feature library fs_v1 (stage 1b)
+
+The inputs of both models, in `backend/app/ml/`. **AML**: one row per entity
+and calendar week, 57 features (volume, P02 band incl. rolling 7-day clusters
+that straddle two weeks, pass-through, velocity, dormancy, round amounts, value
+spikes, geography, shared devices, merchant tickets, funnels, FR-401 baseline
+deviations, novelty, data availability). **Fraud**: one row per transaction,
+33 features (amount against the entity's own past, including a count-based
+baseline that survives a dormancy; velocity in 1h and 24h; first use of a
+device, counterparty or merchant; device tenure; dormancy gap). Parameters are
+locked with their FRD source. Tested: no ground-truth file is read, no
+identifier or smuggled column changes a value, no feature reads the future,
+one entity alone equals its batch rows, and the rows are exactly what
+ingestion accepts. Short history leaves baseline and novelty features empty
+rather than misleading. Full training profile: 197,903 + 396,788 rows in ~46 s.
 
 ### 30 September — generator 1.3.0: counterparties as TRD §11.2 describes them
 

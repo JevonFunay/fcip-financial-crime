@@ -103,7 +103,7 @@ percentage is an estimate — the counts underneath it are not.
 | NFRs proven by measurement | 3 of 18 | 17% |
 | TRD components | ~6 full + ~5 partial of 30 | ~25% |
 
-**320 backend tests pass** (4 more marked `slow`). Frontend has no automated
+**347 backend tests pass** (5 more marked `slow`). Frontend has no automated
 tests in the repo; it was verified with a scripted Playwright click-through.
 
 ### Per domain
@@ -153,13 +153,15 @@ backend/
     models/        15 SQLAlchemy models
     routers/       alerts, audit, auth, cases, detection, ingestion, overview, transactions
     schemas/       Pydantic request/response models
+    ml/            feature_set.py, loader.py, features.py, build_features.py (fs_v1)
+    reference/     geo_list_v1.csv (the organisation's configured list)
     services/      ingestion.py, audit.py, detection/p02_structuring.py,
                    detection/active_rules.py
     scripts/       seed.py, run_detection.py, generate_bulk_transactions.py,
                    generate_raw_dataset.py, raw_contract.py, load_raw_dataset.py,
                    audit_scenario_artefacts.py
   alembic/versions/  0001 … 0006
-  tests/             17 test modules, 320 passing
+  tests/             18 test modules, 347 passing
 frontend/src/
   api/           client.ts (token refresh), alerts, cases, data, audit, auth
   pages/         Login, Overview, AlertQueue, AlertDetail, CaseDetail, Audit
@@ -293,6 +295,30 @@ on both ML seeds: 45/45 positives, 0/30 look-alikes, 0/830 control, plus 15/18
 cross-pattern hits on entities labelled P07/P08, whose values fall inside P02's
 band, and no unlabelled hit.
 
+### ML feature library, fs_v1 (stage 1b, 30 Sep)
+`backend/app/ml/`: `feature_set.py` (registry, locked parameters with their
+source, rendered to `docs/ml/feature_set_fs_v1.md`), `loader.py`, `features.py`,
+`build_features.py`. Two units: **AML** one row per (entity, calendar week the
+entity transacted), **Fraud** one row per transaction, as of that transaction.
+`aml_features(history, as_of, context)` and `fraud_features(history, i,
+context)` work for a single entity, which is what live monitoring will call.
+
+- **No leakage, tested**: the loader reads only allow-listed files and
+  columns; deleting every ground-truth file, smuggling a scenario column into
+  the transactions, or renaming every identifier leaves every feature value
+  unchanged; no feature reads the future (and the test is shown to catch a
+  feature that does)
+- **Parity**: the loader applies ingestion's own validation, so the features
+  describe exactly the rows the upload endpoint stores (20,344 on Small, tested
+  against the real ingestion service); one entity built alone gets exactly its
+  batch features
+- **Short history is explicit**: a feature comparing with the entity's own past
+  is NaN below the FRD threshold that owns it (P01 20 transactions, P04 30
+  days, P07 6 weeks, FR-401 30 transactions over 30 days); novelty features
+  (new device, counterparty, merchant) are NaN under 30 days of history
+  (`min_history_days`)
+- Full training profile: 197,903 AML rows and 396,788 Fraud rows in ~46 s
+
 `app/scripts/load_raw_dataset.py` bridges it into the skeleton and **prints
 which columns it could not carry across** (merchant, device, IP, source status,
 business date, transaction type) — that gap is the distance to the full pipeline.
@@ -379,11 +405,13 @@ FRD's.
 | ID | Where the spec is silent | Our assumption | Status in code |
 |---|---|---|---|
 | AS-01 | ~~Rule severity vocabulary~~ | **Retracted 29 Sep, not an assumption.** FRD §8.0 defines the scale: "Skala tingkat keparahan: CRITICAL, HIGH, MEDIUM, LOW". The first search looked for "severity"; the FRD says "tingkat keparahan" | the `rule_severity` enum matches FRD §8.0 exactly; a test pins it |
+| AS-02 | The **floor on the standard deviation** in FR-401's z-score: TRD §10.2 writes `max(sd, floor)` without a value | one transaction (or counterparty) for count z-scores; 10% of the baseline mean for value z-scores | **implemented** in feature set fs_v1 (`z_sd_floor_*`) |
+| AS-03 | **`LOW_CONFIDENCE_BASELINE` threshold** (FR-401 E2: "batas atas yang dikonfigurasi", no value) | none invented: `BASELINE_CV` is exposed as a feature and the model uses it; the label threshold stays **open** | not a threshold in code |
 
 ### TRD §1.5 — conflicts still open
 
 - **CF-01** (tied to MQ-09): boundary between forbidden autonomous closure and permitted exact-duplicate suppression
-- **CF-05**: anomaly score must not raise an alert alone, but there is no anomaly rule among the twelve patterns. Proposed: anomaly stays a supporting signal. **The ML pipeline is built so both answers work** (see "Mentor directives" below): (a) the score is a supporting factor on rule alerts, or (b) a score above a threshold raises its own alert — as a rule with pattern `ML_SCORE`, seeded DRAFT, which matches FRD BR-401.2 ("unless an anomaly rule is explicitly configured and approved via §5.3"). Choosing (b) is a state change on that rule, not a code change. **Waiting for the mentor**
+- **CF-05**: anomaly score must not raise an alert alone, but there is no anomaly rule among the twelve patterns. Proposed: anomaly stays a supporting signal. **The ML pipeline is built so both answers work** (see "Mentor directives" below): (a) the score is a supporting factor on rule alerts, or (b) a score above a threshold raises its own alert — as a rule with pattern `ML_SCORE`, seeded DRAFT, which matches FRD BR-401.2 ("unless an anomaly rule is explicitly configured and approved via §5.3"). Choosing (b) is a state change on that rule, not a code change. **Direction from the mentor (30 Sep), awaiting written confirmation:** option **(b)**. The mentor's instruction to "categorise real and anomalous transactions and alert the admin" is read as a score raising its own alert, through the `ML_SCORE` rule configured and approved via §5.3 (BR-401.2), seeded with the same documented maker-checker bypass as RUL-0001. Option (a) stays as the explanation on the alert detail (the score and its top contributing features)
 
 ### Mentor directives, 29 September — ML pipeline, Fraud and AML
 
@@ -458,6 +486,20 @@ transaction as it arrives and raising an alert for a human, nothing more.
   reason code, and the FRD catalogue (one code per pattern, §8.1–8.12) has
   none for it. Proposed `RC-ML-01`. Needs ratification
 - **ATO label and reason code**: not in the FRD catalogue. Needs ratification
+- **`geo_list_v1`** (`backend/app/reference/geo_list_v1.csv`) is the
+  organisation's configured high-risk geography list, with the same standing
+  as P02's threshold: configuration, not derived from the countries any
+  scenario uses. The generator builds its P08 exposure against the same
+  organisational list, as it builds P02 against the threshold
+- **Labels for stage 2** (from building the features): a positive row is a
+  week, or a transaction, that contains the labelled entity's own scenario
+  rows (`label_transactions.csv`), not any week overlapping a label window
+  (P05's window spans its whole dormancy). Entities that took part in a
+  scenario without carrying its label (P11's senders) are excluded from both
+  training negatives and false-positive counts, and reported as a group of
+  their own
+- **Stage 3 reports a separate slice for customers with under 30 days of
+  history** (decided 30 Sep), so that blind spot is visible, not averaged away
 - Language discipline still applies to fraud output: alert text describes what
   was observed ("first use of a device never seen for this customer, after 137
   days without activity"), never "fraud" as a conclusion (BR-406.2, NFR-16)
@@ -492,6 +534,19 @@ happens in legitimate traffic; (3) the ATO scenario, 60 in Full; (4) 30 ATO
 look-alike edge cases; (5) `label_transactions.csv`, per-transaction ground
 truth for the Fraud evaluation. Tiny and Small are refreshed in the same
 commit (team rule).
+
+### Generator finding from the feature build (30 Sep, decision pending)
+
+TRD §11.2 says an ordinary business has a ticket size "konsisten dengan
+kategori". The generator draws every business's incoming amounts from one
+distribution whatever its merchant category, so on the full training profile
+**24.2% of ordinary business-weeks have an average ticket above 3x their
+declared band** (4.7% above 10x, 1.5% above 20x). 3x is FRD §8.10's
+TICKET_DEVIATION_MULTIPLE, so P10 at default parameters would fire on about a
+quarter of ordinary businesses. P10's positives sit at ~100x, so the features
+still separate them, but the negatives are wrong in a way the spec rules out.
+Same kind of deviation as the counterparties fixed in 1.3.0; fixing it before
+training avoids retraining.
 
 ### Spec inconsistency found while building
 
@@ -584,7 +639,7 @@ harus dalam bentuk enterprise, jadi butuh ribuan data. Data masuk model, lalu
 di-training. Kalau sudah, dites pakai dataset baru, lalu dikembangkan ke live
 monitoring." Plus a second directive: Fraud **and** AML must both be covered
 (see §8, "Mentor directives"). Plan approved 30 Sep, stages: 1a generator
-1.2.0 and 1.3.0 (**done 30 Sep**) · 1b feature library + leakage tests · 2 labels +
+1.2.0 and 1.3.0 (**done 30 Sep**) · 1b feature library + leakage tests (**done 30 Sep**) · 2 labels +
 training (two models) · 3 evaluation per domain · 4 integration, whose target
 is **§13 "Konsep produk"**.
 
@@ -708,7 +763,9 @@ With C the package path verifies the manifest first (checksums,
 `seeds.json`): the app must never see the answers, for the same reason the
 model may not. A Full-size package is too large for one synchronous request;
 the demo uploads a smaller one (Small, or a date slice), and the Full load
-stays a command-line path until a worker exists.
+stays a command-line path until a worker exists. **Decided 30 Sep: option C.**
+For the demo, Full is loaded by script; the on-screen package upload is for
+Small or new data. The other conflicts below are accepted as analysed.
 
 ### Mapped onto today's app (input for stage 4)
 
@@ -727,8 +784,9 @@ stays a command-line path until a worker exists.
    alert in the MVP (CF-05). Steps 4–6 as written are **CF-05 option (b)**:
    the `ML_SCORE` rule with reason code RC-ML-01 and, until FR-304 exists, the
    same documented maker-checker bypass as RUL-0001. Under option (a) the
-   list is rule alerts carrying the score as a factor. The mentor's CF-05
-   answer decides which
+   list is rule alerts carrying the score as a factor. **Direction (30 Sep):
+   option (b), with (a) as the explanation on the alert detail**; see CF-05 in
+   §8, awaiting the mentor's written confirmation
 2. **One front page for everyone meets RBAC.** Uploading is ROLE_DATA_OPS only
    (FRD §4.1.2; the permission matrix in §9); triage cannot upload. So the home
    screen is role-aware
@@ -740,7 +798,9 @@ stays a command-line path until a worker exists.
    breach, returned case, approval request). The mechanism is FR-610's (in-app
    only, BR-610.2; no unmasked identifiers, BR-610.1); the trigger is an
    extension, or comes for free if new alerts are auto-assigned (FR-603 →
-   FR-610 AC1)
+   FR-610 AC1). **Decided 30 Sep: the FR-603 route.** New alerts are
+   auto-assigned, and the assignment notification (an official FR-610 trigger)
+   tells the Triage Analyst; FR-610's triggers are not extended
 5. **Words on screen.** "Fraud" and "AML" are fine as the name of the
    monitoring function that raised a flag, but a flag is described by what was
    observed and carries FR-406's fixed caption that it is an observation, not

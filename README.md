@@ -444,6 +444,43 @@ and 8–14 positives per pattern, too few to trust. A different seed means new
 entities, amounts and timings from the **same** generator: the test measures
 generalisation to unseen data, not to unseen scenario recipes.
 
+### ML feature library (fs_v1)
+
+`backend/app/ml/` turns a dataset into the two models' inputs (TRD §9.2, C-04):
+
+```bash
+cd backend
+python -m app.ml.build_features ml_data/train_full_s20260923    # ~46 s at full
+python -m app.ml.build_features ml_data/test_full_s20261001
+```
+
+It writes `features_fs_v1/aml.parquet` (one row per entity and calendar week
+the entity transacted), `fraud.parquet` (one row per accepted transaction, as
+of that transaction) and `build.json` (provenance) next to the dataset, ignored
+by git like the dataset. Every feature, its window, its parameters and their
+source are in [`docs/ml/feature_set_fs_v1.md`](docs/ml/feature_set_fs_v1.md),
+rendered from `feature_set.py`. The parameters are locked in the feature set
+and not read from the rules: a rule change must not change a model's inputs
+silently.
+
+What the tests guarantee:
+
+- **The answers cannot reach a feature.** The loader reads only allow-listed
+  files and columns; deleting every ground-truth file, adding a scenario column
+  to the transactions, or renaming every identifier leaves every value
+  unchanged
+- **No feature reads the future**, and one entity scored alone gets exactly
+  what the batch gave it: `aml_features(history, as_of, context)` and
+  `fraud_features(history, i, context)` are the functions live monitoring will
+  call
+- **Same rows as the app**: the loader applies ingestion's own validation, so
+  the features describe exactly what the upload endpoint stores
+- **Short history is explicit.** A feature comparing with the entity's own past
+  is NaN (not zero) below the threshold the FRD sets for it, and novelty
+  features (a device, counterparty or merchant never seen before) are NaN under
+  30 days of history. A package of a few weeks therefore does not make every
+  payment look new
+
 ### Loading it into the skeleton
 
 The skeleton models customers, accounts and transactions, and its ingestion
