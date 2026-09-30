@@ -20,7 +20,7 @@ questions are unchanged — see `PROJECT_CONTEXT.md`.
 | NFRs proven by measurement | 3 of 18 | 17% |
 | TRD components | ~6 full + ~5 partial of 30 | ~25% |
 
-**314 backend tests pass** (4 more marked `slow`, all passing). Frontend typechecks and builds.
+**320 backend tests pass** (4 more marked `slow`, all passing). Frontend typechecks and builds.
 
 Pure FR counting gives ~10%; ~17% weights the foundation work already done.
 Neither document assigns effort weights, so the percentage is an estimate — the
@@ -52,6 +52,22 @@ Partial: FR-306, FR-309, FR-310, FR-1103, FR-808, FR-612.
 ---
 
 ## Built since the last progress report
+
+### 30 September — generator 1.3.0: counterparties as TRD §11.2 describes them
+
+1.2.0 still drew a fresh random counterparty for every row, against TRD §11.2
+("transfer ke sekumpulan counterparty kecil yang stabil" for retail, "basis
+pembayar yang luas" for business), so every payment went to someone new and
+the takeover signal "a recipient never paid before" meant nothing. Now retail
+customers pay 3–8 regulars and 4–10 usual merchants, businesses have a broad
+payer base, and a first-time counterparty stays ordinary: 25% of individual
+and 30% of business payments, against 100% for ATO. The audit gained that
+view and found three more recipe traces on the way (P05's dormancy erasing its
+own history, P09/P11 borrowing a bystander's device, P07 repeating one amount
+all week), all fixed. **0 flags on five seeds**; 1.1.0 has 38. ML datasets
+regenerated: training 405,945 transactions, test 407,088, 754 positive
+entities each. Small through the real API: 20,799 read, 20,344 accepted, 455
+quarantined; P02 2/2 positives, 0/2 look-alikes, 0/42 control.
 
 ### 30 September — generator 1.2.0: scenarios without recipe traces, ATO, ML datasets
 

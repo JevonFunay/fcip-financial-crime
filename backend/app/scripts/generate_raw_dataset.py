@@ -100,6 +100,18 @@ SHARED_HOUSEHOLD_DEVICES = 120
 # this customer" would only ever happen in an ATO scenario, and a model would
 # learn the scenario instead of the behaviour.
 DEVICE_CHANGE_SHARE = 0.15
+# TRD §11.2: ordinary retail customers "transfer ke sekumpulan counterparty
+# kecil yang stabil", businesses and merchants have "basis pembayar yang luas".
+# 1.2.0 drew a fresh random counterparty for every row, so every payment went
+# to someone new and "a recipient never paid before" could not tell an ATO
+# drain from ordinary life. Each party now has regulars; a share of payments
+# still goes to someone new, the way it does in real life, so a new recipient
+# is ordinary too, just rarer.
+RETAIL_REGULARS = (3, 8)            # stable counterparties per retail customer
+FAVOURITE_MERCHANTS = (4, 10)       # merchants a retail customer usually pays
+NEW_COUNTERPARTY_RATE = 0.10        # retail payments to someone new
+NEW_BECOMES_REGULAR = 0.25          # ...of which this share becomes a regular
+NEW_PAYER_RATE = 0.30               # a business's incoming payments from a first-time payer
 # FRD §8.5 DORMANCY_DAYS >= 90; the ATO dormancy is drawn from this range.
 ATO_DORMANCY_DAYS = (90, 150)
 # ATO look-alikes, cycled in this order: which of the three takeover signals
@@ -230,6 +242,12 @@ class Party:
     # An ordinary phone change: from switch_day on, mostly switch_device.
     switch_day: date | None = None
     switch_device: str | None = None
+    # TRD §11.2: regular counterparties (retail) or payer base (business), as
+    # (reference, name, first day in use), and a retail customer's usual
+    # merchants as (merchant, first day). A row may only use one already in
+    # use on its date, or it would make a later first appearance look old.
+    counterparties: list[tuple[str, str, date]] = field(default_factory=list)
+    merchants: list[tuple[str, date]] = field(default_factory=list)
 
 
 @dataclass
@@ -281,7 +299,8 @@ class RawDatasetGenerator:
         self.period_start = reference_date - timedelta(days=182)
         self.rng = {
             name: random.Random(_seed_for(seed, name))
-            for name in ("party", "account", "merchant", "device", "txn", "defect", "scenario", "watchlist", "cohort")
+            for name in ("party", "account", "merchant", "device", "txn", "defect", "scenario", "watchlist", "cohort",
+                         "counterparty")
         }
         self.counters = Counters()
         # Scenario placement state: see _take().
@@ -304,7 +323,9 @@ class RawDatasetGenerator:
         self._txn_seq = 0
         # The scenario whose rows _emit is currently writing (label_transactions).
         self._scenario: str | None = None
-        self._shareable_devices: list[str] = []
+        self._account_party: dict[str, Party] = {}
+        self._own_merchants: dict[str, list[str]] = {}
+        self._merchant_counterparty: dict[str, tuple[str, str]] = {}
         # Dormancy gaps carved once, after every scenario is placed: (accounts,
         # first business date, first business date after the gap).
         self._gaps: list[tuple[set[str], str, str]] = []
@@ -591,6 +612,7 @@ class RawDatasetGenerator:
                     "balance_snapshot_at": datetime.combine(self.reference_date, datetime.min.time(), JAKARTA).isoformat(),
                 })
                 party.accounts.append(account_id)
+                self._account_party[account_id] = party
 
     def build_merchants(self) -> None:
         rng = self.rng["merchant"]
@@ -603,6 +625,7 @@ class RawDatasetGenerator:
             settlement = next(
                 (a for a in self.parties[business_id].accounts), ""
             )
+            self._own_merchants.setdefault(business_id, []).append(f"MER-{i:05d}")
             self.merchants.append({
                 "source_merchant_id": f"MER-{i:05d}",
                 "source_business_id": business_id,
@@ -649,9 +672,6 @@ class RawDatasetGenerator:
         transacting = [p for p in self.parties.values() if p.accounts and p.cohort != "ER_TEST"]
         for party in transacting:
             party.devices.append(self._new_device(rng))
-        # P09 and P11 share a device already in circulation, never one that
-        # comes into use later (its first_seen would postdate that use).
-        self._shareable_devices = [d["source_device_id"] for d in self.devices]
         for _ in range(_scaled(SHARED_HOUSEHOLD_DEVICES, self.factor, 1) if transacting else 0):
             device = rng.choice(transacting).devices[0]
             for other in rng.sample(transacting, min(len(transacting), rng.randrange(1, 3))):
@@ -718,8 +738,14 @@ class RawDatasetGenerator:
         merchant_id: str = "",
         currency: str = "IDR",
         defects: str = "all",
+        counterparty: str = "usual",
     ) -> dict[str, Any]:
         rng = self.rng["defect"]
+        if counterparty_ref is None:
+            counterparty_ref, usual_name = self._counterparty_for(
+                account_id, merchant_id, counterparty, when.astimezone(JAKARTA).date()
+            )
+            counterparty_name = counterparty_name or usual_name
         row = {
             "source_transaction_reference": self._next_ref(),
             "source_account_id": account_id,
@@ -730,8 +756,8 @@ class RawDatasetGenerator:
             "business_date": when.astimezone(JAKARTA).date().isoformat(),
             "channel": channel,
             "transaction_type": transaction_type,
-            "counterparty_reference": counterparty_ref or f"EXT-{rng.randrange(10**6, 10**7 - 1)}",
-            "counterparty_name": counterparty_name or self._person_name(rng),
+            "counterparty_reference": counterparty_ref,
+            "counterparty_name": counterparty_name,
             "counterparty_country": counterparty_country,
             "source_merchant_id": merchant_id,
             "source_device_id": device_id or "",
@@ -794,6 +820,67 @@ class RawDatasetGenerator:
             )
         return row
 
+    def _one_off(self) -> tuple[str, str]:
+        """Someone this party has never paid or been paid by."""
+        rng = self.rng["counterparty"]
+        return f"EXT-{rng.randrange(10**6, 10**7 - 1)}", self._person_name(rng)
+
+    def _merchant_ref(self, merchant_id: str) -> tuple[str, str]:
+        """A merchant is one counterparty, the same for everyone who pays it."""
+        if merchant_id not in self._merchant_counterparty:
+            name = next((m["merchant_name"] for m in self.merchants if m["source_merchant_id"] == merchant_id), merchant_id)
+            ref, _ = self._one_off()
+            self._merchant_counterparty[merchant_id] = (ref, name)
+        return self._merchant_counterparty[merchant_id]
+
+    def _counterparty_for(self, account_id: str, merchant_id: str, mode: str, day: date) -> tuple[str, str]:
+        """TRD §11.2. `mode` "new" forces a first-time counterparty (ATO pays
+        recipients its victim never paid); "usual" follows the party's book as
+        it stood on `day`."""
+        party = self._account_party.get(account_id)
+        rng = self.rng["counterparty"]
+        if mode == "new" or party is None:
+            return self._one_off()
+        if mode != "usual":
+            raise ValueError(f"unknown counterparty mode {mode!r}")
+        in_use = [(ref, name) for ref, name, since in party.counterparties if since <= day]
+        if party.is_business or party.cohort == "BUSINESS_NORMAL":
+            # A broad payer base: most payments from payers seen before, a
+            # steady stream of first-time payers.
+            if not in_use or rng.random() < NEW_PAYER_RATE:
+                ref, name = self._one_off()
+                party.counterparties.append((ref, name, day))
+                return ref, name
+            return rng.choice(in_use)
+        if merchant_id:
+            return self._merchant_ref(merchant_id)
+        if not party.counterparties:
+            # The first time this customer pays anyone: its regulars exist from here on.
+            party.counterparties = [(*self._one_off(), day) for _ in range(rng.randint(*RETAIL_REGULARS))]
+            in_use = [(ref, name) for ref, name, _ in party.counterparties]
+        if not in_use or rng.random() < NEW_COUNTERPARTY_RATE:
+            ref, name = self._one_off()
+            if rng.random() < NEW_BECOMES_REGULAR:
+                party.counterparties.append((ref, name, day))
+            return ref, name
+        return rng.choice(in_use)
+
+    def _merchant_for(self, party: Party, day: date) -> str:
+        """A merchant this retail customer usually pays, now and then a new one."""
+        rng = self.rng["counterparty"]
+        if not self._merchant_ids:
+            return ""
+        if not party.merchants:
+            chosen = rng.sample(self._merchant_ids, min(len(self._merchant_ids), rng.randint(*FAVOURITE_MERCHANTS)))
+            party.merchants = [(merchant, day) for merchant in chosen]
+        usual = [merchant for merchant, since in party.merchants if since <= day]
+        if not usual or rng.random() < NEW_COUNTERPARTY_RATE:
+            merchant = rng.choice(self._merchant_ids)
+            if rng.random() < NEW_BECOMES_REGULAR and merchant not in {m for m, _ in party.merchants}:
+                party.merchants.append((merchant, day))
+            return merchant
+        return rng.choice(usual)
+
     def _day_weight(self, day: date) -> float:
         """Shape, not source (TRD §11.0.3): payday clustering around the 25th,
         a month-end tail, and quieter weekends."""
@@ -854,8 +941,11 @@ class RawDatasetGenerator:
             count = max(3, int(rng.gauss(per_party, per_party * 0.35)))
             if party.cohort == "CONTROL_CLEAN":
                 count = max(3, count // 2)
-            for _ in range(count):
-                self._emit_background(rng, party)
+            # In date order, so the counterparty book grows the way it would:
+            # a payer is new the first time it appears, not whenever it happened
+            # to be drawn.
+            for day in sorted(rng.choices(self._days, weights=self._day_weights, k=count)):
+                self._emit_background(rng, party, day)
             if party.cohort == "CONTROL_CLEAN":
                 # TRD §11.3 labels the control cohort too: an alert on any of
                 # these is a rule defect, so the test needs the entity list.
@@ -873,10 +963,11 @@ class RawDatasetGenerator:
 
         self._inject_exact_duplicates()
 
-    def _emit_background(self, rng: random.Random, party: Party) -> dict[str, Any]:
+    def _emit_background(self, rng: random.Random, party: Party, day: date | None = None) -> dict[str, Any]:
         """One row of ordinary behaviour for `party`, defects drawn at the
         declared rates. Shared by background traffic and calibration."""
-        day = rng.choices(self._days, weights=self._day_weights)[0]
+        if day is None:
+            day = rng.choices(self._days, weights=self._day_weights)[0]
         when = self._random_moment(rng, day)
         account = rng.choice(party.accounts)
         device = self._device_at(rng, party, day)
@@ -885,13 +976,16 @@ class RawDatasetGenerator:
         if party.is_business or party.cohort == "BUSINESS_NORMAL":
             amount = rng.lognormvariate(12.5, 1.1)
             channel, ttype = "PAYMENT", "MERCHANT_PAYMENT"
-            merchant = rng.choice(self._merchant_ids) if self._merchant_ids else ""
+            # A business takes payments through its own merchant; a sole
+            # trader has no merchant record, so any merchant stands in.
+            own = self._own_merchants.get(party.source_id)
+            merchant = rng.choice(own) if own else (rng.choice(self._merchant_ids) if self._merchant_ids else "")
             direction = "IN"
         else:
             amount = rng.lognormvariate(11.2, 1.2)
             channel, ttype = rng.choice((("QRIS", "MERCHANT_PAYMENT"), ("TRANSFER", "P2P_TRANSFER"),
                                          ("TOPUP", "WALLET_TOPUP"), ("PAYMENT", "BILL_PAYMENT")))
-            merchant = rng.choice(self._merchant_ids) if self._merchant_ids and ttype == "MERCHANT_PAYMENT" else ""
+            merchant = self._merchant_for(party, day) if ttype == "MERCHANT_PAYMENT" else ""
             direction = rng.choices(("OUT", "IN"), weights=(70, 30))[0]
         if party.cohort == "CONTROL_CLEAN":
             amount = min(amount, 120_000_000)
@@ -1251,7 +1345,7 @@ class RawDatasetGenerator:
             self._emit(account_id=rng.choice(party.accounts), when=self._random_moment(rng, day),
                        amount=rng.uniform(50_000, 2_500_000), direction="OUT", channel="QRIS",
                        transaction_type="MERCHANT_PAYMENT", device_id=self._device_at(rng, party, day),
-                       merchant_id=rng.choice(self._merchant_ids) if self._merchant_ids else "", defects="soft")
+                       merchant_id=self._merchant_for(party, day), defects="soft")
         self._label(scenario_id, "INJECTED_POSITIVE", "P04", party.source_id, start,
                     start + timedelta(days=3), "Transaction count far above the entity's own baseline")
 
@@ -1264,16 +1358,23 @@ class RawDatasetGenerator:
         # scenario is a gap in activity followed by something material.
         day = self._pick_day(rng, self.reference_date - timedelta(days=39), self.reference_date - timedelta(days=5))
         account = rng.choice(party.accounts)
+        # FRD §8.5 DORMANCY_DAYS >= 90, leaving at least 30 days of history in
+        # view (1.2.0's 150 days erased nearly all of it, so even a regular
+        # counterparty looked new).
+        quiet = self._quiet_days(rng, day)
+        gap_start = (day - timedelta(days=quiet)).isoformat()
         self.transactions = [
             t for t in self.transactions
-            if not (t["source_account_id"] == account
-                    and day - timedelta(days=150) <= date.fromisoformat(t["business_date"]) < day)
+            if not (t["source_account_id"] == account and gap_start <= t["business_date"] < day.isoformat())
         ]
+        # The credit's counterparty comes from the party's book like any other
+        # row's. That it often looks unfamiliar is what dormancy does inside a
+        # six-month window: the account's history before the gap is short.
         self._emit(account_id=account, when=self._random_moment(rng, day),
                    amount=rng.uniform(400_000_000, 1_500_000_000), direction="IN", channel="TRANSFER",
                    transaction_type="P2P_TRANSFER", device_id=self._device_at(rng, party, day), defects="soft")
         self._label(scenario_id, "INJECTED_POSITIVE", "P05", party.source_id,
-                    day - timedelta(days=150), day, "150 dormant days, then a material credit")
+                    day - timedelta(days=quiet), day, f"{quiet} dormant days, then a material credit")
 
     def _inject_p06(self, rng: random.Random, scenario_id: str) -> None:
         party = self._take(1, primary="INJECTED_CANDIDATE")
@@ -1302,8 +1403,10 @@ class RawDatasetGenerator:
             amount *= rng.uniform(2.0, 3.0)
             for _ in range(rng.randrange(2, 5)):
                 day = self._pick_day(rng, start + timedelta(days=week * 7), start + timedelta(days=week * 7 + 6))
+                # Around the week's level, not the same amount every time (1.2.0
+                # repeated one amount, a signal P07's definition does not have).
                 self._emit(account_id=rng.choice(party.accounts), when=self._random_moment(rng, day),
-                           amount=amount, direction="OUT", channel="TRANSFER",
+                           amount=amount * rng.uniform(0.9, 1.1), direction="OUT", channel="TRANSFER",
                            transaction_type="P2P_TRANSFER", device_id=self._device_at(rng, party, day),
                            defects="soft")
         self._label(scenario_id, "INJECTED_POSITIVE", "P07", party.source_id, start,
@@ -1316,21 +1419,28 @@ class RawDatasetGenerator:
         party = party[0]
         start = self._window_start(rng, 20)
         country = rng.choice(HIGH_RISK_COUNTRIES)
+        # A few beneficiaries abroad, paid repeatedly, not a new one each time.
+        beneficiaries = [self._one_off() for _ in range(rng.randrange(1, 4))]
         for _ in range(rng.randrange(8, 18)):
+            beneficiary_ref, beneficiary_name = rng.choice(beneficiaries)
             day = self._pick_day(rng, start, start + timedelta(days=19))
             self._emit(account_id=rng.choice(party.accounts), when=self._random_moment(rng, day),
                        amount=rng.uniform(80_000_000, 400_000_000), direction="OUT", channel="REMITTANCE",
                        transaction_type="INBOUND_REMITTANCE", counterparty_country=country,
+                       counterparty_ref=beneficiary_ref, counterparty_name=beneficiary_name,
                        device_id=self._device_at(rng, party, day), defects="soft")
         self._label(scenario_id, "INJECTED_POSITIVE", "P08", party.source_id, start,
                     start + timedelta(days=20), f"Exposure concentrated on listed geography {country}")
 
     def _inject_p09(self, rng: random.Random, scenario_id: str) -> None:
         parties = self._take(rng.randrange(4, 8), primary="INJECTED_CANDIDATE")
-        if len(parties) < 3 or not self._shareable_devices:
+        if len(parties) < 3:
             return
-        shared = rng.choice(self._shareable_devices)
         start = self._window_start(rng, 14)
+        # The ring's own device, first seen like any other device (well before
+        # the period). 1.2.0 borrowed an uninvolved customer's device, which
+        # made that customer look shared too.
+        shared = self._new_device(self.rng["device"])
         for party in parties:
             for _ in range(rng.randrange(3, 7)):
                 day = self._pick_day(rng, start, start + timedelta(days=13))
@@ -1366,12 +1476,13 @@ class RawDatasetGenerator:
     def _inject_p11(self, rng: random.Random, scenario_id: str) -> None:
         senders = self._take(rng.randrange(8, 16), primary="INJECTED_CANDIDATE")
         collector = self._take(1, primary="INJECTED_CANDIDATE")
-        if len(senders) < 5 or not collector or not self._shareable_devices:
+        if len(senders) < 5 or not collector:
             return
         collector = collector[0]
         target_account = rng.choice(collector.accounts)
-        shared_device = rng.choice(self._shareable_devices)
         start = self._window_start(rng, 5)
+        # The funnel's own device, as for P09.
+        shared_device = self._new_device(self.rng["device"])
         for sender in senders:
             day = self._pick_day(rng, start, start + timedelta(days=4))
             amount = rng.uniform(20_000_000, 90_000_000)
@@ -1430,6 +1541,8 @@ class RawDatasetGenerator:
         )
         span = spacing * count
         start = self._window_start(rng, span)
+        # The family abroad is one sender, every time.
+        family = self._one_off() if pattern == "P08" else None
         if pattern == "P04":
             # The note says payday; 1.1.0 started it on any day.
             start = next((start + timedelta(days=n) for n in range(31) if (start + timedelta(days=n)).day == 25), start)
@@ -1452,7 +1565,9 @@ class RawDatasetGenerator:
                 direction, ttype, country = "IN", "INBOUND_REMITTANCE", rng.choice(NORMAL_CORRIDORS)
             self._emit(account_id=rng.choice(party.accounts), when=self._random_moment(rng, day),
                        amount=amount, direction=direction, channel=channel, transaction_type=ttype,
-                       counterparty_country=country, device_id=self._device_at(rng, party, day), defects="soft")
+                       counterparty_country=country, device_id=self._device_at(rng, party, day),
+                       counterparty_ref=family[0] if family else None,
+                       counterparty_name=family[1] if family else "", defects="soft")
         self._label(scenario_id, "EDGE_CASE", pattern, party.source_id, start,
                     start + timedelta(days=span), note)
 
@@ -1489,6 +1604,7 @@ class RawDatasetGenerator:
         room = (day - self.period_start).days - 30
         return rng.randrange(ATO_DORMANCY_DAYS[0], max(ATO_DORMANCY_DAYS[0], min(ATO_DORMANCY_DAYS[1], room)) + 1)
 
+
     def _usual_amount(self, rng: random.Random, party: Party) -> float:
         """One of the party's own ordinary amounts, so a look-alike spends like
         its owner rather than like a scenario."""
@@ -1500,11 +1616,12 @@ class RawDatasetGenerator:
                          self._history.get(party.source_id, {}).get("all") or [1_000_000.0])
         return amounts[min(len(amounts) - 1, int(0.95 * len(amounts)))]
 
-    def _ordinary_payment(self, rng: random.Random) -> tuple[str, str, str]:
-        """(channel, transaction_type, merchant) for an everyday outgoing payment."""
+    def _ordinary_payment(self, rng: random.Random, party: Party, day: date) -> tuple[str, str, str]:
+        """(channel, transaction_type, merchant) for an everyday outgoing payment,
+        to the party's usual merchants and regulars."""
         channel, ttype = rng.choice((("QRIS", "MERCHANT_PAYMENT"), ("PAYMENT", "BILL_PAYMENT"),
                                      ("TRANSFER", "P2P_TRANSFER")))
-        merchant = rng.choice(self._merchant_ids) if ttype == "MERCHANT_PAYMENT" and self._merchant_ids else ""
+        merchant = self._merchant_for(party, day) if ttype == "MERCHANT_PAYMENT" else ""
         return channel, ttype, merchant
 
     def _inject_ato(self, rng: random.Random, scenario_id: str) -> None:
@@ -1524,14 +1641,22 @@ class RawDatasetGenerator:
         for last in moments:
             channel, ttype = rng.choices((("TRANSFER", "P2P_TRANSFER"), ("AGENT", "CASH_WITHDRAWAL"),
                                           ("QRIS", "MERCHANT_PAYMENT")), weights=(60, 25, 15))[0]
-            merchant = rng.choice(self._merchant_ids) if ttype == "MERCHANT_PAYMENT" and self._merchant_ids else ""
+            merchant = ""
+            if ttype == "MERCHANT_PAYMENT" and self._merchant_ids:
+                # A merchant the victim never used, if there is one.
+                used = {merchant for merchant, _ in party.merchants}
+                unused = [m for m in self._merchant_ids if m not in used]
+                merchant = rng.choice(unused or self._merchant_ids)
             amount = usual * rng.uniform(2.0, 8.0)
             if amount < 500_000:
                 # A floor for thin histories that does not land on a round number.
                 amount = 500_000 * rng.uniform(1.0, 1.6)
             self._emit(account_id=rng.choice(party.accounts), when=last,
                        amount=amount, direction="OUT", channel=channel,
-                       transaction_type=ttype, merchant_id=merchant, device_id=device, defects="soft")
+                       transaction_type=ttype, merchant_id=merchant, device_id=device, defects="soft",
+                       # A merchant is paid through its own reference; anyone
+                       # else is a recipient this customer never paid.
+                       counterparty="usual" if merchant else "new")
         hours = (moments[-1] - moments[0]).total_seconds() / 3600
         self._label(scenario_id, "INJECTED_POSITIVE", "ATO", party.source_id, takeover_day, takeover_day,
                     f"{quiet} quiet days, then {len(moments)} outgoing payments within {hours:.1f} h "
@@ -1565,7 +1690,7 @@ class RawDatasetGenerator:
             moments = self._burst(rng, day, rng.randrange(3, 7), spread_hours=10)
         last = moments[-1]
         for when in moments:
-            channel, ttype, merchant = self._ordinary_payment(rng)
+            channel, ttype, merchant = self._ordinary_payment(rng, party, when.date())
             self._emit(account_id=rng.choice(party.accounts), when=when, amount=self._usual_amount(rng, party),
                        direction="OUT", channel=channel, transaction_type=ttype, merchant_id=merchant,
                        device_id=device or self._device_at(rng, party, when.date()), defects="soft")
@@ -1758,7 +1883,7 @@ class RawDatasetGenerator:
             "P02": "3-5 deposits inside [350M, 500M) within 7 days, aggregate >= 500M",
             "P03": "A credit, then 94-99% of it out again within 1-5 hours",
             "P04": "40-90 payments over 3 days against a much lower baseline",
-            "P05": "150 days with no activity, then a credit of IDR 400M-1.5bn",
+            "P05": "90+ days with no activity on the account, then a credit of IDR 400M-1.5bn",
             "P06": "6-12 repetitions of one identical round amount within two weeks",
             "P07": "Weekly value stepping up 2-3x for five consecutive weeks",
             "P08": "8-18 remittances concentrated on one listed geography",
@@ -1793,6 +1918,14 @@ class RawDatasetGenerator:
             "",
             f"{DEVICE_CHANGE_SHARE:.0%} of individuals start using a new device part-way through the period, so a",
             "device never seen for a customer is common in legitimate traffic too.",
+            "",
+            "## Counterparties (TRD §11.2)",
+            "",
+            f"Retail customers pay {RETAIL_REGULARS[0]}-{RETAIL_REGULARS[1]} regular counterparties and "
+            f"{FAVOURITE_MERCHANTS[0]}-{FAVOURITE_MERCHANTS[1]} usual merchants; {NEW_COUNTERPARTY_RATE:.0%} of their",
+            f"payments go to someone new, and {NEW_BECOMES_REGULAR:.0%} of those become regulars. Businesses have a broad",
+            f"payer base, with {NEW_PAYER_RATE:.0%} of incoming payments from first-time payers. ATO pays only",
+            "recipients its victim never paid.",
             "",
             "## Per-transaction ground truth",
             "",

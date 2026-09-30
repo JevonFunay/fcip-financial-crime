@@ -5,7 +5,7 @@
   "files": [
     {
       "name": "customers.csv",
-      "sha256": "82ca6c100892dd660b6cbccfc2acb5b1cab77da5627ea47b496ce2e41dc768e1",
+      "sha256": "8f822f6f104d335b25a5c0706584430e5693111aaedea00a78473220bcfbfb13",
       "record_count": 100
     },
     {
@@ -30,13 +30,13 @@
     },
     {
       "name": "devices.csv",
-      "sha256": "90b66fc1f5cad33901e678db242a61ac2feef8b9654314c9c91d1cd03d7137fb",
-      "record_count": 118
+      "sha256": "6bee73da954a500aea77ac5af655fe5482b2484d43bbb39bbff669698ccc0646",
+      "record_count": 120
     },
     {
       "name": "transactions.csv",
-      "sha256": "aefec836044283a8ae0b1fefbf44cb75f14a8d383c47c45c1e896fb64ed750ee",
-      "record_count": 4351
+      "sha256": "51245185b632b8df82c53b7310548890933485a179583401ec75e6bef4973baa",
+      "record_count": 4449
     },
     {
       "name": "watchlist.csv",
@@ -44,9 +44,9 @@
       "record_count": 25
     }
   ],
-  "generated_at": "2026-09-30T01:27:41.177715+00:00",
+  "generated_at": "2026-09-30T02:45:52.585608+00:00",
   "synthetic_declaration": true,
-  "generator_version": "1.2.0",
+  "generator_version": "1.3.0",
   "profile": "tiny",
   "seed": 20260923
 }

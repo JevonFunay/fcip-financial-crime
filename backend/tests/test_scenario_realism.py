@@ -265,6 +265,102 @@ def test_only_a_few_devices_are_shared_outside_the_sharing_scenarios(world):
     assert shared <= 3 * max(1, round(SHARED_HOUSEHOLD_DEVICES * factor))
 
 
+# --- counterparties (TRD §11.2, generator 1.3.0) --------------------------------------------
+
+
+def _unlabelled(world):
+    labelled = {l["entity_source_id"] for l in world["labels"] if l["label_type"] != "CONTROL_CLEAN"}
+    return {e: rows for e, rows in world["by_entity"].items() if e not in labelled}
+
+
+def test_retail_customers_pay_a_small_stable_set_of_counterparties(world):
+    """TRD §11.2: "transfer ke sekumpulan counterparty kecil yang stabil"."""
+    shares = []
+    for entity, rows in _unlabelled(world).items():
+        refs = [r["counterparty_reference"] for r in rows
+                if not entity.startswith("BUS-") and r["transaction_type"] in ("P2P_TRANSFER", "BILL_PAYMENT", "WALLET_TOPUP")
+                and r["counterparty_reference"]]
+        if len(refs) >= 15:
+            top = sum(count for _, count in Counter(refs).most_common(8))
+            shares.append(top / len(refs))
+    shares.sort()
+
+    assert shares, "no retail customer with enough payments to judge"
+    assert shares[len(shares) // 2] >= 0.6  # most of a customer's payments go to its regulars
+
+
+def test_businesses_have_a_broad_payer_base(world):
+    """TRD §11.2: "basis pembayar yang luas"."""
+    ratios = []
+    for entity, rows in _unlabelled(world).items():
+        refs = [r["counterparty_reference"] for r in rows if entity.startswith("BUS-") and r["counterparty_reference"]]
+        if len(refs) >= 10:
+            ratios.append(len(set(refs)) / len(refs))
+    ratios.sort()
+
+    assert ratios and ratios[len(ratios) // 2] >= 0.25
+
+
+def test_a_first_time_counterparty_is_ordinary_in_background(world):
+    """So "a recipient never paid before" is not a signature of ATO alone,
+    the same logic as ordinary phone changes."""
+    burn_in = datetime.combine(REFERENCE_DATE - timedelta(days=182 - 60), datetime.min.time()).astimezone()
+    scenario_refs = {r["source_transaction_reference"] for rows in world["rows_of"].values() for r in rows}
+    new = total = 0
+    for entity, rows in world["by_entity"].items():
+        if entity.startswith("BUS-"):
+            continue
+        seen = set()
+        for when, row in sorted(_parseable(rows), key=lambda t: t[0]):
+            ref = row["counterparty_reference"]
+            if not ref:
+                continue
+            if when >= burn_in and row["source_transaction_reference"] not in scenario_refs:
+                total += 1
+                new += ref not in seen
+            seen.add(ref)
+
+    assert 0.10 <= new / total <= 0.40
+
+
+def test_ato_pays_only_recipients_its_victim_never_paid(world):
+    for label in _ato_labels(world, "INJECTED_POSITIVE"):
+        rows = sorted(_parseable(world["rows_of"][label["scenario_id"]]), key=lambda t: t[0])
+        before = {row["counterparty_reference"] for _, row in _history_before(world, label["entity_source_id"], rows[0][0])}
+        paid = {row["counterparty_reference"] for _, row in rows if row["counterparty_reference"]}
+
+        assert paid and not (paid & before), label["scenario_id"]
+
+
+def test_p05_leaves_history_before_its_dormancy(world):
+    """FRD §8.5 DORMANCY_DAYS >= 90, with history in view before the gap."""
+    for label in world["labels"]:
+        if label["pattern_code"] != "P05" or label["label_type"] != "INJECTED_POSITIVE":
+            continue
+        start, end = date.fromisoformat(label["window_start"]), date.fromisoformat(label["window_end"])
+        [credit] = world["rows_of"][label["scenario_id"]]
+        quiet = [r for r in world["by_entity"][label["entity_source_id"]]
+                 if r["source_account_id"] == credit["source_account_id"]
+                 and start.isoformat() <= r["business_date"] < end.isoformat()]
+        history = [r for r in world["by_entity"][label["entity_source_id"]] if r["business_date"] < start.isoformat()]
+
+        assert (end - start).days >= 90 and quiet == [] and history, label["scenario_id"]
+
+
+def test_a_ring_shares_its_own_device_not_a_bystanders(world):
+    """P09 and P11 use a device of their own; 1.2.0 borrowed an uninvolved
+    customer's, which made that customer look shared."""
+    scenario_refs = {r["source_transaction_reference"] for rows in world["rows_of"].values() for r in rows}
+    for scenario_id, rows in world["rows_of"].items():
+        if not scenario_id.startswith(("P09-POS-", "P11-POS-")):
+            continue
+        devices = Counter(r["source_device_id"] for r in rows if r["source_device_id"])
+        shared = devices.most_common(1)[0][0]
+        outside = [r for r in world["transactions"]
+                   if r["source_device_id"] == shared and r["source_transaction_reference"] not in scenario_refs]
+        assert outside == [], scenario_id
+
+
 # --- look-alikes now match their notes ----------------------------------------------------
 
 

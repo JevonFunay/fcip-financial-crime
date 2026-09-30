@@ -62,25 +62,41 @@ DEFINING: dict[tuple[str, str], frozenset[str]] = {
     ("P08", "look-alike"): frozenset({"counterparty_country"}),  # cross-border support
     ("P04", "look-alike"): frozenset({"payday"}),  # payroll on payday
     ("P09", "positive"): frozenset({"device_shared"}),
-    ("P11", "positive"): frozenset({"device_shared", "counterparty_kind"}),
-    ("ATO", "positive"): frozenset({"device_recently_first_seen"}),
-    # One look-alike kind is "a new phone on payday", so payday is its story.
-    ("ATO", "look-alike"): frozenset({"device_recently_first_seen", "payday"}),
+    # A takeover pays recipients its victim never paid; a funnel's senders
+    # converge on a collector they never paid before.
+    ("ATO", "positive"): frozenset({"device_recently_first_seen", "counterparty_new_for_entity"}),
+    ("P11", "positive"): frozenset({"device_shared", "counterparty_kind", "counterparty_new_for_entity"}),
+    # A consequence of dormancy, not a recipe choice: after 90+ quiet days in
+    # a six-month window, little of the account's history is left to show its
+    # counterparties, so the reactivating credit's counterparty often looks new.
+    ("P05", "positive"): frozenset({"counterparty_new_for_entity"}),
+    # One look-alike kind is "a new phone on payday", so payday is its story;
+    # the other two come back from dormancy, with the same consequence for
+    # counterparties as P05 (and the same as a real takeover, so it does not
+    # tell the two apart).
+    ("ATO", "look-alike"): frozenset({"device_recently_first_seen", "payday", "counterparty_new_for_entity"}),
 }
 # Views that describe the device rather than the row. Rows of one scenario
 # share their device, so these are judged on the number of distinct devices,
 # not rows: 150 rows from 25 phones are 25 observations of a device type.
+# The attribute views are also *counted* per device (each device once, in the
+# group and in background), so an active tablet owner does not weigh as ten.
 DEVICE_VIEWS = frozenset({"device_type", "device_emulator", "device_rooted", "device_shared",
                           "device_recently_first_seen"})
+PER_DEVICE_VIEWS = frozenset({"device_type", "device_emulator", "device_rooted", "device_shared"})
 # Likewise the rows of one scenario share their dates and cluster in time: a
-# burst of ten payments on one afternoon is one observation of a weekday, and
-# the eight dates of a fixed-cadence sequence all follow from its first. Day
-# views count distinct entities (one scenario each); hour counts distinct
-# (entity, date, hour). A per-pattern group is then judged conservatively,
+# burst of ten payments on one afternoon is one observation of a weekday, the
+# eight dates of a fixed-cadence sequence all follow from its first, and the
+# senders of one funnel share its window. Day views count distinct scenarios;
+# hour counts distinct (entity, date, hour). A per-pattern group is then judged conservatively,
 # while the pooled groups, with hundreds of scenarios, still catch a
 # systematic date difference (1.1.0's scenarios avoided paydays).
 DAY_VIEWS = frozenset({"weekday", "payday"})
 KIND_MARKERS = (("-POS-", "positive"), ("-EDGE-", "look-alike"), ("-BOUND-", "boundary"))
+# Early in the period every regular counterparty is "new" only because there
+# is no history yet; the counterparty view ignores that burn-in. Scenarios all
+# start after it (the generator leaves 60 days of baseline).
+COUNTERPARTY_BURN_IN_DAYS = 60
 
 
 def defining_views(pattern: str, kind: str) -> frozenset[str]:
@@ -154,20 +170,38 @@ class AuditResult:
 
 
 class _Context:
-    """Lookups the views need: device facts and who uses each device."""
+    """Lookups the views need: device facts, who uses each device, and which
+    rows are an entity's first payment to or from a counterparty."""
 
     def __init__(self, dataset: Path, transactions: list[dict[str, str]]) -> None:
         self.owner = {a["source_account_id"]: a["owner_source_id"] for a in _read(dataset / "accounts.csv")}
         self.devices = {d["source_device_id"]: d for d in _read(dataset / "devices.csv")}
         users: dict[str, set[str]] = defaultdict(set)
-        for row in transactions:
+        timeline: dict[str, list[tuple[datetime, int]]] = defaultdict(list)
+        for i, row in enumerate(transactions):
             owner = self.owner.get(row["source_account_id"])
             if row["source_device_id"] and owner:
                 users[row["source_device_id"]].add(owner)
+            when = _parse_datetime(row["value_datetime"])
+            if owner and when is not None and row["counterparty_reference"]:
+                timeline[owner].append((when, i))
         self.device_users = {device: len(owners) for device, owners in users.items()}
+        report = dataset / "generation_report.json"
+        start = json.loads(report.read_text()).get("period_start") if report.exists() else None
+        burn_in_end = (datetime.fromisoformat(start).replace(tzinfo=JAKARTA) + timedelta(days=COUNTERPARTY_BURN_IN_DAYS)
+                       if start else None)
+        # Row index -> "new" / "seen", after the burn-in only.
+        self.counterparty_new: dict[int, str] = {}
+        for rows in timeline.values():
+            seen: set[str] = set()
+            for when, i in sorted(rows):
+                ref = transactions[i]["counterparty_reference"]
+                if burn_in_end is None or when >= burn_in_end:
+                    self.counterparty_new[i] = "seen" if ref in seen else "new"
+                seen.add(ref)
 
 
-def _views(ctx: _Context) -> dict[str, Callable[[dict[str, str]], str]]:
+def _views(ctx: _Context) -> dict[str, Callable[[int, dict[str, str]], str | None]]:
     def hour(r):
         when = _parse_datetime(r["value_datetime"])
         return f"{when.hour:02d}" if when else "unparseable"
@@ -243,7 +277,7 @@ def _views(ctx: _Context) -> dict[str, Callable[[dict[str, str]], str]]:
     def ip_range(r):
         return ".".join(r["ip_address"].split(".")[:3]) if r["ip_address"] else "missing"
 
-    return {
+    views = {
         "hour": hour,
         "weekday": weekday,
         "payday": payday,
@@ -270,6 +304,9 @@ def _views(ctx: _Context) -> dict[str, Callable[[dict[str, str]], str]]:
         "ip_range": ip_range,
         "status_from_source": lambda r: r["status_from_source"],
     }
+    wrapped = {name: (lambda view: lambda i, r: view(r))(view) for name, view in views.items()}
+    wrapped["counterparty_new_for_entity"] = lambda i, r: ctx.counterparty_new.get(i)
+    return wrapped
 
 
 def _attribute(dataset: Path, transactions: list[dict[str, str]], owner: dict[str, str]) -> tuple[dict[int, str], str]:
@@ -325,32 +362,59 @@ def audit(dataset: Path) -> AuditResult:
     attributed, attribution = _attribute(dataset, transactions, ctx.owner)
     views = _views(ctx)
 
-    background_counts = {name: Counter() for name in views}
+    # Background is kept per stratum (rows owned by a business, rows owned by
+    # an individual), and each group is compared with the mix of strata its
+    # own rows have: a merchant scenario is judged against merchants, not
+    # against a background that is mostly retail.
+    background_counts = {stratum: {name: Counter() for name in views} for stratum in ("business", "individual")}
+    group_strata: dict[str, Counter[str]] = defaultdict(Counter)
     group_counts: dict[str, dict[str, Counter[str]]] = defaultdict(lambda: {name: Counter() for name in views})
     group_devices: dict[str, set[str]] = defaultdict(set)
-    group_entities: dict[str, set[str]] = defaultdict(set)
+    group_scenarios: dict[str, set[str]] = defaultdict(set)
+    counted_devices: dict[str, set[str]] = defaultdict(set)  # per-device views: group/stratum -> devices counted
     group_hours: dict[str, set[tuple[str, str, str]]] = defaultdict(set)
     group_meta: dict[str, tuple[str, str]] = {}
     for i, row in enumerate(transactions):
         scenario_id = attributed.get(i)
-        values = {name: value for name, view in views.items() if (value := view(row)) is not None}
+        values = {name: value for name, view in views.items() if (value := view(i, row)) is not None}
+        stratum = "business" if ctx.owner.get(row["source_account_id"], "").startswith("BUS-") else "individual"
+        device = row["source_device_id"]
         if scenario_id is None:
+            first_sighting = device and device not in counted_devices[f"bg:{stratum}"]
+            if first_sighting:
+                counted_devices[f"bg:{stratum}"].add(device)
             for name, value in values.items():
-                background_counts[name][value] += 1
+                if name in PER_DEVICE_VIEWS and not first_sighting:
+                    continue
+                background_counts[stratum][name][value] += 1
             continue
         pattern = labels[scenario_id]["pattern_code"] if scenario_id in labels else scenario_id.split("-", 1)[0]
         kind = _kind(scenario_id) or "other"
         for key in (f"{pattern} {kind}", f"all {kind}s"):
             group_meta[key] = (pattern if not key.startswith("all ") else "ALL", kind)
-            if row["source_device_id"]:
-                group_devices[key].add(row["source_device_id"])
+            group_strata[key][stratum] += 1
+            first_sighting = device and device not in group_devices[key]
+            if device:
+                group_devices[key].add(device)
             entity = ctx.owner.get(row["source_account_id"], "")
-            group_entities[key].add(entity)
+            group_scenarios[key].add(scenario_id)
             group_hours[key].add((entity, row["business_date"], values.get("hour", "")))
             for name, value in values.items():
+                if name in PER_DEVICE_VIEWS and not first_sighting:
+                    continue
                 group_counts[key][name][value] += 1
 
-    background = {name: _distribution(counts) for name, counts in background_counts.items()}
+    strata = {stratum: {name: _distribution(counts) for name, counts in by_view.items()}
+              for stratum, by_view in background_counts.items()}
+
+    def background_for(key: str, name: str) -> dict[str, float]:
+        mix = group_strata[key]
+        total = sum(mix.values())
+        blended: dict[str, float] = defaultdict(float)
+        for stratum, count in mix.items():
+            for category, share in strata[stratum][name].items():
+                blended[category] += share * count / total
+        return dict(blended)
     # A pooled group mixes patterns, so only the views no pattern may change are judged there.
     never_defining = set(views) - BEHAVIOUR - ROUNDNESS - {v for vs in DEFINING.values() for v in vs}
 
@@ -368,19 +432,19 @@ def audit(dataset: Path) -> AuditResult:
             if name in DEVICE_VIEWS:
                 effective = min(applicable, len(group_devices[key]))
             elif name in DAY_VIEWS:
-                effective = min(applicable, len(group_entities[key]))
+                effective = min(applicable, len(group_scenarios[key]))
             elif name == "hour":
                 effective = min(applicable, len(group_hours[key]))
             else:
                 effective = applicable
-            tvd, noise, top = _compare(group_counts[key][name], background[name], effective)
+            tvd, noise, top = _compare(group_counts[key][name], background_for(key, name), effective)
             flagged = judged and effective >= MIN_ROWS and not defining and tvd > noise + MARGIN
             results.append(ViewResult(name, round(tvd, 4), round(noise, 4), defining, flagged, top))
         groups.append(GroupResult(key, pattern, kind, n, judged, results))
 
     manifest = json.loads((dataset / "manifest.json").read_text())
-    return AuditResult(str(dataset), manifest.get("generator_version", "?"), attribution,
-                       sum(background_counts["direction"].values()), groups)
+    background_rows = sum(sum(by_view["direction"].values()) for by_view in background_counts.values())
+    return AuditResult(str(dataset), manifest.get("generator_version", "?"), attribution, background_rows, groups)
 
 
 def to_markdown(result: AuditResult) -> str:

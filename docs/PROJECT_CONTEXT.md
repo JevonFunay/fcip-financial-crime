@@ -103,7 +103,7 @@ percentage is an estimate — the counts underneath it are not.
 | NFRs proven by measurement | 3 of 18 | 17% |
 | TRD components | ~6 full + ~5 partial of 30 | ~25% |
 
-**314 backend tests pass** (4 more marked `slow`). Frontend has no automated
+**320 backend tests pass** (4 more marked `slow`). Frontend has no automated
 tests in the repo; it was verified with a scripted Playwright click-through.
 
 ### Per domain
@@ -159,7 +159,7 @@ backend/
                    generate_raw_dataset.py, raw_contract.py, load_raw_dataset.py,
                    audit_scenario_artefacts.py
   alembic/versions/  0001 … 0006
-  tests/             17 test modules, 314 passing
+  tests/             17 test modules, 320 passing
 frontend/src/
   api/           client.ts (token refresh), alerts, cases, data, audit, auth
   pages/         Login, Overview, AlertQueue, AlertDetail, CaseDetail, Audit
@@ -255,18 +255,21 @@ Files: `customers.csv` (20 cols), `business_customers.csv` (16), `beneficial_own
 `label_transactions.csv` (per-row ground truth, since 1.2.0),
 `data_dictionary.md`, `scenario_catalogue.md`, `generation_report.json`, `seeds.json`.
 
-Profiles: `tiny` 1% (CI), `small` 5% (default), `full` 100% (~404k transactions in 6s).
-All volumes land inside TRD §11.1 targets. Generator version **1.2.0** (TRD §11.7:
+Profiles: `tiny` 1% (CI), `small` 5% (default), `full` 100% (~406k transactions in 6s).
+All volumes land inside TRD §11.1 targets. Generator version **1.3.0** (TRD §11.7:
 bumped whenever the same seed would produce different bytes).
 
 **1.2.0 (30 Sep) removed the scenario artefacts** (§8): an automatic audit
 (`audit_scenario_artefacts.py`) compares every raw column between scenario and
-background rows; 1.1.0 had 36 flags, 1.2.0 has 0 on five seeds. It also added
-the **ATO** scenario (60 + 30 look-alikes at full), ordinary phone changes, a
-device of its own for every party with ~120 shared (TRD §11.1), and
-`label_transactions.csv`. ML datasets: training = full, seed 20260923 (403,557
-transactions, 749 positive entities); test = full, seed 20261001 (407,812,
-744); not committed, commands in the README.
+background rows. It also added the **ATO** scenario (60 + 30 look-alikes at
+full), ordinary phone changes, a device of its own for every party with ~120
+shared (TRD §11.1), and `label_transactions.csv`. **1.3.0 (30 Sep)** gave every
+party the counterparties TRD §11.2 describes (a small stable set for retail, a
+broad payer base for business) instead of a random one per row: a first-time
+counterparty is 25% of individual and 30% of business payments, 100% of ATO's.
+Audit: 1.1.0 has 38 flags, 1.3.0 has 0 on five seeds. ML datasets: training =
+full, seed 20260923 (405,945 transactions, 754 positive entities); test = full,
+seed 20261001 (407,088, 754); not committed, commands in the README.
 
 **Custom scale:** `--target-transactions N` (min 20,000) derives every volume
 from N by the full profile's ratio, calibrates the row count to exactly N using
@@ -282,13 +285,13 @@ Key properties:
 - **Deliberately defective** — 12 defect types at controlled rates (TRD §11.4)
 - **ER population** — 5 constructions per TRD §11.5, each stating what resolution must do
 
-Measured on the shared `Small` (1.2.0) through the real API: 20,541 rows read,
-20,086 accepted, 455 quarantined across every defect type. P02 raises 3
-alerts: **2/2** injected positives, **0/2** labelled look-alikes, **nothing** on
-the 42-entity control cohort (FRD §8.14), plus one cross-pattern hit on a P07
-entity. On `full` (1.2.0), checked offline on both ML seeds: 45/45 positives,
-0/30 look-alikes, 0/830 control, plus 14/16 cross-pattern hits on entities
-labelled P07/P08, whose values fall inside P02's band, and no unlabelled hit.
+Measured on the shared `Small` (1.3.0) through the real API: 20,799 rows read,
+20,344 accepted, 455 quarantined across every defect type. P02 raises exactly
+2 alerts: **2/2** injected positives, **0/2** labelled look-alikes, **nothing**
+on the 42-entity control cohort (FRD §8.14). On `full` (1.3.0), checked offline
+on both ML seeds: 45/45 positives, 0/30 look-alikes, 0/830 control, plus 15/18
+cross-pattern hits on entities labelled P07/P08, whose values fall inside P02's
+band, and no unlabelled hit.
 
 `app/scripts/load_raw_dataset.py` bridges it into the skeleton and **prints
 which columns it could not carry across** (merchant, device, IP, source status,
@@ -581,7 +584,7 @@ harus dalam bentuk enterprise, jadi butuh ribuan data. Data masuk model, lalu
 di-training. Kalau sudah, dites pakai dataset baru, lalu dikembangkan ke live
 monitoring." Plus a second directive: Fraud **and** AML must both be covered
 (see §8, "Mentor directives"). Plan approved 30 Sep, stages: 1a generator
-1.2.0 (**done 30 Sep**) · 1b feature library + leakage tests · 2 labels +
+1.2.0 and 1.3.0 (**done 30 Sep**) · 1b feature library + leakage tests · 2 labels +
 training (two models) · 3 evaluation per domain · 4 integration, whose target
 is **§13 "Konsep produk"**.
 

@@ -267,5 +267,7 @@ CONTRACT_VERSION = "1"
 # bytes — 1.1.0 is the §11.2 population fix, whose output 1.0.0 also claimed.
 # 1.2.0 removes the scenario artefacts (scenario rows now carry the entity's
 # own device and the non-quarantining defects), adds ordinary device changes,
-# the ATO scenario with its look-alikes, and label_transactions.csv.
-GENERATOR_VERSION = "1.2.0"
+# the ATO scenario with its look-alikes, and label_transactions.csv. 1.3.0
+# gives every party the counterparties TRD §11.2 describes (a small stable set
+# for retail, a broad payer base for business) instead of a random one per row.
+GENERATOR_VERSION = "1.3.0"

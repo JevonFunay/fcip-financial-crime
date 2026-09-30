@@ -9,7 +9,7 @@ Profile `tiny`, seed `20260923`. Every row below has matching rows in
 | `P02` | Structuring below the reporting threshold | 3-5 deposits inside [350M, 500M) within 7 days, aggregate >= 500M | `P02_STRUCTURING_BELOW_THE_REPORTING_THRESHOLD` | 1 positive, 2 edge |
 | `P03` | Same-day pass-through | A credit, then 94-99% of it out again within 1-5 hours | `P03_SAME-DAY_PASS-THROUGH` | 1 positive, 2 edge |
 | `P04` | Transaction count spike against baseline | 40-90 payments over 3 days against a much lower baseline | `P04_TRANSACTION_COUNT_SPIKE_AGAINST_BASELINE` | 1 positive, 2 edge |
-| `P05` | Dormant account reactivation | 150 days with no activity, then a credit of IDR 400M-1.5bn | `P05_DORMANT_ACCOUNT_REACTIVATION` | 1 positive, 2 edge |
+| `P05` | Dormant account reactivation | 90+ days with no activity on the account, then a credit of IDR 400M-1.5bn | `P05_DORMANT_ACCOUNT_REACTIVATION` | 1 positive, 2 edge |
 | `P06` | Uniform round amounts | 6-12 repetitions of one identical round amount within two weeks | `P06_UNIFORM_ROUND_AMOUNTS` | 1 positive, 2 edge |
 | `P07` | Stepped weekly value increase | Weekly value stepping up 2-3x for five consecutive weeks | `P07_STEPPED_WEEKLY_VALUE_INCREASE` | 1 positive, 2 edge |
 | `P08` | Concentrated high-risk geography exposure | 8-18 remittances concentrated on one listed geography | `P08_CONCENTRATED_HIGH-RISK_GEOGRAPHY_EXPOSURE` | 1 positive, 2 edge |
@@ -34,6 +34,13 @@ never all three, so a detector that keys on any single signal pays for it in fal
 
 15% of individuals start using a new device part-way through the period, so a
 device never seen for a customer is common in legitimate traffic too.
+
+## Counterparties (TRD §11.2)
+
+Retail customers pay 3-8 regular counterparties and 4-10 usual merchants; 10% of their
+payments go to someone new, and 25% of those become regulars. Businesses have a broad
+payer base, with 30% of incoming payments from first-time payers. ATO pays only
+recipients its victim never paid.
 
 ## Per-transaction ground truth
 

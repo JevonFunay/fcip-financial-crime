@@ -236,9 +236,9 @@ docker compose exec backend python -m app.scripts.generate_raw_dataset --profile
 
 | Profile | Scale | Use | Transactions |
 |---|---|---|---|
-| `tiny` | 1% | CI | ~4,350 |
-| `small` | 5% | local development (default) | ~20,500 |
-| `full` | 100% | integration, final demo, ML training and test | ~404,000 |
+| `tiny` | 1% | CI | ~4,450 |
+| `small` | 5% | local development (default) | ~20,800 |
+| `full` | 100% | integration, final demo, ML training and test | ~406,000 |
 
 ### Custom scale
 
@@ -346,7 +346,7 @@ what resolution must do with it — must auto-merge, must not auto-merge, must
 force `PENDING_REVIEW` with `IDENTIFIER_CONFLICT`, or must land in the
 0.75–0.95 manual review band.
 
-### Generator 1.2.0: scenarios without recipe traces
+### Generator 1.2.0 and 1.3.0: scenarios without recipe traces
 
 A scenario should differ from ordinary traffic **only in the behaviour it
 represents**. Anything else is a trace of how the generator built it, and a
@@ -364,10 +364,10 @@ python -m app.scripts.audit_scenario_artefacts <dir> --markdown audit.md --json 
 
 | Full profile | Flags | Main findings |
 |---|---|---|
-| **1.1.0**, seed 20260923 | **36** | Scenario rows without a device in 33 groups (all positives 59.2% vs 5.0% in background; P04 93.5 points above background). P04's merchant payments had no merchant (TVD 1.00). P03's credits all at 09:xx (43.5% vs 5.4%) |
-| **1.2.0**, seeds 20260923 and 20261001 (training, test) | **0** | also 0 on seeds 1, 2 and 3 |
+| **1.1.0**, seed 20260923 | **38** | Scenario rows without a device in most groups (all positives 59.2% vs 5.0% in background; P04 93.5 points above background). P04's merchant payments had no merchant (TVD 1.00). P03's credits all at 09:xx (43.5% vs 5.4%) |
+| **1.3.0**, seeds 20260923 and 20261001 (training, test) | **0** | also 0 on seeds 1, 2 and 3, and on the shared Tiny and Small |
 
-What 1.2.0 changed to get there:
+What 1.2.0 changed:
 
 - Scenario rows use the entity's own device, and the defects that load normally
   (missing device 5%, missing counterparty 3%) apply to them at the declared
@@ -375,7 +375,7 @@ What 1.2.0 changed to get there:
 - Every transacting party has a device of its own and ~120 are shared by design,
   as TRD §11.1 states. 1.1.0 handed devices out at random, so thousands were
   shared by unrelated parties. The device total now follows the population,
-  inside TRD §11.1's 8,000–12,000 band at full (11,837)
+  inside TRD §11.1's 8,000–12,000 band at full (11,902 in 1.3.0)
 - 15% of individuals change phones during the period, so a never-seen device is
   ordinary, not a scenario signature
 - Scenario dates follow the background's day weights (paydays busier, weekends
@@ -384,9 +384,35 @@ What 1.2.0 changed to get there:
   cross-border inbound, P04's payroll lands on the 25th
 - P04's merchant payments carry a merchant; P03's credits arrive at any hour
 
+What 1.3.0 changed, after the audit gained a "counterparty new for this
+entity" view:
+
+- **Counterparties as TRD §11.2 describes them.** Retail customers pay a small
+  stable set ("sekumpulan counterparty kecil yang stabil": 3–8 regulars, 4–10
+  usual merchants), businesses have a broad payer base. 1.2.0 drew a fresh
+  random counterparty for every row, so every payment went to someone new and a
+  new recipient, a key takeover signal, meant nothing
+- A first-time counterparty is still **ordinary**: 25% of individual and 30%
+  of business payments after a 60-day burn-in (early rows are "new" only for
+  lack of history). ATO pays recipients its victim never paid: **100%**
+- Each party's background is generated in date order, so a payer is new the
+  first time it appears in time, and a row only uses counterparties already in
+  use on its date
+- P05's dormancy is 90+ days (FRD §8.5) with at least 30 days of history left
+  in view; P09 and P11 rings share a device of their own, not a bystander's;
+  P07's weekly amounts vary around the week's level instead of repeating
+
+Two views are declared part of a definition rather than flagged, with the
+reason in the code: for P05 and the dormant ATO look-alikes a counterparty
+looks new more often (38–44% and 27–37% vs 25%), because after 90+ quiet days
+in a six-month window little history is left to show it. The same happens to a
+real takeover, so it does not tell the two apart.
+
 The audit itself is tested both ways: it catches scenario rows stripped of their
 device, and it does not flag a random sample of background dressed up as a
-scenario.
+scenario. It compares each group with background of the same kind of owner
+(business or individual) and judges clustered rows per device or scenario,
+not per row.
 
 ### Datasets for the ML pipeline
 
@@ -399,20 +425,20 @@ python -m app.scripts.generate_raw_dataset --profile full --out ml_data/train_fu
 python -m app.scripts.generate_raw_dataset --profile full --seed 20261001 --out ml_data/test_full_s20261001
 ```
 
-| Generator 1.2.0 | Training | Test |
+| Generator 1.3.0 | Training | Test |
 |---|---|---|
 | Seed | `20260923` (default) | `20261001` |
 | Period | 1 Apr – 30 Sep 2026 | 1 Apr – 30 Sep 2026 |
-| Transactions | 403,557 | 407,812 |
+| Transactions | 405,945 | 407,088 |
 | Individual / business customers | 10,000 / 1,200 | 10,000 / 1,200 |
 | Accounts | 13,383 | 13,327 |
-| Merchants / devices / watchlist | 1,500 / 11,837 / 2,500 | 1,500 / 11,837 / 2,500 |
-| Positive entities | **749** | **744** |
+| Merchants / devices / watchlist | 1,500 / 11,902 / 2,500 | 1,500 / 11,902 / 2,500 |
+| Positive entities | **754** | **754** |
 | Look-alike and boundary cases / control entities | 390 / 830 | 390 / 830 |
 
 Positives per pattern (training / test): P01 60/60 · P02 45/45 · P03 50/50 ·
-P04 55/55 · P05 40/40 · P06 35/35 · P07 40/40 · P08 45/45 · P09 169/164 ·
-P10 45/45 · P11 35/35 · P12 70/70 · ATO 60/60 (617 / 575 ATO transactions).
+P04 55/55 · P05 40/40 · P06 35/35 · P07 40/40 · P08 45/45 · P09 174/174 ·
+P10 45/45 · P11 35/35 · P12 70/70 · ATO 60/60 (591 / 606 ATO transactions).
 The test set is the full size too, because 100,000 transactions left ~15 ATO
 and 8–14 positives per pattern, too few to trust. A different seed means new
 entities, amounts and timings from the **same** generator: the test measures
@@ -448,22 +474,21 @@ curl -s -X POST http://localhost:8000/ingestion/transactions \
   -F "source_system=NDP_WALLET_CORE" -F "business_date=2026-09-30"
 ```
 
-**Measured on the shared `Small` (generator 1.2.0, through the real API in a
-throwaway database):** 20,541 rows read, 20,086 accepted, 455 quarantined across
-every defect type (206 in-file duplicates, 99 unresolvable accounts, 74
-malformed dates, 40 invalid currencies, 36 zero/negative or malformed amounts).
-P02 detection then raises 3 alerts: it catches **2 of 2** injected positives,
-fires on **0 of 2** labelled P02 look-alikes, raises **nothing** on the
-42-entity control cohort (FRD §8.14), and fires once on an entity labelled for
-P07 (weekly values stepping into P02's band).
+**Measured on the shared `Small` (generator 1.3.0, through the real API in a
+throwaway database):** 20,799 rows read, 20,344 accepted, 455 quarantined across
+every defect type (207 in-file duplicates, 95 unresolvable accounts, 79
+malformed dates, 38 zero/negative or malformed amounts, 36 invalid currencies).
+P02 detection then raises exactly 2 alerts: it catches **2 of 2** injected
+positives, fires on **0 of 2** labelled P02 look-alikes, and raises **nothing**
+on the 42-entity control cohort (FRD §8.14).
 
-On the `full` profile (1.2.0) the same check, run offline against the generated
+On the `full` profile (1.3.0) the same check, run offline against the generated
 files, catches 45 of 45 P02 positives, fires on 0 of 30 look-alikes and 0 of
 830 control entities on both the training and the test seed, and additionally
-fires on entities labelled for *other* patterns: P07 and P08 (remittances
-inside the band), 14 on the training seed and 16 on the test seed. Those are
-cross-pattern hits on genuinely suspicious entities, not false positives on
-clean ones; no unlabelled entity fires.
+fires on entities labelled for *other* patterns: P07 (weekly values stepping
+into the band) and P08 (remittances inside the band), 15 on the training seed
+and 18 on the test seed. Those are cross-pattern hits on genuinely suspicious
+entities, not false positives on clean ones; no unlabelled entity fires.
 
 ### Shared datasets in the repository
 
