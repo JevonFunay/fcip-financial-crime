@@ -1,0 +1,149 @@
+{
+  "artefact_type": "FEATURE_SET",
+  "version": "mcc_ticket_ref_v1",
+  "definition_hash": "1aa8514d384f0b130de35360692799031793169a46358c000481d09f2db32cec",
+  "state": "DRAFT",
+  "created_by": "app.ml.reference",
+  "submitted_by": null,
+  "approved_by": null,
+  "approved_at": null,
+  "simulation_reference": null,
+  "effective_from": null,
+  "superseded_by": null,
+  "assumption": "AS-04",
+  "method": "median incoming merchant ticket per MCC; payments received by the merchant's own business; MCCs with fewer than 30 payments are left out",
+  "computed_from": {
+    "generator_version": "1.4.0",
+    "profile": "full",
+    "seed": 20260923,
+    "manifest_sha256": "587fb391d63853aef96af0071f0b774555b7a3d7a123907629ddc28b463f0354",
+    "warnings": []
+  },
+  "mcc": {
+    "4121": {
+      "median_ticket_idr": 47612.0,
+      "payments": 1872,
+      "merchants": 65
+    },
+    "4722": {
+      "median_ticket_idr": 2873328.5,
+      "payments": 1786,
+      "merchants": 55
+    },
+    "4816": {
+      "median_ticket_idr": 203408.0,
+      "payments": 2167,
+      "merchants": 58
+    },
+    "4900": {
+      "median_ticket_idr": 259713.0,
+      "payments": 1449,
+      "merchants": 29
+    },
+    "5045": {
+      "median_ticket_idr": 4579737.0,
+      "payments": 2806,
+      "merchants": 60
+    },
+    "5094": {
+      "median_ticket_idr": 9449458.0,
+      "payments": 3013,
+      "merchants": 81
+    },
+    "5311": {
+      "median_ticket_idr": 354524.0,
+      "payments": 4199,
+      "merchants": 59
+    },
+    "5411": {
+      "median_ticket_idr": 85900.5,
+      "payments": 2414,
+      "merchants": 52
+    },
+    "5541": {
+      "median_ticket_idr": 159792.0,
+      "payments": 1771,
+      "merchants": 42
+    },
+    "5651": {
+      "median_ticket_idr": 221577.0,
+      "payments": 3753,
+      "merchants": 66
+    },
+    "5732": {
+      "median_ticket_idr": 1899739.0,
+      "payments": 2147,
+      "merchants": 57
+    },
+    "5812": {
+      "median_ticket_idr": 67123.0,
+      "payments": 2061,
+      "merchants": 56
+    },
+    "5814": {
+      "median_ticket_idr": 41102.5,
+      "payments": 2508,
+      "merchants": 56
+    },
+    "5912": {
+      "median_ticket_idr": 71549.5,
+      "payments": 3010,
+      "merchants": 67
+    },
+    "5933": {
+      "median_ticket_idr": 164436.5,
+      "payments": 2890,
+      "merchants": 69
+    },
+    "5942": {
+      "median_ticket_idr": 110651.0,
+      "payments": 3253,
+      "merchants": 75
+    },
+    "5977": {
+      "median_ticket_idr": 190702.0,
+      "payments": 2524,
+      "merchants": 56
+    },
+    "5999": {
+      "median_ticket_idr": 120676.0,
+      "payments": 2801,
+      "merchants": 68
+    },
+    "6051": {
+      "median_ticket_idr": 2532165.0,
+      "payments": 3429,
+      "merchants": 58
+    },
+    "7011": {
+      "median_ticket_idr": 648461.0,
+      "payments": 3744,
+      "merchants": 75
+    },
+    "7230": {
+      "median_ticket_idr": 94995.0,
+      "payments": 3281,
+      "merchants": 58
+    },
+    "7832": {
+      "median_ticket_idr": 55370.0,
+      "payments": 3545,
+      "merchants": 72
+    },
+    "7995": {
+      "median_ticket_idr": 1223374.5,
+      "payments": 2832,
+      "merchants": 62
+    },
+    "8062": {
+      "median_ticket_idr": 918682.0,
+      "payments": 2621,
+      "merchants": 39
+    },
+    "8220": {
+      "median_ticket_idr": 3607458.0,
+      "payments": 2513,
+      "merchants": 61
+    }
+  }
+}

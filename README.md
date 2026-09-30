@@ -503,7 +503,7 @@ and 8–14 positives per pattern, too few to trust. A different seed means new
 entities, amounts and timings from the **same** generator: the test measures
 generalisation to unseen data, not to unseen scenario recipes.
 
-### ML feature library (fs_v1)
+### ML feature library (fs_v2)
 
 `backend/app/ml/` turns a dataset into the two models' inputs (TRD §9.2, C-04):
 
@@ -513,11 +513,11 @@ python -m app.ml.build_features ml_data/train_full_s20260923    # ~45 s at full
 python -m app.ml.build_features ml_data/test_full_s20261001
 ```
 
-It writes `features_fs_v1/aml.parquet` (one row per entity and calendar week
+It writes `features_fs_v2/aml.parquet` (one row per entity and calendar week
 the entity transacted), `fraud.parquet` (one row per accepted transaction, as
 of that transaction) and `build.json` (provenance) next to the dataset, ignored
 by git like the dataset. Every feature, its window, its parameters and their
-source are in [`docs/ml/feature_set_fs_v1.md`](docs/ml/feature_set_fs_v1.md),
+source are in [`docs/ml/feature_set_fs_v2.md`](docs/ml/feature_set_fs_v2.md),
 rendered from `feature_set.py`. The parameters are locked in the feature set
 and not read from the rules: a rule change must not change a model's inputs
 silently.
@@ -539,6 +539,12 @@ What the tests guarantee:
   features (a device, counterparty or merchant never seen before) are NaN under
   30 days of history. A package of a few weeks therefore does not make every
   payment look new
+- **A merchant's ticket is judged against its category, as trained**
+  (fs_v2, assumption AS-04). FRD §8.10 compares it with the category band's
+  midpoint without giving the bands; the reference is the median ticket per MCC
+  over the training dataset, stored in `app/reference/mcc_ticket_ref_v1.json`
+  (built by `python -m app.ml.reference <training dataset>`) and used as it is
+  for the test set and live scoring. An edited file is refused
 
 ### Loading it into the skeleton
 

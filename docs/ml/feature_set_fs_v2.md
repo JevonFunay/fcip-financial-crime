@@ -1,4 +1,4 @@
-# Feature set `fs_v1`
+# Feature set `fs_v2`
 
 Rendered from `backend/app/ml/feature_set.py`; do not edit by hand. TRD §9.2 (C-04), §10.5.
 
@@ -32,7 +32,7 @@ features always say how much history there was.
 | `z_sd_floor_count` | `1.0` | TRD §10.2 names a floor on the standard deviation without a value. ASSUMPTION AS-02: one transaction (or one counterparty) for count z-scores |
 | `z_sd_floor_value_fraction` | `0.1` | ASSUMPTION AS-02: 10% of the baseline mean for value z-scores |
 | `geo_list` | `geo_list_v1` | app/reference/geo_list_v1.csv: the organisation's configured list |
-| `ticket_band_midpoints_idr` | `{'LT_50K': 25000, '50K_250K': 150000, '250K_1M': 625000, 'GT_1M': 2000000}` | merchants.csv declared_expected_ticket_band, taken at its midpoint (GT_1M at 2M); FRD §8.10 compares ticket size with the merchant's category band |
+| `mcc_ticket_reference` | `mcc_ticket_ref_v1` | FRD §8.10 compares the average ticket with the midpoint of the category band and gives no bands. ASSUMPTION AS-04: the median incoming ticket per MCC over the training dataset (a peer-group baseline), fixed at training and used as-is at test, inference and live (app/reference/mcc_ticket_ref_v1.json). Not the generator's configuration |
 
 ## AML model: one row per (entity, calendar week)
 
@@ -72,7 +72,7 @@ features always say how much history there was.
 | `DEVICE_ENTITY_COUNT_R30D` | R30D | Most distinct entities on any device this entity used | P09 |  |
 | `DEVICE_ACCOUNT_COUNT_R30D` | R30D | Most distinct accounts on any device this entity used | P09 |  |
 | `AVG_TICKET_R30D` | R30D | Mean incoming merchant payment through the entity's own merchants | P10 | `business entities only` |
-| `TICKET_OVER_BAND` | R30D | That mean / the merchants' declared ticket-band midpoint | P10 | `business entities only` |
+| `TICKET_MULTIPLE_R30D` | R30D | That mean / the mcc_ticket_reference ticket of the merchants' MCC (FRD §8.10 TICKET_MULTIPLE) | P10 | `business entities only` |
 | `OFF_HOURS_SHARE_R30D` | R30D | Share of those payments outside the merchant's declared hours | P10 | `business entities only` |
 | `PAYER_TOP5_SHARE_R30D` | R30D | Share of incoming value from the five largest payers | P10 | `business entities only` |
 | `REVERSAL_RATE_R30D` | R30D | Share of transactions the source reports as REVERSED | P10 |  |

@@ -5,7 +5,7 @@ Only the files and columns in ALLOWED are ever opened. Ground truth
 catalogue and seeds.json are not in it, so the feature library cannot see the
 answers. Customer and business master data are not read either: the only
 static facts a feature uses are the account's owner and opening date, and a
-merchant's declared ticket band and hours.
+merchant's category (MCC) and declared hours.
 
 Transactions pass exactly the validation the ingestion endpoint applies — the
 bridge's currency rule, then parse_transaction_row, first-wins duplicate
@@ -28,8 +28,7 @@ from app.services.ingestion import RowValidationError, parse_transaction_row
 
 ALLOWED: dict[str, tuple[str, ...]] = {
     "accounts.csv": ("source_account_id", "owner_source_id", "owner_type", "opened_date"),
-    "merchants.csv": ("source_merchant_id", "source_business_id", "declared_expected_ticket_band",
-                      "operating_hours_declared"),
+    "merchants.csv": ("source_merchant_id", "source_business_id", "mcc", "operating_hours_declared"),
     "devices.csv": ("source_device_id", "is_emulator", "is_rooted"),
     "transactions.csv": (
         "source_transaction_reference", "source_account_id", "direction", "amount_original", "currency_original",
@@ -66,7 +65,7 @@ class Account:
 @dataclass(frozen=True)
 class Merchant:
     business: str
-    ticket_band: str
+    mcc: str
     hours: tuple[int, int] | None  # minutes of day (open, close); None = always open
 
 
@@ -117,7 +116,7 @@ def load_dataset(folder: Path) -> Dataset:
         for row in _read(folder, "accounts.csv")
     }
     merchants = {
-        row["source_merchant_id"]: Merchant(row["source_business_id"], row["declared_expected_ticket_band"],
+        row["source_merchant_id"]: Merchant(row["source_business_id"], row["mcc"],
                                             _hours(row["operating_hours_declared"]))
         for row in _read(folder, "merchants.csv")
     }

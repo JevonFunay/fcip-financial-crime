@@ -1,12 +1,12 @@
-"""Build the fs_v1 feature matrices for one generated dataset.
+"""Build the feature matrices (current feature set) for one generated dataset.
 
     python -m app.ml.build_features ml_data/train_full_s20260923
     python -m app.ml.build_features ml_data/test_full_s20261001
 
 Writes, next to the dataset (ignored by git, like the dataset itself):
-    features_fs_v1/aml.parquet     one row per (entity, calendar week)
-    features_fs_v1/fraud.parquet   one row per accepted transaction
-    features_fs_v1/build.json      provenance: dataset manifest, feature set, timings
+    features_<version>/aml.parquet     one row per (entity, calendar week)
+    features_<version>/fraud.parquet   one row per accepted transaction
+    features_<version>/build.json      provenance: dataset manifest, feature set, reference, timings
 
 Labels are not joined here; that is stage 2, and it is the only place they
 meet the features.
@@ -23,6 +23,7 @@ from pathlib import Path
 from app.ml.feature_set import FEATURE_SET_VERSION, PARAMETERS
 from app.ml.features import build_matrices
 from app.ml.loader import load_dataset
+from app.ml.reference import REFERENCE_PATH
 from app.scripts.load_raw_dataset import DatasetRejected, check_manifest
 
 
@@ -42,6 +43,7 @@ def build(dataset_dir: Path, out_dir: Path | None = None) -> dict:
     report = {
         "feature_set_version": FEATURE_SET_VERSION,
         "parameters": {p.name: p.value for p in PARAMETERS},
+        "mcc_ticket_reference_sha256": json.loads(REFERENCE_PATH.read_text())["definition_hash"],
         "dataset": {
             "path": str(dataset_dir),
             "generator_version": manifest.get("generator_version"),
@@ -64,7 +66,7 @@ def build(dataset_dir: Path, out_dir: Path | None = None) -> dict:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Build the fs_v1 feature matrices for a generated dataset.")
+    parser = argparse.ArgumentParser(description="Build the feature matrices for a generated dataset.")
     parser.add_argument("dataset", type=Path)
     parser.add_argument("--out", type=Path, default=None)
     args = parser.parse_args()

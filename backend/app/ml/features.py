@@ -1,4 +1,4 @@
-"""Feature computation for fs_v1 (see feature_set.py for every definition).
+"""Feature computation for fs_v2 (see feature_set.py for every definition).
 
 One function per unit, each callable for a single entity, because live
 monitoring will call exactly these (PROJECT_CONTEXT §13):
@@ -34,6 +34,7 @@ from app.ml.feature_set import (
     geo_list,
 )
 from app.ml.loader import Account, Dataset, Merchant, Txn
+from app.ml.reference import load as load_mcc_reference
 from app.scripts.raw_contract import TRANSACTIONS
 
 DAY = SECONDS_PER_DAY
@@ -54,12 +55,15 @@ class FeatureContext(Protocol):
     def device_accounts(self, device: str, start: float, end: float) -> int: ...
     def device_flags(self, device: str) -> tuple[bool, bool]: ...
     def listed_countries(self) -> frozenset[str]: ...
+    def mcc_ticket(self, mcc: str) -> float: ...
 
 
 class InMemoryContext:
-    """Device usage over all accepted rows, as sorted timelines."""
+    """Device usage over all accepted rows, as sorted timelines. The MCC ticket
+    reference is the stored artefact, never recomputed from `dataset`: test
+    and live data are scored against the training data's yardstick."""
 
-    def __init__(self, dataset: Dataset) -> None:
+    def __init__(self, dataset: Dataset, mcc_reference: dict[str, float] | None = None) -> None:
         by_device: dict[str, list[tuple[float, str, str]]] = defaultdict(list)
         for txn in dataset.transactions:
             if txn.device:
@@ -70,6 +74,7 @@ class InMemoryContext:
             self._timelines[device] = ([r[0] for r in rows], [r[1] for r in rows], [r[2] for r in rows])
         self._flags = dataset.devices
         self._listed = geo_list()
+        self._mcc = load_mcc_reference() if mcc_reference is None else mcc_reference
 
     def _window(self, device: str, start: float, end: float):
         timeline = self._timelines.get(device)
@@ -91,6 +96,9 @@ class InMemoryContext:
 
     def listed_countries(self) -> frozenset[str]:
         return self._listed
+
+    def mcc_ticket(self, mcc: str) -> float:
+        return self._mcc.get(mcc, NAN)
 
 
 @dataclass
@@ -123,7 +131,7 @@ class EntityHistory:
     gap_days: np.ndarray           # days since the entity's previous row (NaN for the first)
     account_gap_days: np.ndarray   # days since the account's previous row
     own_merchant_payment: np.ndarray
-    band_midpoint: np.ndarray      # declared ticket band midpoint of the row's own merchant
+    category_ticket: np.ndarray    # reference ticket of the MCC of the row's own merchant (AS-04)
     off_hours: np.ndarray
     cum_amount: np.ndarray
     cum_out: np.ndarray
@@ -155,9 +163,8 @@ class EntityHistory:
         account = np.zeros(n, dtype=np.int32)
         merchant = np.full(n, -1, dtype=np.int32)
         own_payment = np.zeros(n, dtype=bool)
-        midpoint = np.full(n, NAN)
+        category_ticket = np.full(n, NAN)
         off_hours = np.zeros(n, dtype=bool)
-        midpoints = P["ticket_band_midpoints_idr"]
 
         for i, r in enumerate(rows):
             if r.counterparty:
@@ -178,7 +185,7 @@ class EntityHistory:
                 info = merchants.get(r.merchant)
                 if info is not None and info.business == entity and not r.out:
                     own_payment[i] = True
-                    midpoint[i] = midpoints.get(info.ticket_band, NAN)
+                    category_ticket[i] = context.mcc_ticket(info.mcc)
                     if info.hours is not None:
                         minute = int(((r.ts + _OFFSET) % DAY) // 60)
                         start, end = info.hours
@@ -208,7 +215,7 @@ class EntityHistory:
             local_day=(local // DAY).astype(np.int64) if n else np.zeros(0, dtype=np.int64),
             cp_first=cp_first, device_first=device_first, merchant_first=merchant_first,
             device_first_ts=device_first_ts, gap_days=gap, account_gap_days=account_gap,
-            own_merchant_payment=own_payment, band_midpoint=midpoint, off_hours=off_hours,
+            own_merchant_payment=own_payment, category_ticket=category_ticket, off_hours=off_hours,
             cum_amount=np.concatenate([[0.0], np.cumsum(amount)]),
             cum_out=np.concatenate([[0.0], np.cumsum(np.where(out, amount, 0.0))]),
             cum_in=np.concatenate([[0.0], np.cumsum(np.where(out, 0.0, amount))]),
@@ -367,10 +374,12 @@ def aml_features(h: EntityHistory, as_of: float, context: FeatureContext) -> dic
     if h.is_business and own.any():
         tickets = amounts30[own]
         f["AVG_TICKET_R30D"] = float(tickets.mean())
-        f["TICKET_OVER_BAND"] = _ratio(f["AVG_TICKET_R30D"], float(np.nanmean(h.band_midpoint[lo30:hi][own])))
+        reference = h.category_ticket[lo30:hi][own]
+        f["TICKET_MULTIPLE_R30D"] = (_ratio(f["AVG_TICKET_R30D"], float(np.nanmean(reference)))
+                                     if np.isfinite(reference).any() else NAN)
         f["OFF_HOURS_SHARE_R30D"] = float(h.off_hours[lo30:hi][own].mean())
     else:
-        f["AVG_TICKET_R30D"] = f["TICKET_OVER_BAND"] = f["OFF_HOURS_SHARE_R30D"] = NAN
+        f["AVG_TICKET_R30D"] = f["TICKET_MULTIPLE_R30D"] = f["OFF_HOURS_SHARE_R30D"] = NAN
     inbound30 = (~h.out[lo30:hi]) & (h.counterparty[lo30:hi] >= 0)
     if h.is_business and inbound30.any():
         by_payer = Counter()

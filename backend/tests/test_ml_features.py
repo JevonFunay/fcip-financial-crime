@@ -1,4 +1,4 @@
-"""Feature library fs_v1 (stage 1b): what the models will see, and nothing more.
+"""Feature library (fs_v1 in stage 1b, fs_v2 since 30 Sep): what the models will see, and nothing more.
 
 The leakage tests prove the answers cannot reach a feature: ground-truth files
 are never read, extra columns are ignored, identifiers carry no value, and no
@@ -9,6 +9,7 @@ pattern's defining feature really separates it; they never enter the library.
 """
 
 import csv
+import json
 import math
 import random
 import shutil
@@ -22,7 +23,16 @@ from pandas.testing import assert_frame_equal
 from sqlalchemy import select
 
 from app.ml import feature_set
-from app.ml.feature_set import AML_FEATURES, FEATURES, FRAUD_FEATURES, JAKARTA, P, geo_list, render_markdown
+from app.ml.feature_set import (
+    AML_FEATURES,
+    FEATURE_SET_VERSION,
+    FEATURES,
+    FRAUD_FEATURES,
+    JAKARTA,
+    P,
+    geo_list,
+    render_markdown,
+)
 from app.ml.features import (
     EntityHistory,
     InMemoryContext,
@@ -42,7 +52,7 @@ from app.services.ingestion import ingest_transactions_csv
 SMALL = SHARED_ROOT / "Small"
 GROUND_TRUTH = ("labels.csv", "label_transactions.csv", "generation_report.json", "scenario_catalogue.md",
                 "seeds.json", "data_dictionary.md")
-DOCS = Path(__file__).resolve().parents[2] / "docs" / "ml" / "feature_set_fs_v1.md"
+DOCS = Path(__file__).resolve().parents[2] / "docs" / "ml" / f"feature_set_{FEATURE_SET_VERSION}.md"
 
 
 @pytest.fixture(scope="module")
@@ -295,7 +305,7 @@ def _positive_weeks(small) -> dict[tuple[str, float], str]:
     ("P06", "ROUND_SHARE_R30D", 0.6),
     ("P08", "GEO_EXPOSURE_SHARE_R30D", 0.5),
     ("P09", "DEVICE_ENTITY_COUNT_R30D", 4),
-    ("P10", "TICKET_OVER_BAND", 20),
+    ("P10", "TICKET_MULTIPLE_R30D", 3),  # FRD §8.10 TICKET_DEVIATION_MULTIPLE
     ("P11", "FUNNEL_IN_DEGREE_ROLLING_7D", 5),
 ])
 def test_each_positive_shows_its_defining_feature(small, pattern, feature, threshold):
@@ -323,8 +333,8 @@ def test_ato_rows_show_a_new_device_and_new_recipients(small):
 
 def test_the_feature_documentation_is_rendered_from_the_registry():
     assert DOCS.read_text(encoding="utf-8") == render_markdown(), (
-        "docs/ml/feature_set_fs_v1.md is stale: python -c 'from app.ml.feature_set import render_markdown; "
-        "print(render_markdown(), end=\"\")' > ../docs/ml/feature_set_fs_v1.md"
+        f"{DOCS.name} is stale: python -c 'from app.ml.feature_set import render_markdown; "
+        f"print(render_markdown(), end=\"\")' > ../docs/ml/{DOCS.name}"
     )
 
 
@@ -356,4 +366,42 @@ def test_the_full_training_profile_builds(tmp_path):
     # One row per entity and week the entity transacted: ~149k since 1.4.0's
     # heavy-tailed activity (quiet entities skip most weeks; 1.3.0 had ~198k).
     assert report["rows"]["aml"] > 140_000
-    print(f"\nfs_v1 on full: {report['rows']} in {report['seconds']}")
+    print(f"\n{FEATURE_SET_VERSION} on full: {report['rows']} in {report['seconds']}")
+
+
+# --- fs_v2: the MCC ticket reference (AS-04) -------------------------------------------------
+
+
+def test_the_mcc_reference_comes_from_the_training_dataset_only():
+    from app.ml.reference import REFERENCE_PATH
+
+    artefact = json.loads(REFERENCE_PATH.read_text())
+    assert artefact["computed_from"]["profile"] == "full"
+    assert artefact["computed_from"]["seed"] == 20260923  # the training seed, never the test seed 20261001
+    assert artefact["artefact_type"] == "FEATURE_SET" and artefact["assumption"] == "AS-04"
+
+
+def test_scoring_uses_the_stored_reference_not_the_scored_datas_own_medians():
+    """A merchant's anomaly must not move its own yardstick: the context
+    serves the stored training medians whatever dataset is being scored."""
+    from app.ml.reference import compute, load
+
+    dataset = load_dataset(SMALL)
+    stored, own = load(), compute(dataset)
+    context = InMemoryContext(dataset)
+
+    assert own and any(abs(own[m]["median_ticket_idr"] - stored[m]) > 1 for m in own if m in stored)
+    assert all(context.mcc_ticket(mcc) == value for mcc, value in stored.items())
+
+
+def test_an_edited_reference_is_refused(tmp_path):
+    from app.ml.reference import REFERENCE_PATH, load
+
+    artefact = json.loads(REFERENCE_PATH.read_text())
+    first = next(iter(artefact["mcc"]))
+    artefact["mcc"][first]["median_ticket_idr"] *= 2
+    edited = tmp_path / "edited.json"
+    edited.write_text(json.dumps(artefact))
+
+    with pytest.raises(ValueError, match="definition_hash"):
+        load(edited)

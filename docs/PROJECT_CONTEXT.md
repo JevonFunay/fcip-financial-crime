@@ -153,7 +153,7 @@ backend/
     models/        15 SQLAlchemy models
     routers/       alerts, audit, auth, cases, detection, ingestion, overview, transactions
     schemas/       Pydantic request/response models
-    ml/            feature_set.py, loader.py, features.py, build_features.py (fs_v1)
+    ml/            feature_set.py, loader.py, features.py, build_features.py, reference.py (fs_v2)
     reference/     geo_list_v1.csv (the organisation's configured list)
     services/      ingestion.py, audit.py, detection/p02_structuring.py,
                    detection/active_rules.py
@@ -303,10 +303,15 @@ on both ML seeds: 45/45 positives, 0/30 look-alikes, 0/830 control, plus 14/18
 cross-pattern hits on entities labelled P07/P08, whose values fall inside P02's
 band, and no unlabelled hit.
 
-### ML feature library, fs_v1 (stage 1b, 30 Sep)
+### ML feature library, fs_v2 (stage 1b and fs_v2, 30 Sep)
 `backend/app/ml/`: `feature_set.py` (registry, locked parameters with their
-source, rendered to `docs/ml/feature_set_fs_v1.md`), `loader.py`, `features.py`,
-`build_features.py`. Two units: **AML** one row per (entity, calendar week the
+source, rendered to `docs/ml/feature_set_fs_v2.md`), `loader.py`, `features.py`,
+`build_features.py`, `reference.py`. **fs_v2** differs from fs_v1 in one
+feature: P10's ticket is divided by its MCC's reference ticket
+(`TICKET_MULTIPLE_R30D`, FRD §8.10's factor name), the training data's median
+per MCC (AS-04), instead of the declared band's midpoint. On the training seed
+it removes every ordinary business-week over 3x (5.9% under fs_v1) and every
+background P10 fire (9), with P10 positives and look-alikes unchanged. Two units: **AML** one row per (entity, calendar week the
 entity transacted), **Fraud** one row per transaction, as of that transaction.
 `aml_features(history, as_of, context)` and `fraud_features(history, i,
 context)` work for a single entity, which is what live monitoring will call.
@@ -417,6 +422,7 @@ FRD's.
 | AS-01 | ~~Rule severity vocabulary~~ | **Retracted 29 Sep, not an assumption.** FRD §8.0 defines the scale: "Skala tingkat keparahan: CRITICAL, HIGH, MEDIUM, LOW". The first search looked for "severity"; the FRD says "tingkat keparahan" | the `rule_severity` enum matches FRD §8.0 exactly; a test pins it |
 | AS-02 | The **floor on the standard deviation** in FR-401's z-score: TRD §10.2 writes `max(sd, floor)` without a value | one transaction (or counterparty) for count z-scores; 10% of the baseline mean for value z-scores | **implemented** in feature set fs_v1 (`z_sd_floor_*`) |
 | AS-03 | **`LOW_CONFIDENCE_BASELINE` threshold** (FR-401 E2: "batas atas yang dikonfigurasi", no value) | none invented: `BASELINE_CV` is exposed as a feature and the model uses it; the label threshold stays **open** | not a threshold in code |
+| AS-04 | **The category band in P10's ticket test** (FRD §8.10: "3× titik tengah pita kategori", no bands given) | the **median incoming ticket per MCC over the training dataset** (a peer-group baseline), stored as the versioned artefact `mcc_ticket_ref_v1` and used as it is at test, inference and live time, never recomputed from the data being scored. Not taken from the generator's configuration, which would let the feature read the recipe. Decided by Jevon, 30 Sep | **implemented** in feature set fs_v2 (`TICKET_MULTIPLE_R30D`, `app/reference/mcc_ticket_ref_v1.json`, `app/ml/reference.py`) |
 
 ### TRD §1.5 — conflicts still open
 
@@ -614,7 +620,7 @@ which stage 2 already treats as its own group. Approximate (entity, pattern)
 pairs in total: 2,129 (1.3.0: 1,959) against TRD §11.1's 500–1,500 expected
 alerts; the P11 participants are the bulk of the excess.
 
-**Decision for the stage-2 gate — fs_v2 (proposal, not built).** fs_v1's
+**Decision for the stage-2 gate — fs_v2 (decided 30 Sep: built as AS-04, the training data's median per MCC, not a configured band).** fs_v1's
 TICKET_OVER_BAND divides by the *declared* band's midpoint (GT_1M → IDR 2M), so
 a merchant whose MCC's ordinary ticket is IDR 4.5–9.5M (computers, precious
 metals) looks 3x over band while behaving normally: the whole residual 5.9%

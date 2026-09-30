@@ -20,7 +20,7 @@ questions are unchanged — see `PROJECT_CONTEXT.md`.
 | NFRs proven by measurement | 3 of 18 | 17% |
 | TRD components | ~6 full + ~5 partial of 30 | ~25% |
 
-**372 backend tests pass** (5 more marked `slow`, all passing). Frontend typechecks and builds.
+**375 backend tests pass** (5 more marked `slow`, all passing). Frontend typechecks and builds.
 
 Pure FR counting gives ~10%; ~17% weights the foundation work already done.
 Neither document assigns effort weights, so the percentage is an estimate — the
@@ -52,6 +52,16 @@ Partial: FR-306, FR-309, FR-310, FR-1103, FR-808, FR-612.
 ---
 
 ## Built since the last progress report
+
+### 30 September — feature set fs_v2 (before training)
+
+P10's ticket test now compares a merchant's average ticket with the median
+ticket of its MCC over the training data (`TICKET_MULTIPLE_R30D`, assumption
+AS-04), stored as the versioned artefact `mcc_ticket_ref_v1` and used as it is
+for the test set and live scoring. fs_v1 divided by the declared band's
+midpoint, so high-ticket categories looked 3x over band while behaving
+normally. On the training seed: ordinary business-weeks over 3x 5.9% → 0.0%,
+background P10 fires 9 → 0, positives 38/45 and look-alikes 21/25 unchanged.
 
 ### 30 September — generator 1.4.0: the population as TRD §11.2 describes it
 

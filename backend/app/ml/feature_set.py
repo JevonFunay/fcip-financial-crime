@@ -1,4 +1,4 @@
-"""Feature set fs_v1: the shared vocabulary between rules, risk and anomaly
+"""Feature set fs_v2: the shared vocabulary between rules, risk and anomaly
 (TRD §9.2, C-04), and the inputs of the two ML models.
 
 A feature set is a versioned artefact (TRD §10.5, FEATURE_SET). Its parameters
@@ -16,7 +16,13 @@ Two units (PROJECT_CONTEXT §8):
 Short history is explicit, never silent: a feature that compares the present
 with the entity's own past is NaN below its sufficiency threshold (each taken
 from the FRD pattern that owns it), and the availability features say how much
-history there was. See docs/ml/feature_set_fs_v1.md, rendered from this file.
+history there was. See docs/ml/feature_set_fs_v2.md, rendered from this file.
+
+fs_v2 (30 Sep) differs from fs_v1 in one feature: P10's ticket is compared with
+its MCC's reference ticket (TICKET_MULTIPLE_R30D, the FRD §8.10 factor name),
+a median over the training data (AS-04, app/ml/reference.py), instead of the
+midpoint of the merchant's declared band, which made a merchant in a
+high-ticket category look 3x over band while behaving normally.
 """
 
 from __future__ import annotations
@@ -26,7 +32,7 @@ from dataclasses import dataclass
 from datetime import timedelta, timezone
 from pathlib import Path
 
-FEATURE_SET_VERSION = "fs_v1"
+FEATURE_SET_VERSION = "fs_v2"
 JAKARTA = timezone(timedelta(hours=7))
 REFERENCE_DIR = Path(__file__).resolve().parents[1] / "reference"
 
@@ -67,10 +73,11 @@ PARAMETERS: tuple[Parameter, ...] = (
               "ASSUMPTION AS-02: one transaction (or one counterparty) for count z-scores"),
     Parameter("z_sd_floor_value_fraction", 0.10, "ASSUMPTION AS-02: 10% of the baseline mean for value z-scores"),
     Parameter("geo_list", "geo_list_v1", "app/reference/geo_list_v1.csv: the organisation's configured list"),
-    Parameter("ticket_band_midpoints_idr",
-              {"LT_50K": 25_000, "50K_250K": 150_000, "250K_1M": 625_000, "GT_1M": 2_000_000},
-              "merchants.csv declared_expected_ticket_band, taken at its midpoint (GT_1M at 2M); "
-              "FRD §8.10 compares ticket size with the merchant's category band"),
+    Parameter("mcc_ticket_reference", "mcc_ticket_ref_v1",
+              "FRD §8.10 compares the average ticket with the midpoint of the category band and gives no "
+              "bands. ASSUMPTION AS-04: the median incoming ticket per MCC over the training dataset (a "
+              "peer-group baseline), fixed at training and used as-is at test, inference and live "
+              "(app/reference/mcc_ticket_ref_v1.json). Not the generator's configuration"),
 )
 P = {parameter.name: parameter.value for parameter in PARAMETERS}
 
@@ -162,8 +169,8 @@ FEATURES: tuple[Feature, ...] = (
     _aml("DEVICE_ACCOUNT_COUNT_R30D", "R30D", "Most distinct accounts on any device this entity used", "P09"),
     _aml("AVG_TICKET_R30D", "R30D", "Mean incoming merchant payment through the entity's own merchants", "P10",
          GATE_BUSINESS),
-    _aml("TICKET_OVER_BAND", "R30D", "That mean / the merchants' declared ticket-band midpoint", "P10",
-         GATE_BUSINESS),
+    _aml("TICKET_MULTIPLE_R30D", "R30D", "That mean / the mcc_ticket_reference ticket of the merchants' MCC "
+         "(FRD §8.10 TICKET_MULTIPLE)", "P10", GATE_BUSINESS),
     _aml("OFF_HOURS_SHARE_R30D", "R30D", "Share of those payments outside the merchant's declared hours", "P10",
          GATE_BUSINESS),
     _aml("PAYER_TOP5_SHARE_R30D", "R30D", "Share of incoming value from the five largest payers", "P10",
@@ -248,7 +255,7 @@ FRAUD_FEATURES = tuple(f.code for f in FEATURES if f.unit == "FRAUD")
 
 
 def render_markdown() -> str:
-    """docs/ml/feature_set_fs_v1.md, rendered from this module so it cannot drift."""
+    """docs/ml/feature_set_<version>.md, rendered from this module so it cannot drift."""
     lines = [
         f"# Feature set `{FEATURE_SET_VERSION}`",
         "",
