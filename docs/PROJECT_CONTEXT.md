@@ -403,10 +403,31 @@ FRD §8 logic. Every evaluation metric is reported separately per domain.
 | Fraud | P04, P10, **ATO** (new) | velocity bursts, merchant misuse (P10 also has a transaction-laundering, i.e. AML, angle), account takeover |
 | Overlap (mule networks) | P03, P05, P09, P11 | pass-through, dormant accounts receiving funds, shared devices, funnels |
 
-Two moves from the team's first proposal, pending confirmation: **P03**
+Two moves from the team's first proposal, **confirmed 30 Sep**: **P03**
 (funds in and out within 24 h is the defining mule behaviour) and **P05**
 (generator 1.1.0 builds it as a dormant account receiving one large *credit*,
 which is a sleeper/mule shape; the fraud side of dormancy is covered by ATO).
+
+**Domain is for reporting; model ownership is separate.** The domain column
+above decides how results are grouped in every report. Which model *detects*
+a pattern depends on how fast the behaviour happens, not on its domain. Two
+models (decided 30 Sep):
+
+| Model | Unit | Owns | Why |
+|---|---|---|---|
+| Fraud model | one row per **transaction**, scored when it arrives | ATO, P04, **P05** | things that happen in a moment: a takeover, a velocity burst, a dormant account coming back to life |
+| AML model | one row per **(entity, week)** | P01, P02, P03, P06, P07, P08, P09, P10, P11 | patterns that build up over days or weeks |
+
+So P05 is reported under Overlap but detected by the Fraud model, and P10 is
+reported under Fraud but detected by the AML model (a merchant's profile is a
+30-day picture). P12 is watchlist screening, outside both models' reach
+(excluded from training, recall still reported). Every report also shows each
+model's recall on the patterns it does not own, so cross-coverage is visible.
+
+**Datasets.** Training: the Full profile, seed `20260923`. Test: **also the
+Full profile**, seed `20261001` (decided 30 Sep; the 100k size gave ~15 ATO
+and 8–14 positives per pattern, too few to trust). Both regenerate in ~6 s and
+are not committed.
 
 **ATO (account takeover) is a project extension, not one of the FRD's twelve
 patterns.** Dormancy, then a device never seen for that entity, then a burst of
@@ -443,6 +464,20 @@ lands at 09:xx. Static customer attributes, ID numbering, amount cents and time
 of day otherwise show no difference. Planned fix in generator 1.2.0: scenario
 rows use the entity's own device, and the non-quarantining defects (missing
 device, missing counterparty) apply to them at the declared rates.
+
+**The check becomes automatic** (decided 30 Sep): every raw transaction column
+(hour, weekday, channel, type, direction, missing counterparty, missing device,
+last digits of the amount, …) is compared between scenario and background
+transactions, and a column that differs strongly without being part of that
+pattern's definition is flagged. It runs on 1.1.0 (the evidence) and on 1.2.0
+(the proof it is clean); both results go into the report.
+
+**Generator 1.2.0 scope (decided 30 Sep):** (1) the artefact fixes above;
+(2) ordinary customers occasionally get a new device, so "new device" also
+happens in legitimate traffic; (3) the ATO scenario, 60 in Full; (4) 30 ATO
+look-alike edge cases; (5) `label_transactions.csv`, per-transaction ground
+truth for the Fraud evaluation. Tiny and Small are refreshed in the same
+commit (team rule).
 
 ### Spec inconsistency found while building
 
@@ -534,7 +569,10 @@ questions.
 harus dalam bentuk enterprise, jadi butuh ribuan data. Data masuk model, lalu
 di-training. Kalau sudah, dites pakai dataset baru, lalu dikembangkan ke live
 monitoring." Plus a second directive: Fraud **and** AML must both be covered
-(see §8, "Mentor directives"). Revised plan under review before any code.
+(see §8, "Mentor directives"). Plan approved 30 Sep, stages: 1a generator
+1.2.0 · 1b feature library + leakage tests · 2 labels + training (two models)
+· 3 evaluation per domain · 4 integration, whose target is **§13 "Konsep
+produk"**.
 
 **Must not be missed in the ML integration stage:** the app's `transaction`
 table does not carry `device_id`, `counterparty_country`, `transaction_type`
@@ -588,3 +626,115 @@ exists, so resuming needs no migration. Decisions waiting for when it resumes:
 - **Never `git push`** — commits are local; Jevon pushes to GitHub himself
 - A requirement without a test is not done (FRD §6 convention)
 - Close each working session with a paste-ready Indonesian summary for the capstone report
+
+---
+
+## 13. Konsep produk — product concept (target for ML stage 4, not built)
+
+Recorded 30 Sep from the team and the mentor. It is the reference for the ML
+pipeline's integration stage. **Nothing in this section is built yet.**
+
+### Upload mode (built first)
+
+1. **Upload data.** The first screen is as simple as possible: one upload
+   area, then straight to the dashboard
+2. **Validation.** Broken rows go to quarantine and the count is shown
+3. **Both models score the data**: Fraud per transaction, AML per
+   entity-week, using the ACTIVE model versions. An upload **never retrains**
+   a model (FRD §3.2: one reproducible offline fit, no automated retraining)
+4. **Dashboard.** Transactions processed; flagged items split into Fraud /
+   AML / Overlap; trend over time; score distribution
+5. **Flagged list.** Each item opens a detail with the *reason*, i.e. the top
+   contributing features (ADR-007), and the related transactions
+6. **Triage decides.** False positive, or escalate into a case (the flow the
+   app already has)
+7. **Audit.** Every decision lands in the audit trail
+
+### Live monitoring mode (after the app is complete; mentor directive)
+
+- The system watches a stream of transactions for a period (e.g. 3 days),
+  separates normal from flagged, and raises alerts
+- For the demo: an accelerated replay, labelled as a simulation (TRD §2.2).
+  Still to be confirmed with the mentor
+- The database is loaded with history first: the FR-401 baseline needs up to
+  90 days, and P02 a 7-day window
+- The mentor's "alert to the admin" means the **Triage Analyst**, because
+  ROLE_ADMIN may not act on alerts (FRD §4.1.1). A new alert needs an in-app
+  notification
+- The Fraud model is called per transaction as it arrives; the AML model runs
+  in batch (e.g. nightly) over what has accumulated
+
+### Principles that may not be broken
+
+- Model output is advice. It never blocks or holds a transaction (NG-01).
+  Alert text is descriptive and never concludes "fraud" (BR-406.2, NFR-16)
+- Upload mode and live mode use **the same feature functions and the same
+  models**
+
+### What does "upload" upload? (design question)
+
+Today `POST /ingestion/transactions` takes a transactions CSV only, an
+unknown account sends the row to quarantine, and customers and accounts are
+seeded master data (a documented simplification, §9). The models need
+customers, accounts, devices and history. **TRD §6.1 already defines the unit
+of ingestion as a file drop with a manifest** listing each file's name,
+SHA-256 and record count, covering `customers.csv`, `accounts.csv`,
+`devices.csv`, `transactions.csv` and the rest: a package.
+
+| Option | For | Against |
+|---|---|---|
+| A. Transactions only, on master data already loaded (today) | Smallest change. Realistic for daily operation, where master data changes slowly. It is what live mode streams anyway | The first load needs another path (a script today). A new customer's transactions quarantine. Not a one-screen demo |
+| B. A full package every time (TRD §6.1: manifest + all files) | Matches TRD §6.1 exactly. Self-contained. The bridge (`load_raw_dataset.py`) already projects it | Master data re-sent every batch needs upsert rules (changed KYC status, closed accounts). Full is ~85 MB: the upload size limit and a synchronous request (no worker, §4 deviation). Heavier validation |
+| **C. One upload area that accepts either (recommended)** | A package (zip: manifest + files) for the first load or a master-data refresh; a transactions CSV or micro-batch after that. Live mode is a stream of the second kind. Keeps the one-screen front page | Two ingestion paths behind one drop zone. The package path is new work: master tables the app lacks (business customers, merchants, devices), upsert rules, per-file quarantine |
+
+With C the package path verifies the manifest first (checksums,
+`synthetic_declaration`, contract version), as the bridge does today, and
+**rejects any ground-truth file** inside it (`labels.csv`,
+`label_transactions.csv`, `generation_report.json`, `scenario_catalogue.md`,
+`seeds.json`): the app must never see the answers, for the same reason the
+model may not. A Full-size package is too large for one synchronous request;
+the demo uploads a smaller one (Small, or a date slice), and the Full load
+stays a command-line path until a worker exists.
+
+### Mapped onto today's app (input for stage 4)
+
+| | Pages | Endpoints |
+|---|---|---|
+| **Reuse as is** | Login, CaseDetail, Audit | `/auth/*`; `POST /alerts/{id}/disposition`; `POST /cases`, `GET /cases/{id}`; `GET /audit`, `/audit/export`; `GET /ingestion/batches`, `/batches/{id}`, `/ingestion/quarantine`; `GET /transactions` |
+| **Change** | Overview → role-aware home: the upload area for Data Ops, the dashboard for everyone. AlertQueue → filter by domain (Fraud / AML / Overlap) and source (rule / model), sort by score. AlertDetail → a "why flagged" block: top feature contributions, model version, FR-406's fixed caption | `POST /ingestion/transactions` → also carries `device_id`, `counterparty_country`, `transaction_type`, `merchant_id` (**mandatory** for Fraud). `GET /overview` → dashboard figures per domain, trend, score distribution, with the synthetic-data caveat as a payload field. `GET /alerts`, `/alerts/{id}` → domain, score, model version, contributions. `POST /detection/p02/run` → one detection run over rules and models (TRD A22 `POST /detection/runs`) |
+| **New** | Notification bell; a live-monitoring page with a permanent simulation banner | `POST /ingestion/packages`; model registry (`GET /detection/models`, versions with the TRD §10.5 envelope); `GET /detection/scores`; tables `business_customer`, `merchant`, `device`, `model_version`, `ml_score` (+ per-feature contributions), `notification`; a replay runner for live mode |
+
+### Where the concept meets the FRD/TRD
+
+1. **A flagged list that triage disposes is an alert queue.** If model flags
+   reach triage on their own (steps 4–6), a score raises alerts by itself.
+   FRD BR-401.1 / BR-401.2 allow that only through an anomaly rule configured
+   and approved via §5.3, and TRD §10.2 says the anomaly score creates no
+   alert in the MVP (CF-05). Steps 4–6 as written are **CF-05 option (b)**:
+   the `ML_SCORE` rule with reason code RC-ML-01 and, until FR-304 exists, the
+   same documented maker-checker bypass as RUL-0001. Under option (a) the
+   list is rule alerts carrying the score as a factor. The mentor's CF-05
+   answer decides which
+2. **One front page for everyone meets RBAC.** Uploading is ROLE_DATA_OPS only
+   (FRD §4.1.2; the permission matrix in §9); triage cannot upload. So the home
+   screen is role-aware
+3. **"Live monitoring" is a simulation in this MVP.** FRD AS-03, NG-06, §3.5
+   and L-04, TRD §2.2: ingestion is batch; near-real-time is a scheduled
+   micro-batch over a replay file, labelled as a simulation. Allowed, as long
+   as the label is always visible
+4. **A new-alert notification goes beyond FR-610's triggers** (assignment, SLA
+   breach, returned case, approval request). The mechanism is FR-610's (in-app
+   only, BR-610.2; no unmasked identifiers, BR-610.1); the trigger is an
+   extension, or comes for free if new alerts are auto-assigned (FR-603 →
+   FR-610 AC1)
+5. **Words on screen.** "Fraud" and "AML" are fine as the name of the
+   monitoring function that raised a flag, but a flag is described by what was
+   observed and carries FR-406's fixed caption that it is an observation, not
+   proof of wrongdoing (BR-406.1: the caption cannot be dismissed; BR-406.2:
+   no "suspicious", "fraud" or "money laundering" on a signal; NFR-16)
+6. **Every metric surface carries the synthetic-data caveat** as a payload
+   field (TRD §10.6, FRD L-01), the dashboard's counts and score distributions
+   included
+7. **The scoring model version must be ACTIVE through maker-checker
+   (FR-405).** Not built: the first model version is seeded ACTIVE with the
+   same documented bypass as RUL-0001
