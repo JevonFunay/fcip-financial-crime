@@ -257,9 +257,9 @@ Files: `customers.csv` (20 cols), `business_customers.csv` (16), `beneficial_own
 `label_transactions.csv` (per-row ground truth, since 1.2.0),
 `data_dictionary.md`, `scenario_catalogue.md`, `generation_report.json`, `seeds.json`.
 
-Profiles: `tiny` 1% (CI), `small` 5% (default), `full` 100% (~406k transactions in 6s).
-All volumes land inside TRD §11.1 targets. Generator version **1.3.0** (TRD §11.7:
-bumped whenever the same seed would produce different bytes).
+Profiles: `tiny` 1% (CI), `small` 5% (default), `full` 100% (~421k transactions in 6s,
+TRD §11.1 target 420k). All volumes land inside TRD §11.1 targets. Generator version
+**1.4.0** (TRD §11.7: bumped whenever the same seed would produce different bytes).
 
 **1.2.0 (30 Sep) removed the scenario artefacts** (§8): an automatic audit
 (`audit_scenario_artefacts.py`) compares every raw column between scenario and
@@ -269,9 +269,17 @@ shared (TRD §11.1), and `label_transactions.csv`. **1.3.0 (30 Sep)** gave every
 party the counterparties TRD §11.2 describes (a small stable set for retail, a
 broad payer base for business) instead of a random one per row: a first-time
 counterparty is 25% of individual and 30% of business payments, 100% of ATO's.
-Audit: 1.1.0 has 38 flags, 1.3.0 has 0 on five seeds. ML datasets: training =
-full, seed 20260923 (405,945 transactions, 754 positive entities); test = full,
-seed 20261001 (407,088, 754); not committed, commands in the README.
+**1.4.0 (30 Sep)** makes the population behave as TRD §11.2 describes it, every
+statement measured before and after (table in §8): heavy-tailed activity within
+the same total, coherent top-ups and bills, weekly merchant settlement, tickets
+consistent with the MCC, look-alikes that resemble their pattern, and boundary
+cases on each pattern's own threshold. It is the last generator change before
+training. Audit: 1.1.0 has 37–38 flags, 1.3.0 and 1.4.0 have 0 on five seeds
+(the audit now also stratifies by entity activity and judges the
+counterparty-new view within transaction type and one-sided, see README). ML
+datasets: training = full, seed 20260923 (421,282 transactions, 754 positive
+entities); test = full, seed 20261001 (421,456, 754); not committed, commands in
+the README.
 
 **Custom scale:** `--target-transactions N` (min 20,000) derives every volume
 from N by the full profile's ratio, calibrates the row count to exactly N using
@@ -283,15 +291,15 @@ Key properties:
 - **Deterministic** — same seed reproduces every file byte-for-byte (T-GEN-01)
 - **Provably synthetic but structurally correct** — NIK-shaped IDs encoding gender the real way (female birth day +40), on province prefix `99` which is never issued; `+62899` phone block; RFC 5737 IP ranges
 - **Population mix held exactly** (TRD §11.2) — retail 62 / business 18 / control 8 / edge 8 / injected 4, as exact counts at every scale; individual sole traders fill the business cohort beyond the ~11% that §11.1's real businesses supply
-- **Labelled** — all 12 patterns and ATO get injected positives and behavioural look-alikes (the 12 also exact-threshold boundary cases), each writing to `labels.csv`, and every row they emit to `label_transactions.csv`. Each entity carries at most one label, and the control cohort is never touched
+- **Labelled** — all 12 patterns and ATO get injected positives and behavioural look-alikes (8 patterns also boundary cases on their own threshold), each writing to `labels.csv`, and every row they emit to `label_transactions.csv`. Each entity carries at most one label, and the control cohort is never touched
 - **Deliberately defective** — 12 defect types at controlled rates (TRD §11.4)
 - **ER population** — 5 constructions per TRD §11.5, each stating what resolution must do
 
-Measured on the shared `Small` (1.3.0) through the real API: 20,799 rows read,
-20,344 accepted, 455 quarantined across every defect type. P02 raises exactly
+Measured on the shared `Small` (1.4.0) through the real API: 20,916 rows read,
+20,458 accepted, 458 quarantined across every defect type. P02 raises exactly
 2 alerts: **2/2** injected positives, **0/2** labelled look-alikes, **nothing**
-on the 42-entity control cohort (FRD §8.14). On `full` (1.3.0), checked offline
-on both ML seeds: 45/45 positives, 0/30 look-alikes, 0/830 control, plus 15/18
+on the 42-entity control cohort (FRD §8.14). On `full` (1.4.0), checked offline
+on both ML seeds: 45/45 positives, 0/30 look-alikes, 0/830 control, plus 14/18
 cross-pattern hits on entities labelled P07/P08, whose values fall inside P02's
 band, and no unlabelled hit.
 
@@ -309,7 +317,7 @@ context)` work for a single entity, which is what live monitoring will call.
   unchanged; no feature reads the future (and the test is shown to catch a
   feature that does)
 - **Parity**: the loader applies ingestion's own validation, so the features
-  describe exactly the rows the upload endpoint stores (20,344 on Small, tested
+  describe exactly the rows the upload endpoint stores (20,458 on Small, tested
   against the real ingestion service); one entity built alone gets exactly its
   batch features
 - **Short history is explicit**: a feature comparing with the entity's own past
@@ -317,7 +325,9 @@ context)` work for a single entity, which is what live monitoring will call.
   days, P07 6 weeks, FR-401 30 transactions over 30 days); novelty features
   (new device, counterparty, merchant) are NaN under 30 days of history
   (`min_history_days`)
-- Full training profile: 197,903 AML rows and 396,788 Fraud rows in ~46 s
+- Full training profile (1.4.0): 149,115 AML rows and 412,015 Fraud rows in ~43 s
+  (1.3.0: 197,903 and 396,788; fewer entity-weeks because quiet entities now
+  skip most weeks)
 
 `app/scripts/load_raw_dataset.py` bridges it into the skeleton and **prints
 which columns it could not carry across** (merchant, device, IP, source status,
@@ -535,18 +545,86 @@ look-alike edge cases; (5) `label_transactions.csv`, per-transaction ground
 truth for the Fraud evaluation. Tiny and Small are refreshed in the same
 commit (team rule).
 
-### Generator finding from the feature build (30 Sep, decision pending)
+### Generator 1.4.0 — every TRD §11.2 statement measured (30 Sep, done)
 
-TRD §11.2 says an ordinary business has a ticket size "konsisten dengan
-kategori". The generator draws every business's incoming amounts from one
-distribution whatever its merchant category, so on the full training profile
-**24.2% of ordinary business-weeks have an average ticket above 3x their
-declared band** (4.7% above 10x, 1.5% above 20x). 3x is FRD §8.10's
-TICKET_DEVIATION_MULTIPLE, so P10 at default parameters would fire on about a
-quarter of ordinary businesses. P10's positives sit at ~100x, so the features
-still separate them, but the negatives are wrong in a way the spec rules out.
-Same kind of deviation as the counterparties fixed in 1.3.0; fixing it before
-training avoids retraining.
+Directive: fix P10 as 1.4.0 and go through **every** behavioural statement in
+TRD §11.2 at once, so 1.4.0 is the last generator change before training.
+Measured on the training seed (full, 20260923) with the same script before and
+after; "rule" figures use approximate FRD §8 default rules on the fs_v1
+features, per entity over the whole period (generator QA, not the app's rules).
+
+| TRD §11.2 statement | 1.3.0 | 1.4.0 | |
+|---|---|---|---|
+| Retail: "pembayaran bernilai kecil" | median 73k, 98.5% under 1M | median 104k, 98.3% under 1M | held |
+| Retail: "yang sering" (activity per entity) | **flat**: mean 39.6, median 40, p99 72, CV 0.35; busiest 10% hold 16% | **heavy-tailed**: mean 27.6, median 16, p90 60, p99 179, CV 1.42; busiest 10% hold 40% | fixed |
+| Retail: "top-up" | 25% of rows, 30% of them *outgoing*, amounts not round | 20%, all incoming, round to IDR 50,000, from 1–2 own accounts (median 1) | fixed |
+| Retail: type mix and direction | 25% each type, 30% incoming for every type | 40% merchant (5% refunds), 25% P2P (40% received), 20% top-up (in), 15% bills (out, median 1 biller, p90 3) | fixed |
+| Retail: "transfer ke sekumpulan counterparty kecil yang stabil" | regulars 3–8, but top-ups and bills drew from the same book | P2P out: median 5 counterparties over a median 7 transfers, 70% to repeat counterparties | fixed |
+| Retail: "pengelompokan pada hari gajian dan akhir bulan" | 29.9% on paydays (uniform 16.4%), 13.6% month-end (11.3%) | 29.9%, 13.5% | held |
+| Business: "pola settlement" | **none** | 35,635 weekly sweeps to one own bank account; median business sweeps in 81% of weeks | fixed |
+| Business: activity | same as retail (mean 40.2) | mean 100.3 (3.6x retail), p99 538 | fixed |
+| Business: "refund pada tingkat normal" | 1.0% reversed | 1.0% | held |
+| Business: "basis pembayar yang luas" | 0.32 distinct payers per payment; the first payers dominated early months (P10 payer concentration on 116 ordinary businesses once evaluable) | 0.57; an established payer base from day one; 0 payer-concentration fires | fixed |
+| Business: "nilai tiket yang konsisten dengan kategori" | 24.2% of business-weeks over 3x the band, 24.0% under 1/3; one business could be a hospital and a book store | 5.9% over, 1.3% under (all residual: fs_v1's band midpoint, see fs_v2 below); one MCC per business; paid within declared hours | fixed |
+| P10 evaluable (30 txns in 30 days, FRD §8.10) | 0.4% of business-months | 14.0% | fixed |
+| Control-clean: raises nothing (FRD §8.14) | 0 of 830 on every approximate rule | 0 of 830 | held |
+| Edge: arisan (P02) | spread past the 7-day window; fires 0/30 | same | held |
+| Edge: rekening uang sekolah (P11) | **generic**: 8 transfers | 30–60 payers, one fee, same names each month, spread over 12 days; fires 1/30 (FRD TD-P11-NEG-01) | fixed |
+| Edge: penyalur payroll (P04) | on the 25th, but 6 generic transfers | 15–40 staff within 3 hours on the company's payday (23rd–28th, Friday before a weekend), two months; fires 24/30 | fixed |
+| Edge: kios agen (P06) | round float top-ups; fires 25/30 | same, as top-ups | held |
+| Edge: pedagang musiman (P07) | **missing** (generic transfers) | three weeks of 20–35 sales of IDR 2–6M from many buyers; fires 19/25 | fixed |
+| Edge: pelajar lintas negara (P08) | family support, normal corridor; fires 0/25 | same | held |
+| Edge: keluarga satu HP (P09) | **missing** (generic transfers) | 3–4 members at one address on one handset; the 4-member families fire (48/102 member entities) | fixed |
+| Edge, FRD §8 expected FPs for the rest | P01, P03, P05, P10, P12 generic (6 transfers) | bonus/car down payment; salary IDR 20–80M passed to bills (fires 20/30); back from abroad (17/30); B2B supplier (21/25); shared given name (no rows) | fixed |
+| Boundary cases | three IDR 100M deposits for every pattern but P02: on none of their thresholds, and P07 fires on them | on each pattern's own threshold, non-firing side: P01 exactly 100M on a thin history, P02 3x500M, P03 79%, P04 14 in a day, P05 89 days, P06 4 round, P09 3 entities, P11 7 senders; none for P07, P08, P10, P12 | fixed |
+| TRD §11.1 total (target 420,000) | 405,945 (−3.3%) | 421,282 (+0.3%); test seed 421,456 | held |
+
+Also fixed because the measurement exposed them: late arrivals were backdated
+up to 100 days *before* the period (0.4% of rows), giving entities months of
+empty "history" and false P07 spikes; dormancy scenarios on quiet customers
+could follow no activity at all (P05 positives caught 39/40 → 40/40).
+
+**Activity distribution (the specific check requested).** 1.3.0 was flat, as
+above. 1.4.0 draws each entity's share of the same total from a lognormal
+(σ = 1.0, mean 1, merchants x3). Effect on rows with a baseline (fs_v1,
+training seed, NaN = gate closed):
+
+| Rows without … | 1.3.0 | 1.4.0 |
+|---|---|---|
+| AML entity-weeks (total) | 197,903 | 149,115 |
+| AML: own p95 (P01 relative, 20 txns in 90 days) | 70.1% | 67.1% |
+| AML: FR-401 z-scores (30 txns over 30 days) | 76.0% | 72.0% |
+| AML: P07 weekly baseline (6 weeks) | 25.3% | 26.5% |
+| Fraud transactions: own p95 | 64.5% | 42.9% |
+| Fraud transactions: p95 of the last 50 | 50.5% | 38.3% |
+| Fraud transactions: device novelty (30 days) | 20.8% | 18.4% |
+
+Per transaction, coverage improves a lot (transactions concentrate on active
+entities with long histories); per entity-week only a little (most
+entity-weeks belong to quiet entities). **Stage 3 still reports the rows
+without a baseline as a limitation** (AML 67–72%, Fraud 38–43%), as directed.
+
+**What still fires on unlabelled background (approximate rules):** P01 17
+(all weekly settlement sweeps of IDR 100M+ by sole traders: FRD §8.1 lists
+"konsolidasi batch settlement merchant"), P05 10 (quiet customers' natural
+dormancy: "wallet musiman atau sekunder"), P07 12 ("pertumbuhan bisnis"),
+P10 9 (all the ticket sub-condition, the fs_v1 band midpoint), P11 2, and P09
+397 — every one a P11 participant (a sender sharing the funnel's device),
+which stage 2 already treats as its own group. Approximate (entity, pattern)
+pairs in total: 2,129 (1.3.0: 1,959) against TRD §11.1's 500–1,500 expected
+alerts; the P11 participants are the bulk of the excess.
+
+**Decision for the stage-2 gate — fs_v2 (proposal, not built).** fs_v1's
+TICKET_OVER_BAND divides by the *declared* band's midpoint (GT_1M → IDR 2M), so
+a merchant whose MCC's ordinary ticket is IDR 4.5–9.5M (computers, precious
+metals) looks 3x over band while behaving normally: the whole residual 5.9%
+and all 9 background P10 fires. FRD §8.10 says "3x titik tengah **pita
+kategori**", the category's band, not the declared one. Proposal: fs_v2 reads
+an MCC category reference (typical ticket per MCC) as organisation
+configuration, like `geo_list_v1`, and computes the ticket features against
+it. The FRD gives no values for the category bands, so the reference would be
+**our assumption**, flagged as such. Deciding before training avoids
+retraining.
 
 ### Spec inconsistency found while building
 
@@ -639,7 +717,8 @@ harus dalam bentuk enterprise, jadi butuh ribuan data. Data masuk model, lalu
 di-training. Kalau sudah, dites pakai dataset baru, lalu dikembangkan ke live
 monitoring." Plus a second directive: Fraud **and** AML must both be covered
 (see §8, "Mentor directives"). Plan approved 30 Sep, stages: 1a generator
-1.2.0 and 1.3.0 (**done 30 Sep**) · 1b feature library + leakage tests (**done 30 Sep**) · 2 labels +
+1.2.0 and 1.3.0 (**done 30 Sep**) · 1b feature library + leakage tests (**done 30 Sep**) ·
+generator 1.4.0, TRD §11.2 in full (**done 30 Sep**; fs_v2 decision pending) · 2 labels +
 training (two models) · 3 evaluation per domain · 4 integration, whose target
 is **§13 "Konsep produk"**.
 

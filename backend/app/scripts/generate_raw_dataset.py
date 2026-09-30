@@ -21,6 +21,7 @@ import argparse
 import csv
 import hashlib
 import json
+import math
 import random
 import time
 from collections import Counter
@@ -83,8 +84,14 @@ BOUNDARY_PER_PATTERN = 5
 ATO_EDGE_CASES = 30
 # Every kind of scenario per pattern, at the full profile. ATO has its own
 # look-alikes and no threshold, so no boundary cases.
+# Boundary cases sit exactly on a pattern's own FRD §8 threshold, on the side
+# that must not fire. Only where one clean threshold exists: P07 needs a
+# high-value baseline no ordinary customer has, P08 and P10 fire on any of
+# several OR-ed sub-conditions, and P12 is the screening engine's.
+BOUNDARY_PATTERNS = ("P01", "P02", "P03", "P04", "P05", "P06", "P09", "P11")
 SCENARIO_PLAN = {
-    **{pattern: {"positives": count, "edge": EDGE_PER_PATTERN, "boundary": BOUNDARY_PER_PATTERN}
+    **{pattern: {"positives": count, "edge": EDGE_PER_PATTERN,
+                 **({"boundary": BOUNDARY_PER_PATTERN} if pattern in BOUNDARY_PATTERNS else {})}
        for pattern, count in SCENARIO_TARGETS.items() if pattern != "ATO"},
     "ATO": {"positives": SCENARIO_TARGETS["ATO"], "edge": ATO_EDGE_CASES},
 }
@@ -112,6 +119,49 @@ FAVOURITE_MERCHANTS = (4, 10)       # merchants a retail customer usually pays
 NEW_COUNTERPARTY_RATE = 0.10        # retail payments to someone new
 NEW_BECOMES_REGULAR = 0.25          # ...of which this share becomes a regular
 NEW_PAYER_RATE = 0.30               # a business's incoming payments from a first-time payer
+# TRD §11.2, retail: "pembayaran bernilai kecil yang sering, top-up, transfer
+# ...". 1.3.0 gave every party about the same number of rows (CV 0.35, the
+# busiest tenth held 16% of them); real wallets are heavy-tailed. Activity is
+# drawn per party from a lognormal with mean 1, so the TRD §11.1 total holds
+# while a minority transacts often.
+ACTIVITY_SIGMA = 1.0
+# Merchants take many payments ("basis pembayar yang luas"): a business-like
+# party is this many times as active as a retail customer on average.
+BUSINESS_ACTIVITY = 3.0
+# Retail mix: (channel, type, weight). Direction follows the type: a top-up
+# brings money in, a bill goes out, a merchant payment goes out (a few come
+# back as refunds), transfers go both ways.
+RETAIL_MIX = (("QRIS", "MERCHANT_PAYMENT", 40), ("TOPUP", "WALLET_TOPUP", 20),
+              ("PAYMENT", "BILL_PAYMENT", 15), ("TRANSFER", "P2P_TRANSFER", 25))
+REFUND_SHARE = 0.05
+P2P_IN_SHARE = 0.40
+TOPUP_UNIT = 50_000                 # top-ups are round (FRD §8.6 lists them as an expected P06 look-alike)
+# A customer tops up from its own one or two bank accounts and pays the same
+# one to three billers every month; P2P transfers go to its regulars. 1.3.0
+# drew all three from one book, so a top-up could come from a friend.
+TOPUP_SOURCES = (1, 2)
+BILLS_PER_CUSTOMER = (1, 3)
+BILLERS = ("Tagihan Listrik Prabayar", "Tagihan Air Kota", "Internet Rumah", "Pulsa Pascabayar",
+           "Asuransi Kesehatan", "Cicilan Kendaraan", "Iuran Lingkungan", "TV Berlangganan")
+# TRD §11.2, business: "pola settlement" and "nilai tiket yang konsisten dengan
+# kategori". A business sweeps its takings to its own bank every week, and a
+# payment is drawn around its merchant category's typical ticket.
+# Scenario rows are layered on after background: about 4.1% of the Full file
+# in 1.4.0 (17.2k of 424k on five seeds). The background leaves room for them
+# so the file lands on the TRD §11.1 total, not above it.
+SCENARIO_ROW_SHARE = 0.041
+# A business existed before the six-month window, so it starts it with an
+# established payer base (a third of its payment count), not an empty book
+# whose first few payers would dominate its first months (1.4.0 drafts had
+# 116 ordinary businesses over P10's PAYER_CONCENTRATION 0.70).
+PAYER_BASE_SHARE = 1 / 3
+# A merchant takes payments while it is open, with the odd late order.
+OUT_OF_HOURS_SHARE = 0.03
+# A company pays on its own day of the month, on the Friday before when that
+# falls on a weekend.
+PAYROLL_DAYS = (23, 24, 25, 26, 27, 28)
+SETTLEMENT_EVERY_DAYS = 7
+TICKET_SPREAD = 0.45                # lognormal sigma around the category's typical ticket
 # FRD §8.5 DORMANCY_DAYS >= 90; the ATO dormancy is drawn from this range.
 ATO_DORMANCY_DAYS = (90, 150)
 # ATO look-alikes, cycled in this order: which of the three takeover signals
@@ -248,6 +298,10 @@ class Party:
     # use on its date, or it would make a later first appearance look old.
     counterparties: list[tuple[str, str, date]] = field(default_factory=list)
     merchants: list[tuple[str, date]] = field(default_factory=list)
+    # A sole trader has no merchant record, so it gets a category's ticket.
+    category_ticket: float | None = None
+    funding: list[tuple[str, str]] = field(default_factory=list)
+    billers: list[int] = field(default_factory=list)
 
 
 @dataclass
@@ -326,6 +380,9 @@ class RawDatasetGenerator:
         self._account_party: dict[str, Party] = {}
         self._own_merchants: dict[str, list[str]] = {}
         self._merchant_counterparty: dict[str, tuple[str, str]] = {}
+        self._biller_counterparty: dict[int, tuple[str, str]] = {}
+        self._merchant_ticket: dict[str, float] = {}
+        self._merchant_hours: dict[str, range] = {}
         # Dormancy gaps carved once, after every scenario is placed: (accounts,
         # first business date, first business date after the gap).
         self._gaps: list[tuple[set[str], str, str]] = []
@@ -619,13 +676,19 @@ class RawDatasetGenerator:
         businesses = [b["source_business_id"] for b in self.businesses]
         if not businesses:
             return
+        # A business's outlets are one line of trade: one MCC for all its
+        # merchants. 1.3.0 drew each merchant's MCC on its own, so one business
+        # could be a hospital, a book store and a drug store, and its tickets
+        # fit no single category (TRD §11.2 "konsisten dengan kategori").
+        category: dict[str, tuple[int, str, int]] = {}
         for i in range(1, _scaled(FULL_TARGETS["merchants"], self.factor, 8) + 1):
             business_id = rng.choice(businesses)
-            mcc, description, ticket = rng.choice(MCC_BANDS)
+            mcc, description, ticket = category.setdefault(business_id, rng.choice(MCC_BANDS))
             settlement = next(
                 (a for a in self.parties[business_id].accounts), ""
             )
             self._own_merchants.setdefault(business_id, []).append(f"MER-{i:05d}")
+            self._merchant_ticket[f"MER-{i:05d}"] = float(ticket)
             self.merchants.append({
                 "source_merchant_id": f"MER-{i:05d}",
                 "source_business_id": business_id,
@@ -637,9 +700,12 @@ class RawDatasetGenerator:
                 "onboarded_date": (self.period_start - timedelta(days=rng.randrange(20, 1200))).isoformat(),
                 "status": rng.choices(("ACTIVE", "SUSPENDED", "CLOSED"), weights=(95, 3, 2))[0],
                 "settlement_source_account_id": settlement,
-                "operating_hours_declared": rng.choice(("08:00-17:00", "09:00-21:00", "00:00-23:59", "10:00-22:00")),
+                "operating_hours_declared": (hours := rng.choice(("08:00-17:00", "09:00-21:00", "00:00-23:59",
+                                                                  "10:00-22:00"))),
                 "outlet_count": rng.randrange(1, 12),
             })
+            opens, closes = int(hours[:2]), int(hours[6:8]) + (hours[9:] == "59")
+            self._merchant_hours[f"MER-{i:05d}"] = range(opens, closes)
 
     def _device_row(self, rng: random.Random, device_id: str) -> dict[str, Any]:
         first_seen = self.period_start - timedelta(days=rng.randrange(0, 400))
@@ -743,7 +809,7 @@ class RawDatasetGenerator:
         rng = self.rng["defect"]
         if counterparty_ref is None:
             counterparty_ref, usual_name = self._counterparty_for(
-                account_id, merchant_id, counterparty, when.astimezone(JAKARTA).date()
+                account_id, merchant_id, counterparty, when.astimezone(JAKARTA).date(), transaction_type
             )
             counterparty_name = counterparty_name or usual_name
         row = {
@@ -771,11 +837,16 @@ class RawDatasetGenerator:
             # traffic only, never to an injected scenario: a quarantined row
             # would silently change whether the scenario fires, and the label
             # would then be a lie.
-            if rng.random() < DEFECTS["late_arrival"]:
-                # Backdated well before the batch business date: the loader
-                # flags LATE_ARRIVAL and computes lag_days (FR-106). Applied
-                # first so that a row which is also malformed stays malformed.
-                when = when - timedelta(days=rng.randrange(5, 100))
+            # Backdated well before the batch business date: the loader flags
+            # LATE_ARRIVAL and computes lag_days (FR-106). Applied first so
+            # that a row which is also malformed stays malformed. Never before
+            # the period (TRD §11.1): 1.3.0 put 0.4% of rows up to 100 days
+            # before it, so an entity's history seemed to start months before
+            # the data did, and the empty weeks became its P07 and FR-401
+            # baseline. A row in the first days has no room to be late.
+            room = (when.astimezone(JAKARTA).date() - self.period_start).days
+            if rng.random() < DEFECTS["late_arrival"] and room >= 5:
+                when = when - timedelta(days=rng.randrange(5, min(100, room + 1)))
                 row["value_datetime"] = when.isoformat()
                 row["business_date"] = when.astimezone(JAKARTA).date().isoformat()
                 applied.append("late_arrival")
@@ -833,16 +904,22 @@ class RawDatasetGenerator:
             self._merchant_counterparty[merchant_id] = (ref, name)
         return self._merchant_counterparty[merchant_id]
 
-    def _counterparty_for(self, account_id: str, merchant_id: str, mode: str, day: date) -> tuple[str, str]:
+    def _counterparty_for(self, account_id: str, merchant_id: str, mode: str, day: date,
+                          transaction_type: str = "") -> tuple[str, str]:
         """TRD §11.2. `mode` "new" forces a first-time counterparty (ATO pays
         recipients its victim never paid); "usual" follows the party's book as
-        it stood on `day`."""
+        it stood on `day`: its own bank account for a top-up, its billers for
+        a bill, its payers or regulars otherwise."""
         party = self._account_party.get(account_id)
         rng = self.rng["counterparty"]
         if mode == "new" or party is None:
             return self._one_off()
         if mode != "usual":
             raise ValueError(f"unknown counterparty mode {mode!r}")
+        if transaction_type == "WALLET_TOPUP":
+            return self._funding_for(party)
+        if transaction_type == "BILL_PAYMENT":
+            return self._biller_for(party)
         in_use = [(ref, name) for ref, name, since in party.counterparties if since <= day]
         if party.is_business or party.cohort == "BUSINESS_NORMAL":
             # A broad payer base: most payments from payers seen before, a
@@ -902,6 +979,15 @@ class RawDatasetGenerator:
         hour = rng.choices(range(24), weights=self.HOUR_WEIGHTS)[0]
         return datetime(day.year, day.month, day.day, hour, rng.randrange(0, 60), rng.randrange(0, 60), tzinfo=JAKARTA)
 
+    def _merchant_moment(self, rng: random.Random, merchant: str, day: date) -> datetime:
+        """A payment while the merchant is open: the usual hour profile inside
+        its declared hours (FRD §8.10 judges the share outside them)."""
+        hours = self._merchant_hours.get(merchant)
+        if hours is None or rng.random() < OUT_OF_HOURS_SHARE:
+            return self._random_moment(rng, day)
+        hour = rng.choices(hours, weights=[self.HOUR_WEIGHTS[h] for h in hours])[0]
+        return datetime(day.year, day.month, day.day, hour, rng.randrange(0, 60), rng.randrange(0, 60), tzinfo=JAKARTA)
+
     def _burst(self, rng: random.Random, day: date, count: int, spread_hours: int) -> list[datetime]:
         """`count` moments on `day` within a few hours of each other, in order.
 
@@ -934,18 +1020,44 @@ class RawDatasetGenerator:
         self._day_weights = [self._day_weight(d) for d in self._days]
         self._merchant_ids = [m["source_merchant_id"] for m in self.merchants]
 
-        per_party = max(4, budget // max(1, len(active)))
+        # Heavy-tailed activity with the TRD §11.1 total held: weights with mean
+        # 1 (x BUSINESS_ACTIVITY for merchants), scaled onto the budget left
+        # after the weekly settlements. Control-clean entities get deliberately
+        # modest, well-spread behaviour so they raise nothing at default
+        # parameters (FRD §8.14): half the average, no tail.
+        weight = {}
         for party in active:
-            # Control-clean entities get deliberately modest, well-spread
-            # behaviour so they raise nothing at default parameters (FRD §8.14).
-            count = max(3, int(rng.gauss(per_party, per_party * 0.35)))
             if party.cohort == "CONTROL_CLEAN":
-                count = max(3, count // 2)
+                weight[party.source_id] = 0.5
+            else:
+                tail = rng.lognormvariate(-ACTIVITY_SIGMA ** 2 / 2, ACTIVITY_SIGMA)
+                weight[party.source_id] = tail * (BUSINESS_ACTIVITY if self._business_like(party) else 1.0)
+        total_weight = sum(weight.values())
+        # Payments and the weekly sweeps they cause share one budget. A sweep
+        # happens only in a week with takings, so the expected number follows
+        # from each business's payment count; three passes settle it.
+        weeks = len(self._days) / SETTLEMENT_EVERY_DAYS
+        background = budget * (1 - SCENARIO_ROW_SHARE)
+        payment_budget = background
+        for _ in range(3):
+            counts = {pid: max(3, round(payment_budget * w / total_weight)) for pid, w in weight.items()}
+            sweeps = sum(weeks * (1 - (1 - 1 / weeks) ** counts[p.source_id]) for p in active if self._business_like(p))
+            payment_budget = max(len(active) * 3, background - sweeps)
+        for party in active:
+            count = counts[party.source_id]
             # In date order, so the counterparty book grows the way it would:
             # a payer is new the first time it appears, not whenever it happened
             # to be drawn.
+            takings = []
+            if self._business_like(party):
+                party.counterparties = [(*self._one_off(), self.period_start)
+                                        for _ in range(max(5, round(count * PAYER_BASE_SHARE)))]
             for day in sorted(rng.choices(self._days, weights=self._day_weights, k=count)):
-                self._emit_background(rng, party, day)
+                row = self._emit_background(rng, party, day)
+                if row["direction"] == "IN":
+                    takings.append((day, row))
+            if self._business_like(party):
+                self._settle(rng, party, takings)
             if party.cohort == "CONTROL_CLEAN":
                 # TRD §11.3 labels the control cohort too: an alert on any of
                 # these is a rule defect, so the test needs the entity list.
@@ -963,36 +1075,101 @@ class RawDatasetGenerator:
 
         self._inject_exact_duplicates()
 
+    def _business_like(self, party: Party) -> bool:
+        # Sole traders are individuals in the business cohort: they transact
+        # like merchants rather than like retail customers.
+        return party.is_business or party.cohort == "BUSINESS_NORMAL"
+
     def _emit_background(self, rng: random.Random, party: Party, day: date | None = None) -> dict[str, Any]:
         """One row of ordinary behaviour for `party`, defects drawn at the
         declared rates. Shared by background traffic and calibration."""
         if day is None:
             day = rng.choices(self._days, weights=self._day_weights)[0]
-        when = self._random_moment(rng, day)
         account = rng.choice(party.accounts)
         device = self._device_at(rng, party, day)
-        # Sole traders are individuals in the business cohort, so they
-        # transact like merchants rather than like retail customers.
-        if party.is_business or party.cohort == "BUSINESS_NORMAL":
-            amount = rng.lognormvariate(12.5, 1.1)
-            channel, ttype = "PAYMENT", "MERCHANT_PAYMENT"
-            # A business takes payments through its own merchant; a sole
-            # trader has no merchant record, so any merchant stands in.
+        if self._business_like(party):
+            # A payment through the business's own merchant, while it is open,
+            # at a ticket its category makes ordinary (TRD §11.2). A sole
+            # trader has no merchant record: its customers pay it by transfer.
             own = self._own_merchants.get(party.source_id)
-            merchant = rng.choice(own) if own else (rng.choice(self._merchant_ids) if self._merchant_ids else "")
+            if own:
+                merchant = rng.choice(own)
+                typical = self._merchant_ticket[merchant]
+                channel, ttype = "PAYMENT", "MERCHANT_PAYMENT"
+                when = self._merchant_moment(rng, merchant, day)
+            else:
+                if party.category_ticket is None:
+                    party.category_ticket = float(rng.choice(MCC_BANDS)[2])
+                merchant, typical = "", party.category_ticket
+                channel, ttype = "TRANSFER", "P2P_TRANSFER"
+                when = self._random_moment(rng, day)
+            amount = rng.lognormvariate(math.log(typical), TICKET_SPREAD)
             direction = "IN"
         else:
-            amount = rng.lognormvariate(11.2, 1.2)
-            channel, ttype = rng.choice((("QRIS", "MERCHANT_PAYMENT"), ("TRANSFER", "P2P_TRANSFER"),
-                                         ("TOPUP", "WALLET_TOPUP"), ("PAYMENT", "BILL_PAYMENT")))
-            merchant = self._merchant_for(party, day) if ttype == "MERCHANT_PAYMENT" else ""
-            direction = rng.choices(("OUT", "IN"), weights=(70, 30))[0]
+            when = self._random_moment(rng, day)
+            channel, ttype = rng.choices([(c, t) for c, t, _ in RETAIL_MIX], weights=[w for *_, w in RETAIL_MIX])[0]
+            if ttype == "MERCHANT_PAYMENT":
+                amount = rng.lognormvariate(10.9, 1.0)
+                direction = "IN" if rng.random() < REFUND_SHARE else "OUT"
+                merchant = self._merchant_for(party, day)
+            elif ttype == "WALLET_TOPUP":
+                amount = max(1, round(rng.lognormvariate(12.2, 0.8) / TOPUP_UNIT)) * TOPUP_UNIT
+                direction, merchant = "IN", ""
+            elif ttype == "BILL_PAYMENT":
+                amount = rng.lognormvariate(11.9, 0.6)
+                direction, merchant = "OUT", ""
+            else:
+                amount = rng.lognormvariate(11.8, 1.2)
+                direction = "IN" if rng.random() < P2P_IN_SHARE else "OUT"
+                merchant = ""
         if party.cohort == "CONTROL_CLEAN":
             amount = min(amount, 120_000_000)
         return self._emit(
             account_id=account, when=when, amount=max(1000.0, amount), direction=direction,
             channel=channel, transaction_type=ttype, device_id=device, merchant_id=merchant,
         )
+
+    def _funding_for(self, party: Party) -> tuple[str, str]:
+        """The customer's own bank account a top-up comes from, in its own name."""
+        rng = self.rng["counterparty"]
+        if not party.funding:
+            party.funding = [(self._one_off()[0], party.name) for _ in range(rng.randint(*TOPUP_SOURCES))]
+        return rng.choice(party.funding)
+
+    def _biller_for(self, party: Party) -> tuple[str, str]:
+        """One of the customer's usual billers. Like a merchant, a biller is
+        one counterparty for everyone who pays it."""
+        rng = self.rng["counterparty"]
+        if not party.billers:
+            party.billers = rng.sample(range(len(BILLERS)), rng.randint(*BILLS_PER_CUSTOMER))
+        index = rng.choice(party.billers)
+        if index not in self._biller_counterparty:
+            self._biller_counterparty[index] = (self._one_off()[0], BILLERS[index])
+        return self._biller_counterparty[index]
+
+    def _settle(self, rng: random.Random, party: Party, takings: list[tuple[date, dict[str, Any]]]) -> None:
+        """TRD §11.2 "pola settlement": every week the business sweeps what it
+        took since the last sweep to its own bank account, the same one each time."""
+        if not takings:
+            return
+        bank_ref, bank_name = self._one_off()
+        offset = rng.randrange(SETTLEMENT_EVERY_DAYS)
+        sweep_days = [d for d in self._days if (d - self.period_start).days % SETTLEMENT_EVERY_DAYS == offset]
+        position = 0
+        for day in sweep_days:
+            total = 0.0
+            while position < len(takings) and takings[position][0] <= day:
+                try:
+                    total += float(takings[position][1]["amount_original"])
+                except ValueError:
+                    pass
+                position += 1
+            if total <= 0:
+                continue
+            self._emit(account_id=rng.choice(party.accounts), when=self._random_moment(rng, day),
+                       amount=max(1000.0, total * rng.uniform(0.97, 1.0)), direction="OUT", channel="TRANSFER",
+                       transaction_type="SETTLEMENT", device_id=self._device_at(rng, party, day),
+                       counterparty_ref=bank_ref, counterparty_name=bank_name)
 
     def _inject_exact_duplicates(self) -> None:
         """TRD §11.4: 1% exact duplicates (suppressed by idempotency but still
@@ -1213,9 +1390,11 @@ class RawDatasetGenerator:
             eligible_ids = {p.source_id for p in eligible}
             owner = {a["source_account_id"]: a["owner_source_id"] for a in self.accounts}
             copies = Counter(r["source_transaction_reference"] for r in self.transactions)
+            # A weekly sweep is derived from the week's takings, so it stays.
             candidates = [
                 i for i, r in enumerate(self.transactions)
                 if owner.get(r["source_account_id"]) in eligible_ids and copies[r["source_transaction_reference"]] == 1
+                and r["transaction_type"] != "SETTLEMENT"
             ]
             drop = set(rng.sample(candidates, min(-delta, len(candidates))))
             self.transactions = [r for i, r in enumerate(self.transactions) if i not in drop]
@@ -1357,12 +1536,14 @@ class RawDatasetGenerator:
         # Dormancy is derived from transaction history (FRD E04), so the
         # scenario is a gap in activity followed by something material.
         day = self._pick_day(rng, self.reference_date - timedelta(days=39), self.reference_date - timedelta(days=5))
-        account = rng.choice(party.accounts)
         # FRD §8.5 DORMANCY_DAYS >= 90, leaving at least 30 days of history in
         # view (1.2.0's 150 days erased nearly all of it, so even a regular
         # counterparty looked new).
         quiet = self._quiet_days(rng, day)
         gap_start = (day - timedelta(days=quiet)).isoformat()
+        # Dormancy is per account and needs activity before it: the party's
+        # busiest account before the gap.
+        account = self._ensure_history(rng, party, date.fromisoformat(gap_start))
         self.transactions = [
             t for t in self.transactions
             if not (t["source_account_id"] == account and gap_start <= t["business_date"] < day.isoformat())
@@ -1466,7 +1647,8 @@ class RawDatasetGenerator:
         # Ticket sizes an order of magnitude away from what the MCC implies.
         for _ in range(rng.randrange(20, 45)):
             day = self._pick_day(rng, start, start + timedelta(days=24))
-            self._emit(account_id=rng.choice(business.accounts), when=self._random_moment(rng, day),
+            self._emit(account_id=rng.choice(business.accounts),
+                       when=self._merchant_moment(rng, merchant["source_merchant_id"], day),
                        amount=rng.uniform(25_000_000, 120_000_000), direction="IN", channel="QRIS",
                        transaction_type="MERCHANT_PAYMENT", merchant_id=merchant["source_merchant_id"],
                        device_id=self._device_at(rng, business, day), defects="soft")
@@ -1515,80 +1697,326 @@ class RawDatasetGenerator:
                     self.period_start, self.reference_date,
                     f"Name close to list record {listed['list_record_id']} ({listed['list_type']})")
 
+    def _row(self, rng: random.Random, party: Party, when: datetime, amount: float, direction: str,
+             channel: str, ttype: str, **extra: Any) -> dict[str, Any]:
+        """A scenario row on the party's own device, with the soft defects."""
+        device = extra.pop("device", None) or self._device_at(rng, party, when.date())
+        return self._emit(account_id=rng.choice(party.accounts), when=when, amount=amount, direction=direction,
+                          channel=channel, transaction_type=ttype, device_id=device, defects="soft", **extra)
+
+    def _paydays(self, rng: random.Random, months: int) -> list[date]:
+        """One company's payday in `months` consecutive months, late enough to
+        leave a baseline: its own day of the month, the Friday before when it
+        falls on a weekend."""
+        pay_day = rng.choice(PAYROLL_DAYS)
+        dates = []
+        year, month = self.period_start.year, self.period_start.month
+        while date(year, month, 1) <= self.reference_date:
+            day = date(year, month, pay_day)
+            while day.weekday() >= 5:
+                day -= timedelta(days=1)
+            if (day - self.period_start).days >= 60 and day <= self.reference_date - timedelta(days=3):
+                dates.append(day)
+            year, month = (year + 1, 1) if month == 12 else (year, month + 1)
+        if len(dates) < months:
+            first = self._window_start(rng, 31 * months)
+            return [first + timedelta(days=30 * n) for n in range(months)]
+        first = rng.randrange(len(dates) - months + 1)
+        return dates[first:first + months]
+
     def _inject_edge(self, rng: random.Random, pattern: str, scenario_id: str) -> None:
-        """Legitimate activity built to sit close to the injected positives
-        (TRD §11.2). If these were trivially separable, the false-positive
-        discussion would be meaningless."""
-        party = self._take(1, primary="EDGE_AMBIGUOUS")
-        if not party:
+        """Legitimate activity that resembles `pattern` (TRD §11.2: "perilaku sah
+        yang menyerupai suatu pattern"), built from the TRD §11.2 examples and
+        the FRD §8 lists of expected false positives. If these were trivially
+        separable, the false-positive discussion would be meaningless.
+
+        1.3.0 built only five of them this way; the other seven were six
+        ordinary transfers that resembled nothing."""
+        if pattern == "P10":
+            self._edge_p10(rng, scenario_id)
             return
-        party = party[0]
-        # `spacing` is the gap between transactions in days. Where the note
-        # claims the activity falls outside a rule's window, the spacing has to
-        # guarantee it — a label that says one thing while the data does another
-        # is worse than no label at all. P02's window is 7 days rolling, so
-        # 8-day spacing can never put three deposits in one window.
-        constructions = {
-            "P02": ("Arisan collector: in-band deposits, but always spread past the 7-day window",
-                    9, 380_000_000, "CASH", 5),
-            "P11": ("School fee account: many payers, same names every month", 3, 3_500_000, "TRANSFER", 8),
-            "P04": ("Payroll disburser on payday", 1, 8_000_000, "TRANSFER", 6),
-            "P06": ("Agent kiosk float top-ups in round amounts", 2, 20_000_000, "AGENT", 8),
-            "P08": ("Cross-border student receiving family support", 14, 15_000_000, "REMITTANCE", 6),
-        }
-        note, spacing, base, channel, count = constructions.get(
-            pattern, (f"Legitimate look-alike for {pattern}", 3, 12_000_000, "TRANSFER", 6)
-        )
-        span = spacing * count
-        start = self._window_start(rng, span)
-        # The family abroad is one sender, every time.
-        family = self._one_off() if pattern == "P08" else None
-        if pattern == "P04":
-            # The note says payday; 1.1.0 started it on any day.
-            start = next((start + timedelta(days=n) for n in range(31) if (start + timedelta(days=n)).day == 25), start)
-        for n in range(count):
-            # Each date is drawn inside its own slot of the cadence, weighted
-            # like background days, so a fixed spacing does not avoid paydays
-            # the way ordinary rows do not. P02 keeps a one-day slot on a
-            # spacing of 9: at least 8 days between deposits, past its 7-day
-            # window, as its note promises.
-            target = start + timedelta(days=n * spacing)
-            slot = 1 if pattern == "P02" else max(0, spacing - 1)
-            day = target if pattern == "P04" else self._pick_day(rng, target, target + timedelta(days=slot))
-            amount = base * rng.uniform(0.8, 1.2)
-            direction, ttype, country = rng.choice(("IN", "OUT")), "P2P_TRANSFER", "ID"
-            if pattern == "P06":
-                # The note says round amounts; 1.1.0 wrote unrounded ones.
-                amount = round(amount / 1_000_000) * 1_000_000
-            elif pattern == "P08":
-                # Cross-border support, as the note says: 1.1.0 wrote domestic rows.
-                direction, ttype, country = "IN", "INBOUND_REMITTANCE", rng.choice(NORMAL_CORRIDORS)
-            self._emit(account_id=rng.choice(party.accounts), when=self._random_moment(rng, day),
-                       amount=amount, direction=direction, channel=channel, transaction_type=ttype,
-                       counterparty_country=country, device_id=self._device_at(rng, party, day),
-                       counterparty_ref=family[0] if family else None,
-                       counterparty_name=family[1] if family else "", defects="soft")
-        self._label(scenario_id, "EDGE_CASE", pattern, party.source_id, start,
-                    start + timedelta(days=span), note)
+        size = rng.randrange(3, 5) if pattern == "P09" else 1
+        parties = self._take(size, primary="EDGE_AMBIGUOUS", individuals_only=True)
+        if len(parties) < size:
+            return
+        party = parties[0]
+        if pattern == "P01":
+            # FRD §8.1: a vehicle down payment or an annual bonus, under the
+            # individual threshold but far above the customer's own usual.
+            day = self._window_start(rng, 1)
+            bonus = rng.random() < 0.5
+            self._row(rng, party, self._random_moment(rng, day), rng.uniform(60e6, 95e6),
+                      "IN" if bonus else "OUT", "TRANSFER", "P2P_TRANSFER")
+            note, start, end = ("Annual bonus" if bonus else "Vehicle down payment") + \
+                ", under the individual threshold", day, day
+        elif pattern == "P02":
+            # TRD §11.2: an arisan collector's cash deposits, in band but always
+            # spread past the 7-day window (spacing 9, one-day slot: >= 8 days apart).
+            start = self._window_start(rng, 45)
+            for n in range(5):
+                target = start + timedelta(days=9 * n)
+                day = self._pick_day(rng, target, target + timedelta(days=1))
+                self._row(rng, party, self._random_moment(rng, day), 380_000_000 * rng.uniform(0.8, 1.2),
+                          "IN", "CASH", "CASH_DEPOSIT")
+            note, end = "Arisan collector: in-band deposits, but always spread past the 7-day window", \
+                start + timedelta(days=45)
+        elif pattern == "P03":
+            # FRD §8.3: a wallet used as a pipe, salary in and bills and savings
+            # out the same day, below the pass-through minimum credit.
+            paydays = self._paydays(rng, 2)
+            start = paydays[0]
+            for day in paydays:
+                salary = rng.uniform(20e6, 80e6)  # a senior salary: about half reach MIN_INBOUND_AMOUNT
+                moments = self._burst(rng, day, rng.randrange(4, 7), spread_hours=6)
+                self._row(rng, party, moments[0], salary, "IN", "TRANSFER", "P2P_TRANSFER")
+                shares = [rng.random() for _ in moments[1:]]
+                out_total = salary * rng.uniform(0.85, 0.95)
+                for when, share in zip(moments[1:], shares):
+                    ttype, channel = rng.choice((("BILL_PAYMENT", "PAYMENT"), ("P2P_TRANSFER", "TRANSFER")))
+                    self._row(rng, party, when, out_total * share / sum(shares), "OUT", channel, ttype)
+            note, end = "Salary in, bills and savings out the same day, every month", paydays[-1] + timedelta(days=1)
+        elif pattern == "P04":
+            # TRD §11.2: a payroll disburser on payday, a burst of transfers to
+            # the same staff every month.
+            paydays = self._paydays(rng, 2)
+            start = paydays[0]
+            staff = [self._one_off() for _ in range(rng.randrange(15, 41))]
+            for day in paydays:
+                for when, (ref, name) in zip(self._burst(rng, day, len(staff), spread_hours=3), staff):
+                    self._row(rng, party, when, rng.uniform(3e6, 8e6), "OUT", "TRANSFER", "P2P_TRANSFER",
+                              counterparty_ref=ref, counterparty_name=name)
+            note, end = f"Payroll disburser on payday: {len(staff)} staff paid within hours, every month", \
+                paydays[-1] + timedelta(days=1)
+        elif pattern == "P05":
+            # FRD §8.5: back from working abroad, the account quiet for months,
+            # then a modest credit and a payment or two (under the reactivation minimum).
+            start = self._takeover_day(rng)
+            quiet = self._quiet_days(rng, start)
+            self._ensure_history(rng, party, start - timedelta(days=quiet))
+            self._carve_gap(party, start - timedelta(days=quiet), start + timedelta(days=4))
+            moments = sorted(self._random_moment(rng, start + timedelta(days=n)) for n in range(rng.randrange(2, 4)))
+            self._row(rng, party, moments[0], rng.uniform(10e6, 40e6), "IN", "TRANSFER", "P2P_TRANSFER")
+            for when in moments[1:]:
+                channel, ttype, merchant = self._ordinary_payment(rng, party, when.date())
+                self._row(rng, party, when, self._usual_amount(rng, party), "OUT", channel, ttype, merchant_id=merchant)
+            note, end = f"Back from working abroad after {quiet} quiet days: savings sent home, ordinary spending", \
+                moments[-1].date()
+        elif pattern == "P06":
+            # TRD §11.2: an agent kiosk topping up its float in round amounts
+            # (FRD §8.6 lists round top-ups as expected false positives).
+            start = self._window_start(rng, 16)
+            for n in range(8):
+                target = start + timedelta(days=2 * n)
+                day = self._pick_day(rng, target, target + timedelta(days=1))
+                self._row(rng, party, self._random_moment(rng, day), round(20e6 * rng.uniform(0.8, 1.2) / 1e6) * 1e6,
+                          "IN", "AGENT", "WALLET_TOPUP")
+            note, end = "Agent kiosk float top-ups in round amounts", start + timedelta(days=16)
+        elif pattern == "P07":
+            # TRD §11.2: a seasonal trader, three weeks of sales far above its
+            # own usual week, from many buyers (Ramadan, year-end).
+            start = self._window_start(rng, 21)
+            for week in range(3):
+                for _ in range(rng.randrange(20, 36)):
+                    day = self._pick_day(rng, start + timedelta(days=7 * week), start + timedelta(days=7 * week + 6))
+                    self._row(rng, party, self._random_moment(rng, day), rng.uniform(2_000_000, 6_000_000), "IN",
+                              "TRANSFER", "P2P_TRANSFER", counterparty="new" if rng.random() < 0.7 else "usual")
+            note, end = "Seasonal trader: three weeks of sales from many buyers", start + timedelta(days=21)
+        elif pattern == "P08":
+            # TRD §11.2: a student abroad, family support from a normal
+            # corridor, the same sender every time.
+            start = self._window_start(rng, 84)
+            family = self._one_off()
+            for n in range(6):
+                target = start + timedelta(days=14 * n)
+                day = self._pick_day(rng, target, target + timedelta(days=13))
+                self._row(rng, party, self._random_moment(rng, day), 15e6 * rng.uniform(0.8, 1.2), "IN",
+                          "REMITTANCE", "INBOUND_REMITTANCE", counterparty_country=rng.choice(NORMAL_CORRIDORS),
+                          counterparty_ref=family[0], counterparty_name=family[1])
+            note, end = "Cross-border student receiving family support", start + timedelta(days=84)
+        elif pattern == "P09":
+            # TRD §11.2 / FRD §8.9: a family sharing one handset, members living
+            # at one address, each paying for ordinary things on it.
+            start = self._window_start(rng, 35)
+            handset = self._new_device(self.rng["device"])
+            home = self._customer_rows[party.source_id]
+            for member in parties:
+                row = self._customer_rows[member.source_id]
+                for field_name in ("address_line", "city", "province", "postcode"):
+                    row[field_name] = home[field_name]
+                for _ in range(rng.randrange(4, 9)):
+                    day = self._pick_day(rng, start, start + timedelta(days=34))
+                    when = self._random_moment(rng, day)
+                    channel, ttype, merchant = self._ordinary_payment(rng, member, day)
+                    self._row(rng, member, when, self._usual_amount(rng, member), "OUT", channel, ttype,
+                              merchant_id=merchant, device=handset)
+            end = start + timedelta(days=35)
+            for member in parties:
+                self._label(scenario_id, "EDGE_CASE", "P09", member.source_id, start, end,
+                            f"Family of {len(parties)} at one address sharing one handset")
+            return
+        elif pattern == "P11":
+            # TRD §11.2: a school fee account, many payers paying the same fee,
+            # the same names every month, spread over days (no compression) -
+            # it differs from a funnel in compression, device overlap and
+            # amount uniformity, as §11.2 says it should.
+            start = self._window_start(rng, 45)
+            payers = [self._one_off() for _ in range(rng.randrange(30, 61))]
+            fee = round(rng.uniform(4e6, 8e6) / 50_000) * 50_000
+            for month in range(2):
+                for ref, name in payers:
+                    day = self._pick_day(rng, start + timedelta(days=30 * month),
+                                         start + timedelta(days=30 * month + 11))
+                    self._row(rng, party, self._random_moment(rng, day), fee, "IN", "TRANSFER", "P2P_TRANSFER",
+                              counterparty_ref=ref, counterparty_name=name)
+            note, end = f"School fee account: {len(payers)} payers, the same fee, the same names every month", \
+                start + timedelta(days=42)
+        elif pattern == "P12":
+            # FRD §8.12: a very common given name shared with a list record,
+            # the family name different. No transactions of its own.
+            listed = rng.choice(self.watchlist)
+            tokens = [t for t in listed["primary_name"].split() if not t.endswith(".")]
+            others = [f for f in FAMILY if f != tokens[-1]]
+            customer = self._customer_rows[party.source_id]
+            customer["full_name"] = f"{tokens[0]} {rng.choice(others)}"
+            customer["_defects"] = [d for d in customer["_defects"] if d != "truncated_name"]
+            party.name = customer["full_name"]
+            note, start, end = f"Shares a common given name with list record {listed['list_record_id']}", \
+                self.period_start, self.reference_date
+        else:
+            raise ValueError(f"no look-alike construction for {pattern}")
+        self._label(scenario_id, "EDGE_CASE", pattern, party.source_id, start, end, note)
+
+    def _edge_p10(self, rng: random.Random, scenario_id: str) -> None:
+        """FRD §8.10: a B2B supplier that really does serve a handful of large
+        clients, at tickets its category explains."""
+        candidates = [m for m in self.merchants
+                      if m["source_business_id"] not in self._claimed and self.parties[m["source_business_id"]].accounts]
+        if not candidates:
+            return
+        merchant = rng.choice(candidates)
+        business = self.parties[merchant["source_business_id"]]
+        self._claimed.add(business.source_id)
+        self._placement["EDGE_AMBIGUOUS"]["BUSINESS_NORMAL (P10 merchant)"] += 1
+        start = self._window_start(rng, 25)
+        clients = [self._one_off() for _ in range(rng.randrange(3, 6))]
+        typical = self._merchant_ticket[merchant["source_merchant_id"]]
+        for _ in range(rng.randrange(20, 41)):
+            day = self._pick_day(rng, start, start + timedelta(days=24))
+            ref, name = rng.choice(clients)
+            self._row(rng, business, self._merchant_moment(rng, merchant["source_merchant_id"], day),
+                      typical * rng.uniform(1.5, 2.5), "IN", "QRIS",
+                      "MERCHANT_PAYMENT", merchant_id=merchant["source_merchant_id"],
+                      counterparty_ref=ref, counterparty_name=name)
+        self._label(scenario_id, "EDGE_CASE", "P10", business.source_id, start, start + timedelta(days=25),
+                    f"B2B supplier with {len(clients)} large clients, tickets consistent with MCC {merchant['mcc']}")
 
     def _inject_boundary(self, rng: random.Random, pattern: str, scenario_id: str) -> None:
-        """Exactly on the threshold, where the rule must be unambiguous. For
-        P02 the band's lower bound is inclusive and the reporting threshold is
-        exclusive, so 500,000,000 must NOT be in band."""
-        party = self._take(1, primary="EDGE_AMBIGUOUS")
-        if not party:
+        """Exactly on the pattern's own FRD §8 threshold, on the side that must
+        not fire. 1.3.0 used three 100,000,000 deposits for every pattern but
+        P02, which sits on none of their thresholds (P07's rule fires on it).
+
+        The case is negative for its own pattern only. Where the party's own
+        background could tip it over (one more payment in the same 24 hours,
+        one more sender in the same week) that background is carved away.
+        Other rules may still fire on it, as they would on a real customer:
+        a IDR 60M credit is large for a retail customer (P01's relative
+        condition), a IDR 500M deposit exceeds P01's absolute threshold."""
+        size = 3 if pattern == "P09" else 1
+        parties = self._take(size, primary="EDGE_AMBIGUOUS", individuals_only=True)
+        if len(parties) < size:
             return
-        party = party[0]
+        party = parties[0]
         start = self._window_start(rng, 7)
-        amount = 500_000_000.0 if pattern == "P02" else 100_000_000.0
-        for n in range(3):
-            day = start + timedelta(days=n)
-            self._emit(account_id=rng.choice(party.accounts),
-                       when=self._random_moment(rng, day), amount=amount,
-                       direction="IN", channel="CASH", transaction_type="CASH_DEPOSIT",
-                       device_id=self._device_at(rng, party, day), defects="soft")
-        self._label(scenario_id, "EDGE_CASE", pattern, party.source_id, start, start + timedelta(days=7),
-                    f"Exactly at threshold ({amount:,.0f}) — must not fire at default parameters")
+        if pattern == "P01" and (start - self.period_start).days < 100:
+            start = self._pick_day(rng, self.period_start + timedelta(days=100), self.reference_date - timedelta(days=8))
+        moment = self._random_moment(rng, start)
+        end = start + timedelta(days=7)
+        if pattern == "P01":
+            # FRD TD-P01-NEG-02: fewer than MIN_HISTORY_TXNS in the 90-day
+            # baseline, so the relative condition is not evaluated either.
+            self._carve_gap(party, start - timedelta(days=90), start + timedelta(days=7))
+            for offset in sorted(rng.sample(range(8, 89), 8), reverse=True):
+                day = start - timedelta(days=offset)
+                channel, ttype, merchant = self._ordinary_payment(rng, party, day)
+                self._row(rng, party, self._random_moment(rng, day), self._usual_amount(rng, party), "OUT",
+                          channel, ttype, merchant_id=merchant)
+            self._row(rng, party, moment, 100_000_000.0, "OUT", "TRANSFER", "P2P_TRANSFER")
+            note = ("One transfer of exactly IDR 100,000,000 (at, not above, the individual threshold) from a "
+                    "customer with 8 transactions in 90 days, under MIN_HISTORY_TXNS 20 (FRD §8.1)")
+        elif pattern == "P02":
+            for n in range(3):
+                day = start + timedelta(days=n)
+                self._row(rng, party, self._random_moment(rng, day), 500_000_000.0, "IN", "CASH", "CASH_DEPOSIT")
+            note = "Exactly at threshold (500,000,000): the threshold is exclusive, so not in band (FRD §8.2)"
+        elif pattern == "P03":
+            self._carve_gap(party, start, start + timedelta(days=2))
+            credit = 60_000_000.0
+            self._row(rng, party, moment, credit, "IN", "TRANSFER", "P2P_TRANSFER")
+            self._row(rng, party, moment + timedelta(hours=3), credit * 0.79, "OUT", "TRANSFER", "P2P_TRANSFER")
+            note = "79% of a IDR 60M credit out within hours: under PASSTHROUGH_RATIO 0.80 (FRD §8.3)"
+        elif pattern == "P04":
+            self._carve_gap(party, start - timedelta(days=1), start + timedelta(days=2))
+            for when in self._burst(rng, start, 14, spread_hours=6):
+                channel, ttype, merchant = self._ordinary_payment(rng, party, start)
+                self._row(rng, party, when, self._usual_amount(rng, party), "OUT", channel, ttype, merchant_id=merchant)
+            note = "Exactly 14 transactions within 24 hours: under MIN_COUNT_FLOOR 15 (FRD §8.4)"
+        elif pattern == "P05":
+            day = self._takeover_day(rng)
+            last = day - timedelta(days=89)
+            self._carve_gap(party, last + timedelta(days=1), day + timedelta(days=8))
+            account = rng.choice(party.accounts)
+            self._emit(account_id=account, when=self._random_moment(rng, last), amount=self._usual_amount(rng, party),
+                       direction="OUT", channel="PAYMENT", transaction_type="BILL_PAYMENT",
+                       device_id=self._device_at(rng, party, last), defects="soft")
+            self._emit(account_id=account, when=self._random_moment(rng, day), amount=30_000_000.0, direction="IN",
+                       channel="TRANSFER", transaction_type="P2P_TRANSFER", device_id=self._device_at(rng, party, day),
+                       defects="soft")
+            start, end = last, day + timedelta(days=7)
+            note = "Account quiet for 89 days, then a IDR 30M credit: under DORMANCY_DAYS 90 (FRD §8.5)"
+        elif pattern == "P06":
+            for n in range(4):
+                day = start + timedelta(days=5 * n)
+                self._row(rng, party, self._random_moment(rng, day), 10_000_000.0, "OUT", "TRANSFER", "P2P_TRANSFER")
+            note = "Exactly 4 round amounts of IDR 10M in 30 days: under MIN_COUNT 5 (FRD §8.6)"
+        elif pattern == "P09":
+            device = self._new_device(self.rng["device"])
+            for member in parties:
+                for _ in range(rng.randrange(3, 6)):
+                    day = self._pick_day(rng, start, start + timedelta(days=13))
+                    self._row(rng, member, self._random_moment(rng, day), rng.uniform(1e6, 10e6), "OUT", "TRANSFER",
+                              "P2P_TRANSFER", device=device)
+            for member in parties:
+                self._label(scenario_id, "EDGE_CASE", "P09", member.source_id, start, start + timedelta(days=14),
+                            "One device used by exactly 3 entities: under MIN_DISTINCT_ENTITIES 4 (FRD §8.9)")
+            return
+        elif pattern == "P11":
+            self._carve_gap(party, start - timedelta(days=7), start + timedelta(days=8))
+            for when in self._burst(rng, start, 7, spread_hours=20):
+                ref, name = self._one_off()
+                self._row(rng, party, when, rng.uniform(30e6, 50e6), "IN", "TRANSFER", "P2P_TRANSFER",
+                          counterparty_ref=ref, counterparty_name=name)
+            note = "Exactly 7 senders within 48 hours, over IDR 200M: under MIN_DISTINCT_COUNTERPARTIES 8 (FRD §8.11)"
+        else:
+            raise ValueError(f"no boundary construction for {pattern}")
+        self._label(scenario_id, "EDGE_CASE", pattern, party.source_id, start, end, note)
+
+    def _ensure_history(self, rng: random.Random, party: Party, gap_start: date) -> str:
+        """The party's busiest account before `gap_start`, given two ordinary
+        payments in the month before if it has no activity there: a dormancy
+        has to follow something. A quiet customer in 1.4.0's heavy tail may
+        have none, and would look new rather than dormant."""
+        before = Counter(t["source_account_id"] for t in self.transactions
+                         if t["source_account_id"] in party.accounts and t["business_date"] < gap_start.isoformat())
+        account = max(party.accounts, key=lambda a: (before[a], -party.accounts.index(a)))
+        if not before[account]:
+            for offset in sorted(rng.sample(range(1, 30), 2), reverse=True):
+                day = gap_start - timedelta(days=offset)
+                channel, ttype, merchant = self._ordinary_payment(rng, party, day)
+                self._emit(account_id=account, when=self._random_moment(rng, day),
+                           amount=self._usual_amount(rng, party), direction="OUT", channel=channel,
+                           transaction_type=ttype, merchant_id=merchant, device_id=self._device_at(rng, party, day),
+                           defects="soft")
+        return account
 
     def _takeover_day(self, rng: random.Random) -> date:
         """Late enough to leave a history, then the longest dormancy, before it."""
@@ -1634,6 +2062,7 @@ class RawDatasetGenerator:
         party = party[0]
         takeover_day = self._takeover_day(rng)
         quiet = self._quiet_days(rng, takeover_day)
+        self._ensure_history(rng, party, takeover_day - timedelta(days=quiet))
         self._carve_gap(party, takeover_day - timedelta(days=quiet), takeover_day + timedelta(days=2))
         device = self._fresh_device(takeover_day)
         usual = self._outgoing_p95(party)
@@ -1678,6 +2107,7 @@ class RawDatasetGenerator:
             day = self._takeover_day(rng)
         quiet = self._quiet_days(rng, day)
         if kind != "NEW_PHONE_PAYDAY":
+            self._ensure_history(rng, party, day - timedelta(days=quiet))
             self._carve_gap(party, day - timedelta(days=quiet), day + timedelta(days=4))
         device = self._fresh_device(day) if needs_new_device else None
         if kind == "RETURNING_NEW_PHONE":
@@ -1901,7 +2331,41 @@ class RawDatasetGenerator:
                 f"| `{pattern}` | {name} | {constructions[pattern]} | `{EXPECTED_REASON[pattern]}` | "
                 f"{positives} positive, {edges} edge |"
             )
+        look_alikes = {
+            "P01": ("Annual bonus or vehicle down payment: one IDR 60-95M transfer",
+                    "exactly IDR 100,000,000 from a customer with 8 transactions in 90 days"),
+            "P02": ("Arisan collector: in-band cash deposits always spread past the 7-day window",
+                    "3 deposits of exactly IDR 500,000,000 (the threshold is exclusive)"),
+            "P03": ("Salary of IDR 20-80M in, 85-95% out to bills and savings the same day, two months",
+                    "79% of a IDR 60M credit out within hours"),
+            "P04": ("Payroll disburser: 15-40 staff paid within 3 hours on the company's payday, two months",
+                    "exactly 14 transactions in 24 hours"),
+            "P05": ("Back from working abroad: 90+ quiet days, then IDR 10-40M and ordinary spending",
+                    "89 quiet days, then a IDR 30M credit"),
+            "P06": ("Agent kiosk: 8 round float top-ups of about IDR 20M in 16 days", "exactly 4 round amounts in 30 days"),
+            "P07": ("Seasonal trader: three weeks of 20-35 sales of IDR 2-6M from many buyers", "-"),
+            "P08": ("Student abroad: fortnightly family support from a normal corridor", "-"),
+            "P09": ("A family of 3-4 at one address sharing one handset", "one device used by exactly 3 entities"),
+            "P10": ("B2B supplier: 20-40 payments from 3-5 clients at 1.5-2.5x its category's ticket", "-"),
+            "P11": ("School fees: 30-60 payers, one fee, the same names each month, spread over 12 days",
+                    "exactly 7 senders within 48 hours, over IDR 200M"),
+            "P12": ("A common given name shared with a list record, a different family name", "-"),
+        }
         lines += [
+            "",
+            "## Look-alikes and boundary cases (1.4.0)",
+            "",
+            "Look-alikes follow the TRD §11.2 examples and the FRD §8 lists of expected false positives, so",
+            "some of them do fire the default rule (payroll, float top-ups, a family handset, a B2B supplier,",
+            "about half the salaries and returns from abroad); that is the false-positive burden a model",
+            "should lower. A boundary case sits exactly on its pattern's own threshold, on the side that",
+            "must not fire; the party's own background that could tip it over is carved away. P07, P08, P10",
+            "and P12 have none: P07 needs a high-value baseline no ordinary customer has, P08 and P10 fire",
+            "on any of several OR-ed sub-conditions, and P12 is the screening engine's.",
+            "",
+            "| Pattern | Look-alike | Boundary case |",
+            "|---|---|---|",
+            *(f"| `{p}` | {a} | {b} |" for p, (a, b) in look_alikes.items()),
             "",
             "## ATO look-alikes",
             "",
@@ -1921,11 +2385,26 @@ class RawDatasetGenerator:
             "",
             "## Counterparties (TRD §11.2)",
             "",
-            f"Retail customers pay {RETAIL_REGULARS[0]}-{RETAIL_REGULARS[1]} regular counterparties and "
-            f"{FAVOURITE_MERCHANTS[0]}-{FAVOURITE_MERCHANTS[1]} usual merchants; {NEW_COUNTERPARTY_RATE:.0%} of their",
-            f"payments go to someone new, and {NEW_BECOMES_REGULAR:.0%} of those become regulars. Businesses have a broad",
-            f"payer base, with {NEW_PAYER_RATE:.0%} of incoming payments from first-time payers. ATO pays only",
-            "recipients its victim never paid.",
+            f"Retail customers send P2P money to {RETAIL_REGULARS[0]}-{RETAIL_REGULARS[1]} regular counterparties, pay "
+            f"{FAVOURITE_MERCHANTS[0]}-{FAVOURITE_MERCHANTS[1]} usual merchants and",
+            f"{BILLS_PER_CUSTOMER[0]}-{BILLS_PER_CUSTOMER[1]} billers, and top up from {TOPUP_SOURCES[0]}-{TOPUP_SOURCES[1]} "
+            f"bank accounts of their own; {NEW_COUNTERPARTY_RATE:.0%} of their",
+            f"transfers and merchant payments go to someone new, and {NEW_BECOMES_REGULAR:.0%} of those become regulars. "
+            "Businesses have a broad",
+            f"payer base: an established one at the start (a third of their payment count), and {NEW_PAYER_RATE:.0%} of",
+            "incoming payments from first-time payers. ATO pays only recipients its victim never paid.",
+            "",
+            "## Background behaviour (TRD §11.2, 1.4.0)",
+            "",
+            f"Activity is heavy-tailed within the TRD §11.1 total: each entity's share is lognormal (sigma "
+            f"{ACTIVITY_SIGMA}), merchants",
+            f"{BUSINESS_ACTIVITY:.0f}x as active as retail customers. Retail rows are "
+            + ", ".join(f"{w}% {t.lower().replace('_', ' ')}" for _, t, w in RETAIL_MIX) + ";",
+            f"top-ups come in (round to IDR {TOPUP_UNIT:,}), bills go out, {REFUND_SHARE:.0%} of merchant payments are "
+            f"refunds and {P2P_IN_SHARE:.0%} of",
+            "transfers are received. A merchant is paid while it is open (declared hours), at a ticket around its",
+            "MCC's typical ticket, and sweeps its takings to its own bank account every week; a sole trader is",
+            "paid by transfer.",
             "",
             "## Per-transaction ground truth",
             "",

@@ -236,9 +236,9 @@ docker compose exec backend python -m app.scripts.generate_raw_dataset --profile
 
 | Profile | Scale | Use | Transactions |
 |---|---|---|---|
-| `tiny` | 1% | CI | ~4,450 |
-| `small` | 5% | local development (default) | ~20,800 |
-| `full` | 100% | integration, final demo, ML training and test | ~406,000 |
+| `tiny` | 1% | CI | ~4,570 |
+| `small` | 5% | local development (default) | ~20,900 |
+| `full` | 100% | integration, final demo, ML training and test | ~421,000 (TRD §11.1 target 420,000) |
 
 ### Custom scale
 
@@ -253,11 +253,12 @@ Every other volume is derived from it by the same ratio as the full profile
 hardcoded. Three things differ from the presets, and all three are recorded in
 the `scale` block of `generation_report.json`:
 
-- **Exact row count.** Background generation lands ~2.5% short of any target;
+- **Exact row count.** Background generation lands within a few percent of
+  any target (at the 20,000 minimum the per-pattern floor makes it overshoot);
   a final calibration adds (or removes) rows on unlabelled parties only, with
   defects and duplicates at their declared rates, so the file holds exactly the
   requested number. Labelled entities are never touched, so every label stays
-  true.
+  true, and weekly settlement sweeps are never removed.
 - **Per-pattern floor.** Each pattern's positives, look-alikes and boundary
   cases are floored at 5 (`--min-per-pattern`), so every pattern keeps enough
   samples to test. Where the floor overrode pure proportion is listed.
@@ -310,9 +311,12 @@ prefix `99`, which is never issued, so a generated value cannot collide with a
 real NIK. Registration numbers use the same prefix, phones a reserved `+62899`
 block, IP addresses the RFC 5737 documentation ranges.
 
-**Shaped like Indonesian wallet activity (TRD §11.0.3).** Payday clustering
-around the 25th, a month-end tail, quieter weekends, arisan collection, agent
-kiosks and remittance corridors.
+**Shaped like Indonesian wallet activity (TRD §11.0.3, §11.2).** Payday
+clustering around the 25th, a month-end tail, quieter weekends, arisan
+collection, agent kiosks, school fees, payroll and remittance corridors. Since
+1.4.0 activity is heavy-tailed (a few very active entities, most quiet),
+merchants settle weekly, and top-ups, bills and business tickets behave as
+their type and category say (see "Generator 1.4.0" below).
 
 **Population mix held exactly (TRD §11.2).** Retail 62%, business 18%,
 control-clean 8%, edge/ambiguous 8%, injected 4% — assigned as exact counts, so
@@ -346,7 +350,7 @@ what resolution must do with it — must auto-merge, must not auto-merge, must
 force `PENDING_REVIEW` with `IDENTIFIER_CONFLICT`, or must land in the
 0.75–0.95 manual review band.
 
-### Generator 1.2.0 and 1.3.0: scenarios without recipe traces
+### Generator 1.2.0 to 1.4.0: scenarios without recipe traces
 
 A scenario should differ from ordinary traffic **only in the behaviour it
 represents**. Anything else is a trace of how the generator built it, and a
@@ -366,6 +370,7 @@ python -m app.scripts.audit_scenario_artefacts <dir> --markdown audit.md --json 
 |---|---|---|
 | **1.1.0**, seed 20260923 | **38** | Scenario rows without a device in most groups (all positives 59.2% vs 5.0% in background; P04 93.5 points above background). P04's merchant payments had no merchant (TVD 1.00). P03's credits all at 09:xx (43.5% vs 5.4%) |
 | **1.3.0**, seeds 20260923 and 20261001 (training, test) | **0** | also 0 on seeds 1, 2 and 3, and on the shared Tiny and Small |
+| **1.4.0**, seeds 20260923 and 20261001 | **0** | also 0 on seeds 1, 2 and 3 and the shared Tiny and Small; the 1.4.0 audit still finds 37 on 1.1.0 |
 
 What 1.2.0 changed:
 
@@ -411,8 +416,61 @@ real takeover, so it does not tell the two apart.
 The audit itself is tested both ways: it catches scenario rows stripped of their
 device, and it does not flag a random sample of background dressed up as a
 scenario. It compares each group with background of the same kind of owner
-(business or individual) and judges clustered rows per device or scenario,
-not per row.
+(business or individual) **and the same activity level** (under 20, 20–49,
+50–119, 120+ background rows), and judges clustered rows per device or
+scenario, not per row. Two refinements came with 1.4.0's heavy-tailed volumes:
+the "counterparty new" view is compared within the same transaction type (a
+top-up comes from the customer's own account, a transfer goes to a wider
+circle), and it is **one-sided** — it flags a scenario that pays first-time
+counterparties *more* often than ordinary life, the 1.2.0 artefact it was built
+for, while *fewer* (a burst or a monthly cycle paying the same people within
+days) is density and is reported, not flagged. Roundness views skip wallet
+top-ups, which are round by nature (FRD §8.6).
+
+#### Generator 1.4.0: the population as TRD §11.2 describes it
+
+Every behavioural statement in TRD §11.2 was measured on the 1.3.0 training
+seed and fixed where it deviated; 1.4.0 is the last generator change before
+model training. The full table, with measurements before and after, is in
+[PROJECT_CONTEXT §8](docs/PROJECT_CONTEXT.md). In short:
+
+- **Activity is heavy-tailed, within the same TRD §11.1 total.** 1.3.0 gave
+  every entity ~37–40 rows in six months (CV 0.35, the busiest 10% held 16% of
+  rows). Each entity's share is now lognormal (σ = 1.0), merchants 3× as
+  active as retail: retail median 16, p99 179, the busiest 10% hold 40%. The
+  file lands on 420,000 (±0.3%) because the background leaves room for the
+  scenarios and counts the settlements it produces
+- **Retail rows mean what their type says**: 40% merchant payments (5%
+  refunds), 25% P2P (40% received), 20% top-ups (always in, round to IDR
+  50,000, from one or two accounts of the customer's own), 15% bills (always
+  out, to the same one to three billers). 1.3.0 had 25% of each and 30% of
+  every type incoming
+- **Merchants settle weekly** to one bank account of their own (none in
+  1.3.0), are paid while they are open, at tickets around their MCC's typical
+  ticket (1.3.0: a quarter of business weeks more than 3× off their band), by
+  a broad payer base that exists from day one; a business's outlets share one
+  MCC; a sole trader without a merchant record is paid by transfer. P10's
+  30-transactions-in-30-days minimum is now met in 14% of business-months
+  (0.4% in 1.3.0), so the rule can actually be evaluated
+- **Every look-alike resembles its pattern** (FRD §8 expected false positives,
+  TRD §11.2 examples): a bonus or car down payment, arisan, salary passed to
+  bills, payroll on the company's payday, a return from working abroad, agent
+  float top-ups, a seasonal trader, a student abroad, a family on one handset at
+  one address, a B2B supplier, school fees, a shared given name. Seven of the
+  twelve were six generic transfers in 1.3.0. Several now fire the default rule,
+  as the FRD expects of them: that false-positive burden is what a model should
+  lower
+- **Boundary cases sit on their own pattern's threshold**, on the side that
+  must not fire (exactly IDR 100M on a thin history, 79% pass-through, 14 in a
+  day, 89 quiet days, 4 round amounts, 3 entities on a device, 7 senders), with
+  the party's own background carved away where it could tip them over. 1.3.0
+  put three IDR 100M deposits at every pattern's "boundary", which sits on none
+  of their thresholds and fires P07. P07, P08, P10 and P12 have none (no single
+  clean threshold)
+- Dormancy scenarios (P05, ATO and their look-alikes) always follow real
+  activity on the dormant account; late arrivals are backdated inside the
+  six-month period, never before it (0.4% of 1.3.0's rows sat up to 100 days
+  earlier and gave entities months of empty "history")
 
 ### Datasets for the ML pipeline
 
@@ -425,20 +483,21 @@ python -m app.scripts.generate_raw_dataset --profile full --out ml_data/train_fu
 python -m app.scripts.generate_raw_dataset --profile full --seed 20261001 --out ml_data/test_full_s20261001
 ```
 
-| Generator 1.3.0 | Training | Test |
+| Generator 1.4.0 | Training | Test |
 |---|---|---|
 | Seed | `20260923` (default) | `20261001` |
 | Period | 1 Apr – 30 Sep 2026 | 1 Apr – 30 Sep 2026 |
-| Transactions | 405,945 | 407,088 |
+| Transactions | 421,282 | 421,456 |
 | Individual / business customers | 10,000 / 1,200 | 10,000 / 1,200 |
 | Accounts | 13,383 | 13,327 |
-| Merchants / devices / watchlist | 1,500 / 11,902 / 2,500 | 1,500 / 11,902 / 2,500 |
+| Merchants / devices / watchlist | 1,500 / 11,932 / 2,500 | 1,500 / 11,932 / 2,500 |
 | Positive entities | **754** | **754** |
-| Look-alike and boundary cases / control entities | 390 / 830 | 390 / 830 |
+| Look-alike / boundary labels · control entities | 392 / 50 · 830 | 392 / 50 · 830 |
 
 Positives per pattern (training / test): P01 60/60 · P02 45/45 · P03 50/50 ·
 P04 55/55 · P05 40/40 · P06 35/35 · P07 40/40 · P08 45/45 · P09 174/174 ·
-P10 45/45 · P11 35/35 · P12 70/70 · ATO 60/60 (591 / 606 ATO transactions).
+P10 45/45 · P11 35/35 · P12 70/70 · ATO 60/60 (585 / 588 ATO transactions).
+(1.3.0: 405,945 / 407,088 transactions; look-alike and boundary labels 390.)
 The test set is the full size too, because 100,000 transactions left ~15 ATO
 and 8–14 positives per pattern, too few to trust. A different seed means new
 entities, amounts and timings from the **same** generator: the test measures
@@ -450,7 +509,7 @@ generalisation to unseen data, not to unseen scenario recipes.
 
 ```bash
 cd backend
-python -m app.ml.build_features ml_data/train_full_s20260923    # ~46 s at full
+python -m app.ml.build_features ml_data/train_full_s20260923    # ~45 s at full
 python -m app.ml.build_features ml_data/test_full_s20261001
 ```
 
@@ -511,20 +570,20 @@ curl -s -X POST http://localhost:8000/ingestion/transactions \
   -F "source_system=NDP_WALLET_CORE" -F "business_date=2026-09-30"
 ```
 
-**Measured on the shared `Small` (generator 1.3.0, through the real API in a
-throwaway database):** 20,799 rows read, 20,344 accepted, 455 quarantined across
-every defect type (207 in-file duplicates, 95 unresolvable accounts, 79
-malformed dates, 38 zero/negative or malformed amounts, 36 invalid currencies).
+**Measured on the shared `Small` (generator 1.4.0, through the real API in a
+throwaway database):** 20,916 rows read, 20,458 accepted, 458 quarantined across
+every defect type (203 in-file duplicates, 100 unresolvable accounts, 80
+malformed dates, 41 zero/negative or malformed amounts, 34 invalid currencies).
 P02 detection then raises exactly 2 alerts: it catches **2 of 2** injected
 positives, fires on **0 of 2** labelled P02 look-alikes, and raises **nothing**
 on the 42-entity control cohort (FRD §8.14).
 
-On the `full` profile (1.3.0) the same check, run offline against the generated
+On the `full` profile (1.4.0) the same check, run offline against the generated
 files, catches 45 of 45 P02 positives, fires on 0 of 30 look-alikes and 0 of
 830 control entities on both the training and the test seed, and additionally
 fires on entities labelled for *other* patterns: P07 (weekly values stepping
-into the band) and P08 (remittances inside the band), 15 on the training seed
-and 18 on the test seed. Those are cross-pattern hits on genuinely suspicious
+into the band) and P08 (remittances inside the band), 14 on the training seed
+and 18 on the test seed (1.3.0: 15 and 18). Those are cross-pattern hits on genuinely suspicious
 entities, not false positives on clean ones; no unlabelled entity fires.
 
 ### Shared datasets in the repository

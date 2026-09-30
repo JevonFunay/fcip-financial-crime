@@ -353,5 +353,7 @@ def test_the_full_training_profile_builds(tmp_path):
     report = build(tmp_path / "full")
 
     assert report["rows"]["fraud"] == report["rows"]["transactions_accepted"] > 390_000
-    assert report["rows"]["aml"] > 150_000
+    # One row per entity and week the entity transacted: ~149k since 1.4.0's
+    # heavy-tailed activity (quiet entities skip most weeks; 1.3.0 had ~198k).
+    assert report["rows"]["aml"] > 140_000
     print(f"\nfs_v1 on full: {report['rows']} in {report['seconds']}")

@@ -159,13 +159,13 @@ def test_every_scenario_row_is_listed_and_every_listed_row_exists(dataset, world
 
 
 def test_every_behavioural_scenario_has_rows_and_screening_has_none(world):
-    """P12 is a renamed customer: no rows of its own. Every other positive or
-    look-alike emitted at least one row."""
+    """P12 is a renamed customer, positive or look-alike: no rows of its own.
+    Every other positive or look-alike emitted at least one row."""
     for label in world["labels"]:
         if label["label_type"] == "CONTROL_CLEAN" or label["pattern_code"] == "ER":
             continue
         rows = world["rows_of"].get(label["scenario_id"], [])
-        if label["pattern_code"] == "P12" and label["label_type"] == "INJECTED_POSITIVE":
+        if label["pattern_code"] == "P12":
             assert rows == [], label["scenario_id"]
         else:
             assert rows, label["scenario_id"]
@@ -338,7 +338,9 @@ def test_p05_leaves_history_before_its_dormancy(world):
         if label["pattern_code"] != "P05" or label["label_type"] != "INJECTED_POSITIVE":
             continue
         start, end = date.fromisoformat(label["window_start"]), date.fromisoformat(label["window_end"])
-        [credit] = world["rows_of"][label["scenario_id"]]
+        # The credit; a quiet customer's scenario also carries the two
+        # payments it was given before the gap (1.4.0).
+        [credit] = [r for r in world["rows_of"][label["scenario_id"]] if r["direction"] == "IN"]
         quiet = [r for r in world["by_entity"][label["entity_source_id"]]
                  if r["source_account_id"] == credit["source_account_id"]
                  and start.isoformat() <= r["business_date"] < end.isoformat()]
@@ -381,8 +383,9 @@ def test_p08_look_alikes_are_cross_border_as_their_note_says(world):
 def test_p04_look_alikes_pay_payroll_on_payday_as_their_note_says(world):
     for label in world["labels"]:
         if label["pattern_code"] == "P04" and label["scenario_id"].startswith("P04-EDGE-"):
+            # The company's own payday (23rd-28th), the Friday before on a weekend.
             first = min(date.fromisoformat(r["business_date"]) for r in world["rows_of"][label["scenario_id"]])
-            assert first.day == 25, label["scenario_id"]
+            assert 21 <= first.day <= 28 and first.weekday() < 5, label["scenario_id"]
 
 
 def test_p03_credits_arrive_at_any_hour(world):
@@ -410,3 +413,6 @@ def test_the_full_profile_is_free_of_scenario_artefacts_on_two_seeds(tmp_path):
         assert result.flagged == [], (seed, [(g, v.view, v.tvd) for g, v in result.flagged])
         # TRD §11.1 device band, now that the total follows the population.
         assert 8_000 <= report["row_counts"]["devices.csv"] <= 12_000
+        # TRD §11.1 transaction target (420,000), held while 1.4.0 redistributes
+        # activity: the heavy tail must not buy baselines with extra volume.
+        assert abs(report["row_counts"]["transactions.csv"] - 420_000) <= 0.01 * 420_000

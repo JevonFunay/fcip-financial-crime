@@ -20,7 +20,7 @@ questions are unchanged — see `PROJECT_CONTEXT.md`.
 | NFRs proven by measurement | 3 of 18 | 17% |
 | TRD components | ~6 full + ~5 partial of 30 | ~25% |
 
-**347 backend tests pass** (5 more marked `slow`, all passing). Frontend typechecks and builds.
+**372 backend tests pass** (5 more marked `slow`, all passing). Frontend typechecks and builds.
 
 Pure FR counting gives ~10%; ~17% weights the foundation work already done.
 Neither document assigns effort weights, so the percentage is an estimate — the
@@ -52,6 +52,31 @@ Partial: FR-306, FR-309, FR-310, FR-1103, FR-808, FR-612.
 ---
 
 ## Built since the last progress report
+
+### 30 September — generator 1.4.0: the population as TRD §11.2 describes it
+
+Every behavioural statement in TRD §11.2 was measured on the training seed and
+fixed where it deviated, so 1.4.0 is the last generator change before
+training (table with before/after figures in PROJECT_CONTEXT §8). Activity was
+flat (every entity ~40 rows; the busiest 10% held 16%) and is now heavy-tailed
+within the same TRD §11.1 total (retail median 16, p99 179, busiest 10% hold
+40%; merchants 3.6x retail). Top-ups are incoming and round, bills outgoing,
+each to the customer's own one or two accounts and one to three billers.
+Merchants settle weekly (none before), are paid within their declared hours
+at tickets around their MCC's (24% of business-weeks were 3x off their band,
+now 6%, all of it fs_v1's band midpoint), by a payer base that exists from day
+one. P10's minimum of 30 transactions in 30 days is met in 14% of
+business-months (0.4% before). Every look-alike now resembles its pattern
+(school fees, payroll, seasonal trader, family handset, B2B supplier and the
+rest; seven were generic transfers), and boundary cases sit on each pattern's
+own threshold (they were three IDR 100M deposits everywhere). Also fixed: late
+arrivals backdated before the period, dormancy scenarios with no prior
+activity. **0 audit flags on five seeds**, Tiny and Small refreshed; ML datasets
+regenerated: training 421,282 transactions, test 421,456, 754 positive
+entities each. Small through the real API: 20,916 read, 20,458 accepted, 458
+quarantined; P02 2/2 positives, 0/2 look-alikes, 0/42 control. Rows without a
+baseline: Fraud 64.5% → 42.9%, AML 70–76% → 67–72% (reported as a limitation
+in stage 3). Pending at the stage-2 gate: fs_v2 with an MCC category reference.
 
 ### 30 September — ML feature library fs_v1 (stage 1b)
 
@@ -293,7 +318,7 @@ AI, maker-checker, dashboards.
 
 **Safe to build now** — independent of the unanswered MQ-01…MQ-10:
 
-0. **ML pipeline** — current priority by mentor directive (29 Sep); plan under review
+0. **ML pipeline** — current priority by mentor directive (29 Sep); stages 1a, 1b and generator 1.4.0 done, stage 2 (labels + training) next after the fs_v2 decision
 1. **Rule as data, stages 3–4** (rule endpoints FR-301/302, simulation FR-303) — deferred for the ML pipeline; schema already in place
 2. **Case lifecycle** (FR-804) and case queue (FR-808) — columns exist, endpoints don't
 3. **Alert assignment** (FR-603) and SLA tracking (FR-607)

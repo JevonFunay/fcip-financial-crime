@@ -270,4 +270,9 @@ CONTRACT_VERSION = "1"
 # the ATO scenario with its look-alikes, and label_transactions.csv. 1.3.0
 # gives every party the counterparties TRD §11.2 describes (a small stable set
 # for retail, a broad payer base for business) instead of a random one per row.
-GENERATOR_VERSION = "1.3.0"
+# 1.4.0 makes the population behave as every TRD §11.2 statement says
+# (heavy-tailed activity, coherent top-ups and bills, weekly settlement,
+# tickets consistent with the MCC), rebuilds the look-alikes after the FRD §8
+# expected false positives and puts boundary cases on each pattern's own
+# threshold. The last generator change before model training.
+GENERATOR_VERSION = "1.4.0"

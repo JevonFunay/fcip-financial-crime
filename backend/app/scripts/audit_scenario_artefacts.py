@@ -59,8 +59,20 @@ DEFINING: dict[tuple[str, str], frozenset[str]] = {
     ("P06", "positive"): ROUNDNESS,
     ("P06", "look-alike"): ROUNDNESS,  # round float top-ups, by construction
     ("P08", "positive"): frozenset({"counterparty_country"}),
-    ("P08", "look-alike"): frozenset({"counterparty_country"}),  # cross-border support
-    ("P04", "look-alike"): frozenset({"payday"}),  # payroll on payday
+    # Payroll on payday to staff first paid in its first month; salary on
+    # payday passed straight to bills.
+    ("P04", "look-alike"): frozenset({"payday", "counterparty_new_for_entity"}),
+    ("P03", "look-alike"): frozenset({"payday"}),
+    # A seasonal trader's buyers, a supplier's clients and a school's payers
+    # are people the account has not dealt with before; a school fee is one
+    # round amount.
+    ("P07", "look-alike"): frozenset({"counterparty_new_for_entity"}),
+    ("P10", "look-alike"): frozenset({"counterparty_new_for_entity"}),
+    ("P11", "look-alike"): ROUNDNESS | {"counterparty_new_for_entity"},
+    # A family's handset, and the boundary device used by exactly three.
+    ("P09", "look-alike"): frozenset({"device_shared"}),
+    ("P09", "boundary"): frozenset({"device_shared"}),
+    ("P11", "boundary"): frozenset({"counterparty_new_for_entity"}),
     ("P09", "positive"): frozenset({"device_shared"}),
     # A takeover pays recipients its victim never paid; a funnel's senders
     # converge on a collector they never paid before.
@@ -70,6 +82,9 @@ DEFINING: dict[tuple[str, str], frozenset[str]] = {
     # a six-month window, little of the account's history is left to show its
     # counterparties, so the reactivating credit's counterparty often looks new.
     ("P05", "positive"): frozenset({"counterparty_new_for_entity"}),
+    ("P08", "look-alike"): frozenset({"counterparty_country"}),  # cross-border family support
+    # Back from months abroad: P05's consequence for counterparties.
+    ("P05", "look-alike"): frozenset({"counterparty_new_for_entity"}),
     # One look-alike kind is "a new phone on payday", so payday is its story;
     # the other two come back from dormancy, with the same consequence for
     # counterparties as P05 (and the same as a real takeover, so it does not
@@ -97,6 +112,21 @@ KIND_MARKERS = (("-POS-", "positive"), ("-EDGE-", "look-alike"), ("-BOUND-", "bo
 # is no history yet; the counterparty view ignores that burn-in. Scenarios all
 # start after it (the generator leaves 60 days of baseline).
 COUNTERPARTY_BURN_IN_DAYS = 60
+# Background strata by the owner's own background row count over the period.
+ACTIVITY_BANDS = ((20, "under 20 rows"), (50, "20-49 rows"), (120, "50-119 rows"))
+# Views whose background also depends on the transaction type, so they are
+# stratified by it too: a customer tops up from one or two accounts of its
+# own and pays the same billers, but sends P2P money to a wider circle, so a
+# P2P row is more often a first-time counterparty than a top-up is.
+TYPE_STRATIFIED_VIEWS = frozenset({"counterparty_new_for_entity"})
+# Views judged in one direction only. The counterparty view exists to catch a
+# scenario paying first-time counterparties more than ordinary life does
+# (1.2.0 drew a random one per scenario row). The other direction is density,
+# not recipe: a burst, a monthly salary cycle or a week of float top-ups pays
+# the same few counterparties within days, so fewer of its rows are
+# first-time than a quiet entity's ordinary, weeks-apart rows. It is still
+# reported, not flagged.
+ONE_SIDED = {"counterparty_new_for_entity": "new"}
 
 
 def defining_views(pattern: str, kind: str) -> frozenset[str]:
@@ -230,12 +260,18 @@ def _views(ctx: _Context) -> dict[str, Callable[[int, dict[str, str]], str | Non
         amount = _amount(r["amount_original"])
         return "invalid" if amount is None else ("yes" if amount != int(amount) else "no")
 
+    # Roundness is judged without wallet top-ups: they are round by the
+    # product's nature (FRD §8.6), so they would only restate the type mix.
     def last_digit(r):
+        if r["transaction_type"] == "WALLET_TOPUP":
+            return None
         amount = _amount(r["amount_original"])
         return "invalid" if amount is None else str(int(amount) % 10)
 
     def round_to(unit):
         def view(r):
+            if r["transaction_type"] == "WALLET_TOPUP":
+                return None
             amount = _amount(r["amount_original"])
             return "invalid" if amount is None else ("yes" if int(amount) % unit == 0 else "no")
         return view
@@ -346,7 +382,7 @@ def _compare(group: Counter[str], background: dict[str, float], n: int) -> tuple
     # absolute value is sigma_k * sqrt(2/pi). The bound is that mean plus three
     # standard deviations. (A per-category three-sigma sum is far too loose
     # for a view with many categories, e.g. hour.)
-    sigmas = [math.sqrt(q * (1 - q) / n) for q in background.values()]
+    sigmas = [math.sqrt(max(0.0, q * (1 - q)) / n) for q in background.values()]
     mean = 0.5 * math.sqrt(2 / math.pi) * sum(sigmas)
     spread = 0.5 * math.sqrt((1 - 2 / math.pi) * sum(sigma * sigma for sigma in sigmas))
     noise = mean + 3 * spread
@@ -362,12 +398,28 @@ def audit(dataset: Path) -> AuditResult:
     attributed, attribution = _attribute(dataset, transactions, ctx.owner)
     views = _views(ctx)
 
-    # Background is kept per stratum (rows owned by a business, rows owned by
-    # an individual), and each group is compared with the mix of strata its
-    # own rows have: a merchant scenario is judged against merchants, not
-    # against a background that is mostly retail.
-    background_counts = {stratum: {name: Counter() for name in views} for stratum in ("business", "individual")}
-    group_strata: dict[str, Counter[str]] = defaultdict(Counter)
+    # Background is kept per stratum (owner type x the owner's own activity),
+    # and each group is compared with the mix of strata its own rows have: a
+    # merchant scenario is judged against merchants, not against a background
+    # that is mostly retail. Activity matters since 1.4.0's heavy-tailed
+    # volumes: a scenario sits on one entity, usually a quiet one, while most
+    # background rows belong to busy ones, and a quiet entity's counterparties
+    # look new more often only because it has less history.
+    background_rows_of: Counter[str] = Counter(
+        ctx.owner.get(row["source_account_id"], "") for i, row in enumerate(transactions) if i not in attributed
+    )
+
+    def stratum_of(row: dict[str, str]) -> str:
+        owner = ctx.owner.get(row["source_account_id"], "")
+        band = next((label for bound, label in ACTIVITY_BANDS if background_rows_of[owner] < bound), "120+ rows")
+        return f"{'business' if owner.startswith('BUS-') else 'individual'} {band}"
+
+    def cell_of(name: str, stratum: str, row: dict[str, str]) -> str:
+        return f"{stratum} | {row['transaction_type']}" if name in TYPE_STRATIFIED_VIEWS else stratum
+
+    # view -> cell -> value counts (background); group -> view -> cell counts (its mix).
+    background_counts: dict[str, dict[str, Counter[str]]] = defaultdict(lambda: defaultdict(Counter))
+    group_cells: dict[str, dict[str, Counter[str]]] = defaultdict(lambda: defaultdict(Counter))
     group_counts: dict[str, dict[str, Counter[str]]] = defaultdict(lambda: {name: Counter() for name in views})
     group_devices: dict[str, set[str]] = defaultdict(set)
     group_scenarios: dict[str, set[str]] = defaultdict(set)
@@ -377,7 +429,7 @@ def audit(dataset: Path) -> AuditResult:
     for i, row in enumerate(transactions):
         scenario_id = attributed.get(i)
         values = {name: value for name, view in views.items() if (value := view(i, row)) is not None}
-        stratum = "business" if ctx.owner.get(row["source_account_id"], "").startswith("BUS-") else "individual"
+        stratum = stratum_of(row)
         device = row["source_device_id"]
         if scenario_id is None:
             first_sighting = device and device not in counted_devices[f"bg:{stratum}"]
@@ -386,13 +438,12 @@ def audit(dataset: Path) -> AuditResult:
             for name, value in values.items():
                 if name in PER_DEVICE_VIEWS and not first_sighting:
                     continue
-                background_counts[stratum][name][value] += 1
+                background_counts[name][cell_of(name, stratum, row)][value] += 1
             continue
         pattern = labels[scenario_id]["pattern_code"] if scenario_id in labels else scenario_id.split("-", 1)[0]
         kind = _kind(scenario_id) or "other"
         for key in (f"{pattern} {kind}", f"all {kind}s"):
             group_meta[key] = (pattern if not key.startswith("all ") else "ALL", kind)
-            group_strata[key][stratum] += 1
             first_sighting = device and device not in group_devices[key]
             if device:
                 group_devices[key].add(device)
@@ -403,16 +454,31 @@ def audit(dataset: Path) -> AuditResult:
                 if name in PER_DEVICE_VIEWS and not first_sighting:
                     continue
                 group_counts[key][name][value] += 1
+                group_cells[key][name][cell_of(name, stratum, row)] += 1
 
-    strata = {stratum: {name: _distribution(counts) for name, counts in by_view.items()}
-              for stratum, by_view in background_counts.items()}
+    cached: dict[tuple[str, str], dict[str, float]] = {}
+
+    def distribution(name: str, cell: str) -> dict[str, float]:
+        """The cell's background, or the nearest coarser one when it has none
+        (few businesses are quiet): without the type, then the owner type."""
+        if (name, cell) not in cached:
+            by_cell = background_counts[name]
+            stratum = cell.split(" | ")[0]
+            owner_type = stratum.split(" ")[0]
+            for members in ([cell], [c for c in by_cell if c.split(" | ")[0] == stratum],
+                            [c for c in by_cell if c.startswith(owner_type)]):
+                counts = sum((by_cell[c] for c in members), Counter())
+                if counts:
+                    break
+            cached[(name, cell)] = _distribution(counts)
+        return cached[(name, cell)]
 
     def background_for(key: str, name: str) -> dict[str, float]:
-        mix = group_strata[key]
+        mix = group_cells[key][name]
         total = sum(mix.values())
         blended: dict[str, float] = defaultdict(float)
-        for stratum, count in mix.items():
-            for category, share in strata[stratum][name].items():
+        for cell, count in mix.items():
+            for category, share in distribution(name, cell).items():
                 blended[category] += share * count / total
         return dict(blended)
     # A pooled group mixes patterns, so only the views no pattern may change are judged there.
@@ -437,13 +503,18 @@ def audit(dataset: Path) -> AuditResult:
                 effective = min(applicable, len(group_hours[key]))
             else:
                 effective = applicable
-            tvd, noise, top = _compare(group_counts[key][name], background_for(key, name), effective)
+            background = background_for(key, name)
+            tvd, noise, top = _compare(group_counts[key][name], background, effective)
             flagged = judged and effective >= MIN_ROWS and not defining and tvd > noise + MARGIN
+            if flagged and name in ONE_SIDED:
+                category = ONE_SIDED[name]
+                share = group_counts[key][name][category] / applicable
+                flagged = share > background.get(category, 0.0)
             results.append(ViewResult(name, round(tvd, 4), round(noise, 4), defining, flagged, top))
         groups.append(GroupResult(key, pattern, kind, n, judged, results))
 
     manifest = json.loads((dataset / "manifest.json").read_text())
-    background_rows = sum(sum(by_view["direction"].values()) for by_view in background_counts.values())
+    background_rows = sum(sum(counts.values()) for counts in background_counts["direction"].values())
     return AuditResult(str(dataset), manifest.get("generator_version", "?"), attribution, background_rows, groups)
 
 
