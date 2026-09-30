@@ -334,6 +334,28 @@ context)` work for a single entity, which is what live monitoring will call.
   (1.3.0: 197,903 and 396,788; fewer entity-weeks because quiet entities now
   skip most weeks)
 
+### ML training (stage 2, 30 Sep)
+`app/ml/labels.py` (the only reader of the ground truth), `models.py`,
+`comparators.py`, `train.py`. Two LightGBM models on the training seed, AML
+(per entity-week, owns P01–P03, P06–P11) and Fraud (per transaction, owns ATO,
+P04, P05); artefacts in `backend/ml_models/` (ignored), each with a
+`model_card.json` carrying the TRD §10.5 envelope (`ANOMALY_MODEL`, state
+`DRAFT`: the model takes C-07's place, supervised by directive). Validation =
+20% of training entities, by scenario, stratified; thresholds: max F1 flagging
+no control-clean unit. Validation (not the test set):
+
+| | AML AP / P / R | Fraud AP / P / R |
+|---|---|---|
+| LightGBM | 0.998 / 0.992 / 0.981 | 0.997 / 0.991 / 0.991 |
+| Logistic regression | 0.990 / 0.965 / 0.954 | 0.960 / 0.893 / 0.927 |
+| FRD default rules (offline) | 0.436 / 0.470 / 0.927 | 0.558 / 0.800 / 0.694 |
+| TRD §10.2 anomaly score (AS-05) | 0.039 / 0.200 / 0.065 | 0.139 / 0.806 / 0.176 |
+
+No scorer flags a control-clean entity. Canary (ten shuffles): mean ROC-AUC
+0.41 (AML) and 0.43 (Fraud), every shuffle below the real model. Near-perfect
+validation on synthetic data is the warning the plan anticipated; stage 3's
+leave-one-pattern-out and ablation answer it.
+
 `app/scripts/load_raw_dataset.py` bridges it into the skeleton and **prints
 which columns it could not carry across** (merchant, device, IP, source status,
 business date, transaction type) — that gap is the distance to the full pipeline.
@@ -422,6 +444,7 @@ FRD's.
 | AS-01 | ~~Rule severity vocabulary~~ | **Retracted 29 Sep, not an assumption.** FRD §8.0 defines the scale: "Skala tingkat keparahan: CRITICAL, HIGH, MEDIUM, LOW". The first search looked for "severity"; the FRD says "tingkat keparahan" | the `rule_severity` enum matches FRD §8.0 exactly; a test pins it |
 | AS-02 | The **floor on the standard deviation** in FR-401's z-score: TRD §10.2 writes `max(sd, floor)` without a value | one transaction (or counterparty) for count z-scores; 10% of the baseline mean for value z-scores | **implemented** in feature set fs_v1 (`z_sd_floor_*`) |
 | AS-03 | **`LOW_CONFIDENCE_BASELINE` threshold** (FR-401 E2: "batas atas yang dikonfigurasi", no value) | none invented: `BASELINE_CV` is exposed as a feature and the model uses it; the label threshold stays **open** | not a threshold in code |
+| AS-05 | **Weights and clipping of the TRD §10.2 anomaly composite** ("kombinasi berbobot terdokumentasi dari kontribusi per feature yang dipotong", no values) | equal weights over the five baseline deviations fs_v2 has (z of count, value and distinct counterparties; JSD of channel mix and hour profile), \|z\| clipped at 5 and scaled to [0, 1]; no baseline, no score. Used only as the unsupervised comparator | **implemented** in `app/ml/comparators.py` |
 | AS-04 | **The category band in P10's ticket test** (FRD §8.10: "3× titik tengah pita kategori", no bands given) | the **median incoming ticket per MCC over the training dataset** (a peer-group baseline), stored as the versioned artefact `mcc_ticket_ref_v1` and used as it is at test, inference and live time, never recomputed from the data being scored. Not taken from the generator's configuration, which would let the feature read the recipe. Decided by Jevon, 30 Sep | **implemented** in feature set fs_v2 (`TICKET_MULTIPLE_R30D`, `app/reference/mcc_ticket_ref_v1.json`, `app/ml/reference.py`) |
 
 ### TRD §1.5 — conflicts still open
@@ -724,8 +747,8 @@ di-training. Kalau sudah, dites pakai dataset baru, lalu dikembangkan ke live
 monitoring." Plus a second directive: Fraud **and** AML must both be covered
 (see §8, "Mentor directives"). Plan approved 30 Sep, stages: 1a generator
 1.2.0 and 1.3.0 (**done 30 Sep**) · 1b feature library + leakage tests (**done 30 Sep**) ·
-generator 1.4.0, TRD §11.2 in full (**done 30 Sep**; fs_v2 decision pending) · 2 labels +
-training (two models) · 3 evaluation per domain · 4 integration, whose target
+generator 1.4.0, TRD §11.2 in full (**done 30 Sep**) · fs_v2 (**done 30 Sep**) · 2 labels +
+training (two models, **done 30 Sep**) · 3 evaluation per domain · 4 integration, whose target
 is **§13 "Konsep produk"**.
 
 **Must not be missed in the ML integration stage:** the app's `transaction`
@@ -733,7 +756,8 @@ table does not carry `device_id`, `counterparty_country`, `transaction_type`
 or `merchant_id` (the bridge drops them). The Fraud side cannot score in the
 app without `device_id`, so extending the ingestion contract and the table is
 **mandatory** there, not optional. Adding LightGBM to the backend image also
-needs `libgomp1` in the Dockerfile (`python:3.11-slim` lacks it).
+needs `libgomp1` in the Dockerfile (`python:3.11-slim` lacks it) — **done in stage 2**, because the
+tests train models inside the container.
 
 **Rule as data — stages 1–2 done, stages 3–4 DEFERRED (29 Sep).** Done: the
 `rule` / `rule_version` / `simulation_result` tables with DB-enforced

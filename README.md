@@ -546,6 +546,48 @@ What the tests guarantee:
   (built by `python -m app.ml.reference <training dataset>`) and used as it is
   for the test set and live scoring. An edited file is refused
 
+### ML training (stage 2)
+
+```bash
+cd backend
+python -m app.ml.reference ml_data/train_full_s20260923   # only when the training data changes (AS-04)
+python -m app.ml.train ml_data/train_full_s20260923       # ~15 s, both models -> ml_models/
+```
+
+Two LightGBM models (PROJECT_CONTEXT §8): **AML**, one row per entity-week,
+owning P01–P03 and P06–P11; **Fraud**, one row per transaction, owning ATO,
+P04 and P05. P12 is name screening and belongs to neither. Each writes
+`ml_models/<model>_gbm_v1/` (ignored by git): `model.txt` (LightGBM text
+format, never pickled), `linear.json` (the logistic-regression comparator),
+`split.csv`, and `model_card.json` with the TRD §10.5 envelope (state `DRAFT`,
+no approver yet), the training data's seed, generator version and manifest
+hash, the feature set, hyperparameters, thresholds and validation metrics.
+
+- **Labels** (`app/ml/labels.py`, the only module that reads the ground truth):
+  a positive is a week or a transaction holding the labelled entity's own
+  scenario rows inside the label window. Look-alikes and boundary cases are
+  negatives; P11's senders (participants without a label), P12 entities, the
+  other model's patterns and the 30 days after a scenario are left out of
+  training and of false-positive counts
+- **Validation**: 20% of the training dataset's entities, split by scenario
+  and stratified by label. It chooses the threshold (max F1 among thresholds
+  that flag no control-clean entity, TRD §10.6) for the model and for every
+  comparator. The test dataset is not read in this stage
+- **Comparators** on the same rows: logistic regression, the FRD §8 default
+  rules evaluated offline, and the TRD §10.2 unsupervised anomaly score
+  (assumption AS-05)
+- **Canary**: the model retrained ten times on shuffled labels must land near
+  chance (mean ROC-AUC 0.30–0.70) and below the real model. It sits a little
+  under 0.5 (0.41 AML, 0.43 Fraud), for the reason in `models.py`
+- Contributions are TreeSHAP values on the log-odds scale and add up to the
+  score exactly (tested)
+
+**Validation results are near-perfect** (AP 0.998 AML, 0.997 Fraud; no
+control-clean entity flagged). On synthetic data that is a warning, not a
+triumph: stage 3 tests on the unseen seed and checks whether the models
+recognise behaviour or memorise the generator's recipes (leave-one-pattern-out,
+feature ablation).
+
 ### Loading it into the skeleton
 
 The skeleton models customers, accounts and transactions, and its ingestion

@@ -332,6 +332,8 @@ def test_ato_rows_show_a_new_device_and_new_recipients(small):
 
 
 def test_the_feature_documentation_is_rendered_from_the_registry():
+    if not DOCS.parent.is_dir():
+        pytest.skip("docs/ is outside the backend container's mount; checked on the host")
     assert DOCS.read_text(encoding="utf-8") == render_markdown(), (
         f"{DOCS.name} is stale: python -c 'from app.ml.feature_set import render_markdown; "
         f"print(render_markdown(), end=\"\")' > ../docs/ml/{DOCS.name}"

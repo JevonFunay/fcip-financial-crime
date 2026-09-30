@@ -20,7 +20,7 @@ questions are unchanged — see `PROJECT_CONTEXT.md`.
 | NFRs proven by measurement | 3 of 18 | 17% |
 | TRD components | ~6 full + ~5 partial of 30 | ~25% |
 
-**375 backend tests pass** (5 more marked `slow`, all passing). Frontend typechecks and builds.
+**391 backend tests pass** (5 more marked `slow`, all passing). Frontend typechecks and builds.
 
 Pure FR counting gives ~10%; ~17% weights the foundation work already done.
 Neither document assigns effort weights, so the percentage is an estimate — the
@@ -52,6 +52,19 @@ Partial: FR-306, FR-309, FR-310, FR-1103, FR-808, FR-612.
 ---
 
 ## Built since the last progress report
+
+### 30 September — ML stage 2: labels and training
+
+Labels (`app/ml/labels.py`), two LightGBM models (AML per entity-week, Fraud
+per transaction) with logistic regression, the FRD default rules and the TRD
+§10.2 anomaly score as comparators, a scenario-level validation split, a
+threshold that flags no control-clean entity, a ten-shuffle canary, and model
+cards with the TRD §10.5 envelope. Validation AP 0.998 (AML) and 0.997
+(Fraud), against 0.44/0.56 for the rules and 0.04/0.14 for the anomaly score.
+Near-perfect on synthetic data is a warning, tested in stage 3. LightGBM and
+scikit-learn added; `libgomp1` in the Dockerfile (tests train inside the
+container). 391 passed on the host, 390 + 1 skipped (docs outside the mount)
+in Docker.
 
 ### 30 September — feature set fs_v2 (before training)
 
