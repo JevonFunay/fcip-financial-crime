@@ -235,6 +235,19 @@ LABELS = FileSpec(
     ),
 )
 
+LABEL_TRANSACTIONS = FileSpec(
+    "label_transactions.csv",
+    "LABEL",
+    "Ground truth per transaction: which rows each injected scenario or look-alike emitted, so a "
+    "per-transaction model (the Fraud side) is scored against exact rows rather than a date window. "
+    "Like labels.csv it is not part of the source contract, is never loaded into the app, and must "
+    "never be an input to a feature.",
+    (
+        FieldSpec("scenario_id", "string", True, rule="Matches a scenario_id in labels.csv"),
+        FieldSpec("source_transaction_reference", "string", True, rule="Matches a row in transactions.csv"),
+    ),
+)
+
 # Written in the order the ingestion pipeline must load them (TRD §6.2:
 # party -> account -> merchant -> device -> transaction).
 FILE_SPECS: tuple[FileSpec, ...] = (
@@ -252,4 +265,7 @@ CONTRACT_VERSION = "1"
 # TRD §11.7: the version travels with every dataset so two outputs can be told
 # apart. Bump it whenever the same seed and profile would produce different
 # bytes — 1.1.0 is the §11.2 population fix, whose output 1.0.0 also claimed.
-GENERATOR_VERSION = "1.1.0"
+# 1.2.0 removes the scenario artefacts (scenario rows now carry the entity's
+# own device and the non-quarantining defects), adds ordinary device changes,
+# the ATO scenario with its look-alikes, and label_transactions.csv.
+GENERATOR_VERSION = "1.2.0"

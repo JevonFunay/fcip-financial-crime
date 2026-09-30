@@ -236,9 +236,9 @@ docker compose exec backend python -m app.scripts.generate_raw_dataset --profile
 
 | Profile | Scale | Use | Transactions |
 |---|---|---|---|
-| `tiny` | 1% | CI | ~4,200 |
+| `tiny` | 1% | CI | ~4,350 |
 | `small` | 5% | local development (default) | ~20,500 |
-| `full` | 100% | integration and final demo | ~407,000 |
+| `full` | 100% | integration, final demo, ML training and test | ~404,000 |
 
 ### Custom scale
 
@@ -270,7 +270,7 @@ layer so their audit trail is authentic, and they are not source data. The
 report records the proportional target (43 at 100,000) for a later seeding
 script. The preset profiles are byte-for-byte unaffected by this option.
 
-**Measured at 100,000:** generated in 1.4 s — 100,000 transactions (96,781
+**Measured at 100,000 (generator 1.1.0):** generated in 1.4 s — 100,000 transactions (96,781
 generated, +3,219 calibrated), 2,381 customers, 286 business customers, 626
 beneficial owners, 3,202 accounts, 357 merchants, 2,381 devices, 595 watchlist
 records, 688 labels. Only the boundary cases needed the floor (1 → 5 for each
@@ -287,11 +287,12 @@ Output lands in `backend/sample_data/raw/<profile>/` (or `raw/custom-<target>/`)
 | `beneficial_owners.csv` | ownership percentage and control type per business |
 | `accounts.csv` | wallet / virtual account / settlement, status, balance snapshot |
 | `merchants.csv` | MCC, declared volume and ticket bands, settlement account, outlets |
-| `devices.csv` | device type, OS, app version, emulator/rooted flags |
+| `devices.csv` | device type, OS, app version, emulator/rooted flags. One per transacting party, ~120 shared by design (TRD §11.1), plus devices that come into use during the period |
 | `transactions.csv` | 16 columns: amount, currency, channel, transaction type, counterparty, merchant, device, IP, source status |
 | `watchlist.csv` | synthetic PEP / sanctions / internal list records |
 | `manifest.json` | `source_system_code`, business date, contract version, per-file SHA-256 and record counts, `synthetic_declaration: true` |
 | `labels.csv` | ground truth for every injected scenario |
+| `label_transactions.csv` | ground truth per row: which transactions each scenario and look-alike emitted (for per-transaction evaluation). Like `labels.csv`, evaluation only: never loaded, never a feature |
 | `data_dictionary.md`, `scenario_catalogue.md` | TRD §11.7 deliverables, rendered from the same specs the CSVs are written from |
 | `generation_report.json`, `seeds.json` | counts per object, defects per type, labels per pattern, seed provenance |
 
@@ -321,7 +322,10 @@ wallet merchants) make up the rest of the business cohort and transact like
 merchants.
 
 **Labelled (TRD §11.3).** All twelve patterns P01–P12 get injected positives,
-behavioural look-alikes, and exact-threshold boundary cases. Every one writes a
+behavioural look-alikes, and exact-threshold boundary cases; since 1.2.0 so
+does **ATO** (account takeover: dormancy, a device the customer never used,
+then an outgoing burst), the Fraud use case, with look-alikes that carry one
+or two of those signals but never all three. Every one writes a
 row to `labels.csv` with its entity, window and expected reason code, so recall
 is measured rather than eyeballed. **Each entity carries at most one label**:
 positives come from the injected cohort and look-alikes from the edge cohort
@@ -341,6 +345,78 @@ as they are injected.
 what resolution must do with it — must auto-merge, must not auto-merge, must
 force `PENDING_REVIEW` with `IDENTIFIER_CONFLICT`, or must land in the
 0.75–0.95 manual review band.
+
+### Generator 1.2.0: scenarios without recipe traces
+
+A scenario should differ from ordinary traffic **only in the behaviour it
+represents**. Anything else is a trace of how the generator built it, and a
+model learns that trace instead. `app/scripts/audit_scenario_artefacts.py`
+checks this automatically: for every raw transaction column (hour, weekday,
+payday, channel, type, missing counterparty, missing device, last digits of the
+amount, device type, device sharing, IP range, …) it compares each scenario
+group with background using total variation distance, and flags a column that
+differs beyond sampling noise without being part of that pattern's definition.
+
+```bash
+python -m app.scripts.audit_scenario_artefacts sample_data/Small          # exit 1 if anything is flagged
+python -m app.scripts.audit_scenario_artefacts <dir> --markdown audit.md --json audit.json
+```
+
+| Full profile | Flags | Main findings |
+|---|---|---|
+| **1.1.0**, seed 20260923 | **36** | Scenario rows without a device in 33 groups (all positives 59.2% vs 5.0% in background; P04 93.5 points above background). P04's merchant payments had no merchant (TVD 1.00). P03's credits all at 09:xx (43.5% vs 5.4%) |
+| **1.2.0**, seeds 20260923 and 20261001 (training, test) | **0** | also 0 on seeds 1, 2 and 3 |
+
+What 1.2.0 changed to get there:
+
+- Scenario rows use the entity's own device, and the defects that load normally
+  (missing device 5%, missing counterparty 3%) apply to them at the declared
+  rates. The quarantining ones still never do: a scenario must stay detectable
+- Every transacting party has a device of its own and ~120 are shared by design,
+  as TRD §11.1 states. 1.1.0 handed devices out at random, so thousands were
+  shared by unrelated parties. The device total now follows the population,
+  inside TRD §11.1's 8,000–12,000 band at full (11,837)
+- 15% of individuals change phones during the period, so a never-seen device is
+  ordinary, not a scenario signature
+- Scenario dates follow the background's day weights (paydays busier, weekends
+  quieter), bursts keep background hours, and background has a thin night tail
+- Look-alikes now match their own notes: P06's are round, P08's are
+  cross-border inbound, P04's payroll lands on the 25th
+- P04's merchant payments carry a merchant; P03's credits arrive at any hour
+
+The audit itself is tested both ways: it catches scenario rows stripped of their
+device, and it does not flag a random sample of background dressed up as a
+scenario.
+
+### Datasets for the ML pipeline
+
+Both are the **full** profile and are **not committed** (`backend/ml_data/` is
+ignored); anyone on the team regenerates them exactly from the seed in ~6 s:
+
+```bash
+cd backend
+python -m app.scripts.generate_raw_dataset --profile full --out ml_data/train_full_s20260923
+python -m app.scripts.generate_raw_dataset --profile full --seed 20261001 --out ml_data/test_full_s20261001
+```
+
+| Generator 1.2.0 | Training | Test |
+|---|---|---|
+| Seed | `20260923` (default) | `20261001` |
+| Period | 1 Apr – 30 Sep 2026 | 1 Apr – 30 Sep 2026 |
+| Transactions | 403,557 | 407,812 |
+| Individual / business customers | 10,000 / 1,200 | 10,000 / 1,200 |
+| Accounts | 13,383 | 13,327 |
+| Merchants / devices / watchlist | 1,500 / 11,837 / 2,500 | 1,500 / 11,837 / 2,500 |
+| Positive entities | **749** | **744** |
+| Look-alike and boundary cases / control entities | 390 / 830 | 390 / 830 |
+
+Positives per pattern (training / test): P01 60/60 · P02 45/45 · P03 50/50 ·
+P04 55/55 · P05 40/40 · P06 35/35 · P07 40/40 · P08 45/45 · P09 169/164 ·
+P10 45/45 · P11 35/35 · P12 70/70 · ATO 60/60 (617 / 575 ATO transactions).
+The test set is the full size too, because 100,000 transactions left ~15 ATO
+and 8–14 positives per pattern, too few to trust. A different seed means new
+entities, amounts and timings from the **same** generator: the test measures
+generalisation to unseen data, not to unseen scenario recipes.
 
 ### Loading it into the skeleton
 
@@ -372,19 +448,22 @@ curl -s -X POST http://localhost:8000/ingestion/transactions \
   -F "source_system=NDP_WALLET_CORE" -F "business_date=2026-09-30"
 ```
 
-**Measured on the `small` profile:** 20,509 rows read, 20,058 accepted, 451
-quarantined across every defect type (99 unresolvable accounts, 73 malformed
-dates, 39 invalid currencies, 35 zero/negative or malformed amounts, the rest
-in-file duplicates). P02 detection then raises exactly 2 alerts: it catches
-**2 of 2** injected positives, fires on **0 of 2** labelled P02 look-alikes, and
-raises **nothing** on the 42-entity control cohort (FRD §8.14).
+**Measured on the shared `Small` (generator 1.2.0, through the real API in a
+throwaway database):** 20,541 rows read, 20,086 accepted, 455 quarantined across
+every defect type (206 in-file duplicates, 99 unresolvable accounts, 74
+malformed dates, 40 invalid currencies, 36 zero/negative or malformed amounts).
+P02 detection then raises 3 alerts: it catches **2 of 2** injected positives,
+fires on **0 of 2** labelled P02 look-alikes, raises **nothing** on the
+42-entity control cohort (FRD §8.14), and fires once on an entity labelled for
+P07 (weekly values stepping into P02's band).
 
-On the `full` profile the same check, run offline against the generated files,
-catches 45 of 45 P02 positives, fires on 0 of 30 look-alikes and 0 of 830
-control entities, and additionally fires on 17 entities labelled for *other*
-patterns — mostly P07 (weekly values stepping into P02's band) and P08
-(remittances inside the band). Those are cross-pattern hits on genuinely
-suspicious entities, not false positives on clean ones.
+On the `full` profile (1.2.0) the same check, run offline against the generated
+files, catches 45 of 45 P02 positives, fires on 0 of 30 look-alikes and 0 of
+830 control entities on both the training and the test seed, and additionally
+fires on entities labelled for *other* patterns: P07 and P08 (remittances
+inside the band), 14 on the training seed and 16 on the test seed. Those are
+cross-pattern hits on genuinely suspicious entities, not false positives on
+clean ones; no unlabelled entity fires.
 
 ### Shared datasets in the repository
 

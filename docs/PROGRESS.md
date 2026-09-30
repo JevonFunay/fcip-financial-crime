@@ -20,7 +20,7 @@ questions are unchanged — see `PROJECT_CONTEXT.md`.
 | NFRs proven by measurement | 3 of 18 | 17% |
 | TRD components | ~6 full + ~5 partial of 30 | ~25% |
 
-**300 backend tests pass** (3 more marked `slow`, all passing). Frontend typechecks and builds.
+**314 backend tests pass** (4 more marked `slow`, all passing). Frontend typechecks and builds.
 
 Pure FR counting gives ~10%; ~17% weights the foundation work already done.
 Neither document assigns effort weights, so the percentage is an estimate — the
@@ -52,6 +52,36 @@ Partial: FR-306, FR-309, FR-310, FR-1103, FR-808, FR-612.
 ---
 
 ## Built since the last progress report
+
+### 30 September — generator 1.2.0: scenarios without recipe traces, ATO, ML datasets
+
+**The problem.** Compared column by column with ordinary traffic, 1.1.0's
+scenarios carried traces of *how* they were generated: rows without a device
+in 33 of 38 scenario groups (59.2% of all positive rows vs 5.0% in
+background), P04's merchant payments without a merchant, P03's credits all at
+09:xx. A model trained on that data learns the recipe, not the behaviour.
+
+**The check is automatic now.** `audit_scenario_artefacts.py` compares every
+raw transaction column between each scenario group and background, and flags
+a difference beyond sampling noise that is not part of the pattern's
+definition. 1.1.0: 36 flags. 1.2.0: **0**, on the training seed, the test
+seed and three more. The audit is itself tested both ways (it catches rows
+stripped of their device; it passes a random background sample).
+
+**What changed.** Scenario rows carry the entity's own device and the
+non-quarantining defects; every party has its own device and ~120 are shared,
+as TRD §11.1 says (1.1.0 shared thousands at random); 15% of customers change
+phones; scenario dates and hours follow background; three look-alikes that
+contradicted their own notes now match them. New: the **ATO** scenario (60 at
+full) with 30 look-alikes that carry at most two of its three signals, and
+`label_transactions.csv`, per-row ground truth for the Fraud model.
+
+**ML datasets.** Training: full profile, seed 20260923, 403,557 transactions,
+749 positive entities. Test: full profile, seed 20261001, 407,812
+transactions, 744 positive entities. Not committed; regenerated in ~6 s.
+Shared Tiny and Small refreshed to 1.2.0. Small through the real API: 20,541
+read, 20,086 accepted, 455 quarantined; P02 catches 2/2 positives, 0/2
+look-alikes, 0/42 control.
 
 ### 29 September — rules as data, stages 1–2 (FR-301 … FR-303, partial)
 

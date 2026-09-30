@@ -34,6 +34,7 @@ from app.scripts.raw_contract import (
     CONTRACT_VERSION,
     FILE_SPECS,
     GENERATOR_VERSION,
+    LABEL_TRANSACTIONS,
     LABELS,
     FileSpec,
 )
@@ -69,13 +70,46 @@ DEFAULT_MIN_PER_PATTERN = 5
 # is too small to place them all and pure proportion stops holding.
 MIN_TARGET_TRANSACTIONS = 20_000
 
-# TRD §11.3 injected-scenario counts at the full profile.
+# TRD §11.3 injected-scenario counts at the full profile, plus ATO.
 SCENARIO_TARGETS = {
     "P01": 60, "P02": 45, "P03": 50, "P04": 55, "P05": 40, "P06": 35,
     "P07": 40, "P08": 45, "P09": 30, "P10": 45, "P11": 35, "P12": 70,
+    # Account takeover: the Fraud use case the mentor asked for (PROJECT_CONTEXT
+    # §8). A project extension, not one of the FRD's twelve patterns.
+    "ATO": 60,
 }
 EDGE_PER_PATTERN = 25
 BOUNDARY_PER_PATTERN = 5
+ATO_EDGE_CASES = 30
+# Every kind of scenario per pattern, at the full profile. ATO has its own
+# look-alikes and no threshold, so no boundary cases.
+SCENARIO_PLAN = {
+    **{pattern: {"positives": count, "edge": EDGE_PER_PATTERN, "boundary": BOUNDARY_PER_PATTERN}
+       for pattern, count in SCENARIO_TARGETS.items() if pattern != "ATO"},
+    "ATO": {"positives": SCENARIO_TARGETS["ATO"], "edge": ATO_EDGE_CASES},
+}
+
+# TRD §11.1: "~120 device yang sengaja digunakan bersama". Every transacting
+# party otherwise has a device of its own; these few are household devices
+# also used by one or two other parties. (1.1.0 handed devices out at random,
+# so thousands were shared by unrelated parties, and a device with one user
+# looked unusual.)
+SHARED_HOUSEHOLD_DEVICES = 120
+# Ordinary customers change phones: this share of individuals starts using a
+# new device part-way through the period. Without it "a device never seen for
+# this customer" would only ever happen in an ATO scenario, and a model would
+# learn the scenario instead of the behaviour.
+DEVICE_CHANGE_SHARE = 0.15
+# FRD §8.5 DORMANCY_DAYS >= 90; the ATO dormancy is drawn from this range.
+ATO_DORMANCY_DAYS = (90, 150)
+# ATO look-alikes, cycled in this order: which of the three takeover signals
+# each one has (dormancy, a new device, a burst), and whether it needs a
+# device nobody has used before.
+ATO_EDGE_KINDS = (
+    ("RETURNING_NEW_PHONE", True, "back after {days} quiet days on a new phone, ordinary spending"),
+    ("NEW_PHONE_PAYDAY", True, "new phone on payday, a burst of routine payments"),
+    ("RETURNING_SAME_PHONE", False, "back after {days} quiet days on the usual phone, a few ordinary payments"),
+)
 
 # TRD §11.2 population mix, as exact shares of all non-ER parties; retail takes
 # the remainder (~62%). §11.3's "~800 CONTROL_CLEAN entities" at the full
@@ -102,6 +136,7 @@ PATTERN_NAMES = {
     "P10": "Merchant activity inconsistent with its MCC",
     "P11": "Many-to-one funnel with device overlap",
     "P12": "Name similar to a synthetic list record",
+    "ATO": "Account takeover after dormancy on a new device",
 }
 EXPECTED_REASON = {code: f"{code}_{name.upper().replace(' ', '_')}"[:48] for code, name in PATTERN_NAMES.items()}
 
@@ -192,6 +227,9 @@ class Party:
     accounts: list[str] = field(default_factory=list)
     devices: list[str] = field(default_factory=list)
     home_country: str = "ID"
+    # An ordinary phone change: from switch_day on, mostly switch_device.
+    switch_day: date | None = None
+    switch_device: str | None = None
 
 
 @dataclass
@@ -261,8 +299,15 @@ class RawDatasetGenerator:
         self.transactions: list[dict[str, Any]] = []
         self.watchlist: list[dict[str, Any]] = []
         self.labels: list[dict[str, Any]] = []
+        self.label_transactions: list[dict[str, str]] = []
         self.parties: dict[str, Party] = {}
         self._txn_seq = 0
+        # The scenario whose rows _emit is currently writing (label_transactions).
+        self._scenario: str | None = None
+        self._shareable_devices: list[str] = []
+        # Dormancy gaps carved once, after every scenario is placed: (accounts,
+        # first business date, first business date after the gap).
+        self._gaps: list[tuple[set[str], str, str]] = []
 
     # --- primitive generators -------------------------------------------------
 
@@ -573,29 +618,63 @@ class RawDatasetGenerator:
                 "outlet_count": rng.randrange(1, 12),
             })
 
+    def _device_row(self, rng: random.Random, device_id: str) -> dict[str, Any]:
+        first_seen = self.period_start - timedelta(days=rng.randrange(0, 400))
+        device_type = rng.choices(("ANDROID_PHONE", "IOS_PHONE", "TABLET", "WEB_BROWSER"), weights=(70, 22, 5, 3))[0]
+        return {
+            "source_device_id": device_id,
+            "device_type": device_type,
+            "os_family": rng.choice(OS_FAMILIES) if "PHONE" in device_type else "Other",
+            "app_version": f"{rng.randrange(3, 8)}.{rng.randrange(0, 20)}.{rng.randrange(0, 9)}",
+            "is_emulator": "true" if rng.random() < 0.01 else "false",
+            "is_rooted": "true" if rng.random() < 0.02 else "false",
+            "first_seen": datetime.combine(first_seen, datetime.min.time(), JAKARTA).isoformat(),
+            "last_seen": datetime.combine(self.reference_date, datetime.min.time(), JAKARTA).isoformat(),
+        }
+
+    def _new_device(self, rng: random.Random, first_seen: date | None = None) -> str:
+        device = self._device_row(rng, f"DEV-{len(self.devices) + 1:06d}")
+        if first_seen is not None:
+            device["first_seen"] = datetime.combine(first_seen, datetime.min.time(), JAKARTA).isoformat()
+        self.devices.append(device)
+        return device["source_device_id"]
+
     def build_devices(self) -> None:
+        """TRD §11.1: every transacting party has a device of its own, and ~120
+        are deliberately shared. The total follows from the population, inside
+        the TRD's 8,000-12,000 band at the full profile, rather than being
+        forced to exactly 10,000, which would oblige thousands of unrelated
+        parties to share. ER twins carry no traffic, so they get no device."""
         rng = self.rng["device"]
-        parties = [p for p in self.parties.values() if p.accounts]
-        for i in range(1, _scaled(FULL_TARGETS["devices"], self.factor, 25) + 1):
-            device_id = f"DEV-{i:06d}"
-            first_seen = self.period_start - timedelta(days=rng.randrange(0, 400))
-            device_type = rng.choices(("ANDROID_PHONE", "IOS_PHONE", "TABLET", "WEB_BROWSER"), weights=(70, 22, 5, 3))[0]
-            self.devices.append({
-                "source_device_id": device_id,
-                "device_type": device_type,
-                "os_family": rng.choice(OS_FAMILIES) if "PHONE" in device_type else "Other",
-                "app_version": f"{rng.randrange(3, 8)}.{rng.randrange(0, 20)}.{rng.randrange(0, 9)}",
-                "is_emulator": "true" if rng.random() < 0.01 else "false",
-                "is_rooted": "true" if rng.random() < 0.02 else "false",
-                "first_seen": datetime.combine(first_seen, datetime.min.time(), JAKARTA).isoformat(),
-                "last_seen": datetime.combine(self.reference_date, datetime.min.time(), JAKARTA).isoformat(),
-            })
-            if parties:
-                rng.choice(parties).devices.append(device_id)
-        # Every transacting party needs at least one device to pick from.
-        for party in parties:
-            if not party.devices and self.devices:
-                party.devices.append(rng.choice(self.devices)["source_device_id"])
+        transacting = [p for p in self.parties.values() if p.accounts and p.cohort != "ER_TEST"]
+        for party in transacting:
+            party.devices.append(self._new_device(rng))
+        # P09 and P11 share a device already in circulation, never one that
+        # comes into use later (its first_seen would postdate that use).
+        self._shareable_devices = [d["source_device_id"] for d in self.devices]
+        for _ in range(_scaled(SHARED_HOUSEHOLD_DEVICES, self.factor, 1) if transacting else 0):
+            device = rng.choice(transacting).devices[0]
+            for other in rng.sample(transacting, min(len(transacting), rng.randrange(1, 3))):
+                if device not in other.devices:
+                    other.devices.append(device)
+        individuals = [p for p in transacting if not p.is_business]
+        span = (self.reference_date - self.period_start).days - 44
+        for party in rng.sample(individuals, round(len(individuals) * DEVICE_CHANGE_SHARE)):
+            party.switch_day = self.period_start + timedelta(days=30 + rng.randrange(0, max(1, span)))
+            party.switch_device = self._new_device(rng, party.switch_day)
+
+    def _fresh_device(self, day: date) -> str:
+        """A device nobody has used, first seen on `day`."""
+        return self._new_device(self.rng["device"], day)
+
+    def _device_at(self, rng: random.Random, party: Party, day: date) -> str | None:
+        """The device `party` would be using on `day`, background or scenario
+        alike, so a scenario row never looks different for want of one."""
+        if party.switch_day is not None and day >= party.switch_day and rng.random() < 0.9:
+            return party.switch_device
+        if party.devices:
+            return rng.choice(party.devices)
+        return party.switch_device
 
     def build_watchlist(self) -> None:
         rng = self.rng["watchlist"]
@@ -638,7 +717,7 @@ class RawDatasetGenerator:
         counterparty_country: str = "ID",
         merchant_id: str = "",
         currency: str = "IDR",
-        apply_defects: bool = True,
+        defects: str = "all",
     ) -> dict[str, Any]:
         rng = self.rng["defect"]
         row = {
@@ -661,10 +740,11 @@ class RawDatasetGenerator:
         }
 
         applied: list[str] = []
-        if apply_defects:
-            # Defects are applied only to background traffic, never to an
-            # injected scenario: a corrupted row would silently change whether
-            # the scenario fires, and the label would then be a lie.
+        if defects == "all":
+            # The defects that quarantine or move a row apply to background
+            # traffic only, never to an injected scenario: a quarantined row
+            # would silently change whether the scenario fires, and the label
+            # would then be a lie.
             if rng.random() < DEFECTS["late_arrival"]:
                 # Backdated well before the batch business date: the loader
                 # flags LATE_ARRIVAL and computes lag_days (FR-106). Applied
@@ -691,10 +771,27 @@ class RawDatasetGenerator:
             if rng.random() < DEFECTS["unresolved_account"]:
                 row["source_account_id"] = f"ACC-9{rng.randrange(10**5, 10**6 - 1)}"
                 applied.append("unresolved_account")
+        elif defects == "soft":
+            # Scenario rows: only the defects that load normally. Without them
+            # a scenario row would be the only kind that never lacks a device
+            # or a counterparty, and a model would learn that instead of the
+            # behaviour (the 1.1.0 artefact).
+            if rng.random() < DEFECTS["missing_counterparty"]:
+                row["counterparty_reference"] = ""
+                applied.append("missing_counterparty")
+            if rng.random() < DEFECTS["missing_device"]:
+                row["source_device_id"] = ""
+                applied.append("missing_device")
+        else:
+            raise ValueError(f"unknown defects mode {defects!r}")
 
         # Row-level defect marker; never written (see _defect_counts).
         row["_defects"] = applied
         self.transactions.append(row)
+        if self._scenario is not None:
+            self.label_transactions.append(
+                {"scenario_id": self._scenario, "source_transaction_reference": row["source_transaction_reference"]}
+            )
         return row
 
     def _day_weight(self, day: date) -> float:
@@ -709,10 +806,31 @@ class RawDatasetGenerator:
             weight *= 0.65
         return weight
 
+    # Mostly waking hours, with a lunchtime and evening bias, and a thin night
+    # tail (~5%). With no night activity at all, any scenario row after
+    # midnight would be one of a kind.
+    HOUR_WEIGHTS = (1, 1, 1, 1, 1, 1, 2, 4, 5, 6, 7, 9, 8, 6, 5, 5, 6, 7, 9, 10, 8, 6, 4, 3)
+
     def _random_moment(self, rng: random.Random, day: date) -> datetime:
-        # Waking hours, with a lunchtime and evening bias.
-        hour = rng.choices(range(6, 24), weights=[2, 4, 5, 6, 7, 9, 8, 6, 5, 5, 6, 7, 9, 10, 8, 6, 4, 3])[0]
+        hour = rng.choices(range(24), weights=self.HOUR_WEIGHTS)[0]
         return datetime(day.year, day.month, day.day, hour, rng.randrange(0, 60), rng.randrange(0, 60), tzinfo=JAKARTA)
+
+    def _burst(self, rng: random.Random, day: date, count: int, spread_hours: int) -> list[datetime]:
+        """`count` moments on `day` within a few hours of each other, in order.
+
+        The centre is drawn like any row's hour and each moment is drawn with
+        the same hour weights inside the window, so a burst's rows have the
+        hours ordinary rows have. (Adding offsets to a start time pushed 1.2.0's
+        first ATO bursts late into the night.)"""
+        centre = rng.choices(range(24), weights=self.HOUR_WEIGHTS)[0]
+        low, high = max(0, centre - spread_hours // 2), min(23, centre + spread_hours // 2)
+        hours = range(low, high + 1)
+        weights = [self.HOUR_WEIGHTS[h] for h in hours]
+        return sorted(
+            datetime(day.year, day.month, day.day, rng.choices(hours, weights=weights)[0],
+                     rng.randrange(0, 60), rng.randrange(0, 60), tzinfo=JAKARTA)
+            for _ in range(count)
+        )
 
     def build_background_traffic(self) -> None:
         """Ordinary behaviour for every cohort except the injected scenarios,
@@ -761,7 +879,7 @@ class RawDatasetGenerator:
         day = rng.choices(self._days, weights=self._day_weights)[0]
         when = self._random_moment(rng, day)
         account = rng.choice(party.accounts)
-        device = rng.choice(party.devices) if party.devices else None
+        device = self._device_at(rng, party, day)
         # Sole traders are individuals in the business cohort, so they
         # transact like merchants rather than like retail customers.
         if party.is_business or party.cohort == "BUSINESS_NORMAL":
@@ -856,24 +974,86 @@ class RawDatasetGenerator:
     def inject_scenarios(self) -> None:
         rng = self.rng["scenario"]
         self._customer_rows = {c["source_customer_id"]: c for c in self.customers}
+        self._history = self._amount_history()
         builders = {
             "P01": self._inject_p01, "P02": self._inject_p02, "P03": self._inject_p03,
             "P04": self._inject_p04, "P05": self._inject_p05, "P06": self._inject_p06,
             "P07": self._inject_p07, "P08": self._inject_p08, "P09": self._inject_p09,
             "P10": self._inject_p10, "P11": self._inject_p11, "P12": self._inject_p12,
+            "ATO": self._inject_ato,
         }
-        for pattern, target in SCENARIO_TARGETS.items():
-            count = self._scenario_count(pattern, "positives", target)
+        for pattern, kinds in SCENARIO_PLAN.items():
+            count = self._scenario_count(pattern, "positives", kinds["positives"])
             for n in range(1, count + 1):
-                builders[pattern](rng, f"{pattern}-POS-{n:04d}")
+                self._as_scenario(f"{pattern}-POS-{n:04d}", lambda sid, p=pattern: builders[p](rng, sid))
 
         # Behavioural look-alikes and exact-threshold boundary cases. Both are
         # EDGE_CASE: legitimate activity that a badly tuned rule would catch.
-        for pattern in SCENARIO_TARGETS:
-            for n in range(1, self._scenario_count(pattern, "edge", EDGE_PER_PATTERN) + 1):
-                self._inject_edge(rng, pattern, f"{pattern}-EDGE-{n:04d}")
-            for n in range(1, self._scenario_count(pattern, "boundary", BOUNDARY_PER_PATTERN) + 1):
-                self._inject_boundary(rng, pattern, f"{pattern}-BOUND-{n:04d}")
+        for pattern, kinds in SCENARIO_PLAN.items():
+            for n in range(1, self._scenario_count(pattern, "edge", kinds["edge"]) + 1):
+                if pattern == "ATO":
+                    self._as_scenario(f"ATO-EDGE-{n:04d}", lambda sid, k=n - 1: self._inject_ato_edge(rng, sid, k))
+                else:
+                    self._as_scenario(f"{pattern}-EDGE-{n:04d}", lambda sid, p=pattern: self._inject_edge(rng, p, sid))
+            if "boundary" in kinds:
+                for n in range(1, self._scenario_count(pattern, "boundary", kinds["boundary"]) + 1):
+                    self._as_scenario(f"{pattern}-BOUND-{n:04d}",
+                                      lambda sid, p=pattern: self._inject_boundary(rng, p, sid))
+
+        self._apply_gaps()
+        self.label_transactions.sort(key=lambda r: (r["scenario_id"], r["source_transaction_reference"]))
+
+    def _as_scenario(self, scenario_id: str, build) -> None:
+        """Run one scenario builder with its rows recorded against its id."""
+        self._scenario = scenario_id
+        try:
+            build(scenario_id)
+        finally:
+            self._scenario = None
+
+    def _amount_history(self) -> dict[str, dict[str, list[float]]]:
+        """Each party's own background amounts, read before any scenario is
+        placed: an ATO drain is sized against what that customer usually
+        spends, and a look-alike spends like its owner does."""
+        owner = {a["source_account_id"]: a["owner_source_id"] for a in self.accounts}
+        history: dict[str, dict[str, list[float]]] = {}
+        for row in self.transactions:
+            party = owner.get(row["source_account_id"])
+            if party is None:
+                continue
+            try:
+                amount = float(row["amount_original"])
+            except ValueError:
+                continue
+            if amount <= 0:
+                continue
+            entry = history.setdefault(party, {"all": [], "out": []})
+            entry["all"].append(amount)
+            if row["direction"] == "OUT":
+                entry["out"].append(amount)
+        return history
+
+    def _carve_gap(self, party: Party, start: date, end: date) -> None:
+        """No background activity for `party` in [start, end): dormancy derived
+        from transaction history (FRD §8.5), carved after every scenario is placed."""
+        self._gaps.append((set(party.accounts), start.isoformat(), end.isoformat()))
+
+    def _apply_gaps(self) -> None:
+        if not self._gaps:
+            return
+        scenario_rows = {r["source_transaction_reference"] for r in self.label_transactions}
+        by_account: dict[str, list[tuple[str, str]]] = {}
+        for accounts, start, end in self._gaps:
+            for account in accounts:
+                by_account.setdefault(account, []).append((start, end))
+
+        def carved(row: dict[str, Any]) -> bool:
+            spans = by_account.get(row["source_account_id"])
+            if not spans or row["source_transaction_reference"] in scenario_rows:
+                return False
+            return any(start <= row["business_date"] < end for start, end in spans)
+
+        self.transactions = [row for row in self.transactions if not carved(row)]
 
     def _scenario_count(self, pattern: str, kind: str, full_count: int) -> int:
         """How many scenarios of one kind to inject at this scale.
@@ -995,12 +1175,19 @@ class RawDatasetGenerator:
             return ""
         return f" (target {self.target_transactions:,} transactions, scale factor {self.factor:.6f})"
 
+    def _pick_day(self, rng: random.Random, first: date, last: date) -> date:
+        """A day in [first, last], weighted like background days (paydays busier,
+        weekends quieter). 1.1.0 drew scenario days uniformly, so scenarios fell
+        on paydays half as often as everything else."""
+        days = [first + timedelta(days=n) for n in range((last - first).days + 1)]
+        return rng.choices(days, weights=[self._day_weight(d) for d in days])[0]
+
     def _window_start(self, rng: random.Random, span_days: int) -> date:
         latest = self.reference_date - timedelta(days=span_days + 1)
         earliest = self.period_start + timedelta(days=60)  # leave a baseline behind it
         if latest <= earliest:
             latest = earliest + timedelta(days=1)
-        return earliest + timedelta(days=rng.randrange(0, (latest - earliest).days))
+        return self._pick_day(rng, earliest, latest - timedelta(days=1))
 
     def _inject_p01(self, rng: random.Random, scenario_id: str) -> None:
         party = self._take(1, primary="INJECTED_CANDIDATE")
@@ -1010,8 +1197,8 @@ class RawDatasetGenerator:
         day = self._window_start(rng, 1)
         self._emit(account_id=rng.choice(party.accounts), when=self._random_moment(rng, day),
                    amount=rng.uniform(2_000_000_000, 8_000_000_000), direction="OUT", channel="TRANSFER",
-                   transaction_type="P2P_TRANSFER", device_id=party.devices[0] if party.devices else None,
-                   apply_defects=False)
+                   transaction_type="P2P_TRANSFER", device_id=self._device_at(rng, party, day),
+                   defects="soft")
         self._label(scenario_id, "INJECTED_POSITIVE", "P01", party.source_id, day, day,
                     "Single transfer far above the individual threshold band")
 
@@ -1025,11 +1212,11 @@ class RawDatasetGenerator:
         start = self._window_start(rng, 7)
         count = rng.randrange(3, 6)
         for n in range(count):
-            day = start + timedelta(days=rng.randrange(0, 6))
+            day = self._pick_day(rng, start, start + timedelta(days=5))
             self._emit(account_id=rng.choice(party.accounts), when=self._random_moment(rng, day),
                        amount=rng.uniform(350_000_000, 499_000_000), direction="IN",
                        channel=rng.choice(("CASH", "TRANSFER")), transaction_type="CASH_DEPOSIT",
-                       device_id=party.devices[0] if party.devices else None, apply_defects=False)
+                       device_id=self._device_at(rng, party, day), defects="soft")
         self._label(scenario_id, "INJECTED_POSITIVE", "P02", party.source_id, start,
                     start + timedelta(days=6), f"{count} deposits in band within a 7-day window")
 
@@ -1041,14 +1228,17 @@ class RawDatasetGenerator:
         day = self._window_start(rng, 1)
         amount = rng.uniform(200_000_000, 900_000_000)
         account = rng.choice(party.accounts)
-        arrival = self._random_moment(rng, day).replace(hour=9)
+        # Any hour, like every other row (1.1.0 fixed the arrival at 09:xx).
+        arrival = self._random_moment(rng, day)
+        departure = arrival + timedelta(hours=rng.randrange(1, 6))
         self._emit(account_id=account, when=arrival, amount=amount, direction="IN", channel="TRANSFER",
-                   transaction_type="P2P_TRANSFER", apply_defects=False)
-        self._emit(account_id=account, when=arrival + timedelta(hours=rng.randrange(1, 6)),
+                   transaction_type="P2P_TRANSFER", device_id=self._device_at(rng, party, day), defects="soft")
+        self._emit(account_id=account, when=departure,
                    amount=amount * rng.uniform(0.94, 0.99), direction="OUT", channel="TRANSFER",
-                   transaction_type="P2P_TRANSFER", apply_defects=False)
-        self._label(scenario_id, "INJECTED_POSITIVE", "P03", party.source_id, day, day,
-                    "Funds in and substantially out again within the same day")
+                   transaction_type="P2P_TRANSFER", device_id=self._device_at(rng, party, departure.date()),
+                   defects="soft")
+        self._label(scenario_id, "INJECTED_POSITIVE", "P03", party.source_id, day, departure.date(),
+                    "Funds in and substantially out again within hours")
 
     def _inject_p04(self, rng: random.Random, scenario_id: str) -> None:
         party = self._take(1, primary="INJECTED_CANDIDATE")
@@ -1057,10 +1247,11 @@ class RawDatasetGenerator:
         party = party[0]
         start = self._window_start(rng, 3)
         for _ in range(rng.randrange(40, 90)):
-            day = start + timedelta(days=rng.randrange(0, 3))
+            day = self._pick_day(rng, start, start + timedelta(days=2))
             self._emit(account_id=rng.choice(party.accounts), when=self._random_moment(rng, day),
                        amount=rng.uniform(50_000, 2_500_000), direction="OUT", channel="QRIS",
-                       transaction_type="MERCHANT_PAYMENT", apply_defects=False)
+                       transaction_type="MERCHANT_PAYMENT", device_id=self._device_at(rng, party, day),
+                       merchant_id=rng.choice(self._merchant_ids) if self._merchant_ids else "", defects="soft")
         self._label(scenario_id, "INJECTED_POSITIVE", "P04", party.source_id, start,
                     start + timedelta(days=3), "Transaction count far above the entity's own baseline")
 
@@ -1071,7 +1262,7 @@ class RawDatasetGenerator:
         party = party[0]
         # Dormancy is derived from transaction history (FRD E04), so the
         # scenario is a gap in activity followed by something material.
-        day = self.reference_date - timedelta(days=rng.randrange(5, 40))
+        day = self._pick_day(rng, self.reference_date - timedelta(days=39), self.reference_date - timedelta(days=5))
         account = rng.choice(party.accounts)
         self.transactions = [
             t for t in self.transactions
@@ -1080,7 +1271,7 @@ class RawDatasetGenerator:
         ]
         self._emit(account_id=account, when=self._random_moment(rng, day),
                    amount=rng.uniform(400_000_000, 1_500_000_000), direction="IN", channel="TRANSFER",
-                   transaction_type="P2P_TRANSFER", apply_defects=False)
+                   transaction_type="P2P_TRANSFER", device_id=self._device_at(rng, party, day), defects="soft")
         self._label(scenario_id, "INJECTED_POSITIVE", "P05", party.source_id,
                     day - timedelta(days=150), day, "150 dormant days, then a material credit")
 
@@ -1089,14 +1280,16 @@ class RawDatasetGenerator:
         if not party:
             return
         party = party[0]
-        start = self._window_start(rng, 10)
+        start = self._window_start(rng, 14)
         amount = rng.choice((50_000_000, 100_000_000, 250_000_000))
         for n in range(rng.randrange(6, 12)):
+            day = self._pick_day(rng, start, start + timedelta(days=13))
             self._emit(account_id=rng.choice(party.accounts),
-                       when=self._random_moment(rng, start + timedelta(days=n)), amount=amount,
-                       direction="OUT", channel="TRANSFER", transaction_type="P2P_TRANSFER", apply_defects=False)
+                       when=self._random_moment(rng, day), amount=amount,
+                       direction="OUT", channel="TRANSFER", transaction_type="P2P_TRANSFER",
+                       device_id=self._device_at(rng, party, day), defects="soft")
         self._label(scenario_id, "INJECTED_POSITIVE", "P06", party.source_id, start,
-                    start + timedelta(days=10), f"Repeated identical round amount {amount:,}")
+                    start + timedelta(days=13), f"Repeated identical round amount {amount:,}")
 
     def _inject_p07(self, rng: random.Random, scenario_id: str) -> None:
         party = self._take(1, primary="INJECTED_CANDIDATE")
@@ -1108,10 +1301,11 @@ class RawDatasetGenerator:
         for week in range(5):
             amount *= rng.uniform(2.0, 3.0)
             for _ in range(rng.randrange(2, 5)):
-                day = start + timedelta(days=week * 7 + rng.randrange(0, 7))
+                day = self._pick_day(rng, start + timedelta(days=week * 7), start + timedelta(days=week * 7 + 6))
                 self._emit(account_id=rng.choice(party.accounts), when=self._random_moment(rng, day),
                            amount=amount, direction="OUT", channel="TRANSFER",
-                           transaction_type="P2P_TRANSFER", apply_defects=False)
+                           transaction_type="P2P_TRANSFER", device_id=self._device_at(rng, party, day),
+                           defects="soft")
         self._label(scenario_id, "INJECTED_POSITIVE", "P07", party.source_id, start,
                     start + timedelta(days=35), "Weekly value stepping up by 2-3x")
 
@@ -1123,25 +1317,26 @@ class RawDatasetGenerator:
         start = self._window_start(rng, 20)
         country = rng.choice(HIGH_RISK_COUNTRIES)
         for _ in range(rng.randrange(8, 18)):
-            day = start + timedelta(days=rng.randrange(0, 20))
+            day = self._pick_day(rng, start, start + timedelta(days=19))
             self._emit(account_id=rng.choice(party.accounts), when=self._random_moment(rng, day),
                        amount=rng.uniform(80_000_000, 400_000_000), direction="OUT", channel="REMITTANCE",
-                       transaction_type="INBOUND_REMITTANCE", counterparty_country=country, apply_defects=False)
+                       transaction_type="INBOUND_REMITTANCE", counterparty_country=country,
+                       device_id=self._device_at(rng, party, day), defects="soft")
         self._label(scenario_id, "INJECTED_POSITIVE", "P08", party.source_id, start,
                     start + timedelta(days=20), f"Exposure concentrated on listed geography {country}")
 
     def _inject_p09(self, rng: random.Random, scenario_id: str) -> None:
         parties = self._take(rng.randrange(4, 8), primary="INJECTED_CANDIDATE")
-        if len(parties) < 3 or not self.devices:
+        if len(parties) < 3 or not self._shareable_devices:
             return
-        shared = rng.choice(self.devices)["source_device_id"]
+        shared = rng.choice(self._shareable_devices)
         start = self._window_start(rng, 14)
         for party in parties:
             for _ in range(rng.randrange(3, 7)):
-                day = start + timedelta(days=rng.randrange(0, 14))
+                day = self._pick_day(rng, start, start + timedelta(days=13))
                 self._emit(account_id=rng.choice(party.accounts), when=self._random_moment(rng, day),
                            amount=rng.uniform(1_000_000, 40_000_000), direction="OUT", channel="TRANSFER",
-                           transaction_type="P2P_TRANSFER", device_id=shared, apply_defects=False)
+                           transaction_type="P2P_TRANSFER", device_id=shared, defects="soft")
         for party in parties:
             self._label(scenario_id, "INJECTED_POSITIVE", "P09", party.source_id, start,
                         start + timedelta(days=14), f"Device {shared} shared by {len(parties)} unrelated entities")
@@ -1160,34 +1355,34 @@ class RawDatasetGenerator:
         start = self._window_start(rng, 25)
         # Ticket sizes an order of magnitude away from what the MCC implies.
         for _ in range(rng.randrange(20, 45)):
-            day = start + timedelta(days=rng.randrange(0, 25))
+            day = self._pick_day(rng, start, start + timedelta(days=24))
             self._emit(account_id=rng.choice(business.accounts), when=self._random_moment(rng, day),
                        amount=rng.uniform(25_000_000, 120_000_000), direction="IN", channel="QRIS",
                        transaction_type="MERCHANT_PAYMENT", merchant_id=merchant["source_merchant_id"],
-                       apply_defects=False)
+                       device_id=self._device_at(rng, business, day), defects="soft")
         self._label(scenario_id, "INJECTED_POSITIVE", "P10", merchant["source_business_id"], start,
                     start + timedelta(days=25), f"Ticket size inconsistent with MCC {merchant['mcc']}")
 
     def _inject_p11(self, rng: random.Random, scenario_id: str) -> None:
         senders = self._take(rng.randrange(8, 16), primary="INJECTED_CANDIDATE")
         collector = self._take(1, primary="INJECTED_CANDIDATE")
-        if len(senders) < 5 or not collector or not self.devices:
+        if len(senders) < 5 or not collector or not self._shareable_devices:
             return
         collector = collector[0]
         target_account = rng.choice(collector.accounts)
-        shared_device = rng.choice(self.devices)["source_device_id"]
+        shared_device = rng.choice(self._shareable_devices)
         start = self._window_start(rng, 5)
         for sender in senders:
-            day = start + timedelta(days=rng.randrange(0, 5))
+            day = self._pick_day(rng, start, start + timedelta(days=4))
             amount = rng.uniform(20_000_000, 90_000_000)
             self._emit(account_id=rng.choice(sender.accounts), when=self._random_moment(rng, day), amount=amount,
                        direction="OUT", channel="TRANSFER", transaction_type="P2P_TRANSFER",
                        device_id=shared_device, counterparty_ref=target_account,
-                       counterparty_name=collector.name, apply_defects=False)
+                       counterparty_name=collector.name, defects="soft")
             self._emit(account_id=target_account, when=self._random_moment(rng, day), amount=amount,
                        direction="IN", channel="TRANSFER", transaction_type="P2P_TRANSFER",
                        device_id=shared_device, counterparty_ref=rng.choice(sender.accounts),
-                       counterparty_name=sender.name, apply_defects=False)
+                       counterparty_name=sender.name, defects="soft")
         self._label(scenario_id, "INJECTED_POSITIVE", "P11", collector.source_id, start,
                     start + timedelta(days=5), f"{len(senders)}-to-1 convergence with device overlap")
 
@@ -1224,7 +1419,7 @@ class RawDatasetGenerator:
         # 8-day spacing can never put three deposits in one window.
         constructions = {
             "P02": ("Arisan collector: in-band deposits, but always spread past the 7-day window",
-                    8, 380_000_000, "CASH", 5),
+                    9, 380_000_000, "CASH", 5),
             "P11": ("School fee account: many payers, same names every month", 3, 3_500_000, "TRANSFER", 8),
             "P04": ("Payroll disburser on payday", 1, 8_000_000, "TRANSFER", 6),
             "P06": ("Agent kiosk float top-ups in round amounts", 2, 20_000_000, "AGENT", 8),
@@ -1235,11 +1430,29 @@ class RawDatasetGenerator:
         )
         span = spacing * count
         start = self._window_start(rng, span)
+        if pattern == "P04":
+            # The note says payday; 1.1.0 started it on any day.
+            start = next((start + timedelta(days=n) for n in range(31) if (start + timedelta(days=n)).day == 25), start)
         for n in range(count):
-            day = start + timedelta(days=n * spacing)
+            # Each date is drawn inside its own slot of the cadence, weighted
+            # like background days, so a fixed spacing does not avoid paydays
+            # the way ordinary rows do not. P02 keeps a one-day slot on a
+            # spacing of 9: at least 8 days between deposits, past its 7-day
+            # window, as its note promises.
+            target = start + timedelta(days=n * spacing)
+            slot = 1 if pattern == "P02" else max(0, spacing - 1)
+            day = target if pattern == "P04" else self._pick_day(rng, target, target + timedelta(days=slot))
+            amount = base * rng.uniform(0.8, 1.2)
+            direction, ttype, country = rng.choice(("IN", "OUT")), "P2P_TRANSFER", "ID"
+            if pattern == "P06":
+                # The note says round amounts; 1.1.0 wrote unrounded ones.
+                amount = round(amount / 1_000_000) * 1_000_000
+            elif pattern == "P08":
+                # Cross-border support, as the note says: 1.1.0 wrote domestic rows.
+                direction, ttype, country = "IN", "INBOUND_REMITTANCE", rng.choice(NORMAL_CORRIDORS)
             self._emit(account_id=rng.choice(party.accounts), when=self._random_moment(rng, day),
-                       amount=base * rng.uniform(0.8, 1.2), direction=rng.choice(("IN", "OUT")),
-                       channel=channel, transaction_type="P2P_TRANSFER", apply_defects=False)
+                       amount=amount, direction=direction, channel=channel, transaction_type=ttype,
+                       counterparty_country=country, device_id=self._device_at(rng, party, day), defects="soft")
         self._label(scenario_id, "EDGE_CASE", pattern, party.source_id, start,
                     start + timedelta(days=span), note)
 
@@ -1254,11 +1467,110 @@ class RawDatasetGenerator:
         start = self._window_start(rng, 7)
         amount = 500_000_000.0 if pattern == "P02" else 100_000_000.0
         for n in range(3):
+            day = start + timedelta(days=n)
             self._emit(account_id=rng.choice(party.accounts),
-                       when=self._random_moment(rng, start + timedelta(days=n)), amount=amount,
-                       direction="IN", channel="CASH", transaction_type="CASH_DEPOSIT", apply_defects=False)
+                       when=self._random_moment(rng, day), amount=amount,
+                       direction="IN", channel="CASH", transaction_type="CASH_DEPOSIT",
+                       device_id=self._device_at(rng, party, day), defects="soft")
         self._label(scenario_id, "EDGE_CASE", pattern, party.source_id, start, start + timedelta(days=7),
                     f"Exactly at threshold ({amount:,.0f}) — must not fire at default parameters")
+
+    def _takeover_day(self, rng: random.Random) -> date:
+        """Late enough to leave a history, then the longest dormancy, before it."""
+        earliest = self.period_start + timedelta(days=ATO_DORMANCY_DAYS[1] + 30)
+        latest = self.reference_date - timedelta(days=2)
+        if latest <= earliest:
+            earliest = self.period_start + timedelta(days=ATO_DORMANCY_DAYS[0] + 30)
+            latest = max(latest, earliest + timedelta(days=1))
+        return self._pick_day(rng, earliest, latest - timedelta(days=1))
+
+    def _quiet_days(self, rng: random.Random, day: date) -> int:
+        """A dormancy that still leaves at least 30 days of history before it."""
+        room = (day - self.period_start).days - 30
+        return rng.randrange(ATO_DORMANCY_DAYS[0], max(ATO_DORMANCY_DAYS[0], min(ATO_DORMANCY_DAYS[1], room)) + 1)
+
+    def _usual_amount(self, rng: random.Random, party: Party) -> float:
+        """One of the party's own ordinary amounts, so a look-alike spends like
+        its owner rather than like a scenario."""
+        amounts = self._history.get(party.source_id, {}).get("all") or [rng.lognormvariate(11.2, 1.2)]
+        return max(1000.0, rng.choice(amounts) * rng.uniform(0.9, 1.1))
+
+    def _outgoing_p95(self, party: Party) -> float:
+        amounts = sorted(self._history.get(party.source_id, {}).get("out") or
+                         self._history.get(party.source_id, {}).get("all") or [1_000_000.0])
+        return amounts[min(len(amounts) - 1, int(0.95 * len(amounts)))]
+
+    def _ordinary_payment(self, rng: random.Random) -> tuple[str, str, str]:
+        """(channel, transaction_type, merchant) for an everyday outgoing payment."""
+        channel, ttype = rng.choice((("QRIS", "MERCHANT_PAYMENT"), ("PAYMENT", "BILL_PAYMENT"),
+                                     ("TRANSFER", "P2P_TRANSFER")))
+        merchant = rng.choice(self._merchant_ids) if ttype == "MERCHANT_PAYMENT" and self._merchant_ids else ""
+        return channel, ttype, merchant
+
+    def _inject_ato(self, rng: random.Random, scenario_id: str) -> None:
+        """Account takeover: a customer with an ordinary history goes quiet for
+        90-150 days, then a device that customer has never used appears and
+        drains the wallet in a burst of outgoing payments within a few hours."""
+        party = self._take(1, primary="INJECTED_CANDIDATE", individuals_only=True)
+        if not party:
+            return
+        party = party[0]
+        takeover_day = self._takeover_day(rng)
+        quiet = self._quiet_days(rng, takeover_day)
+        self._carve_gap(party, takeover_day - timedelta(days=quiet), takeover_day + timedelta(days=2))
+        device = self._fresh_device(takeover_day)
+        usual = self._outgoing_p95(party)
+        moments = self._burst(rng, takeover_day, rng.randrange(5, 16), spread_hours=6)
+        for last in moments:
+            channel, ttype = rng.choices((("TRANSFER", "P2P_TRANSFER"), ("AGENT", "CASH_WITHDRAWAL"),
+                                          ("QRIS", "MERCHANT_PAYMENT")), weights=(60, 25, 15))[0]
+            merchant = rng.choice(self._merchant_ids) if ttype == "MERCHANT_PAYMENT" and self._merchant_ids else ""
+            amount = usual * rng.uniform(2.0, 8.0)
+            if amount < 500_000:
+                # A floor for thin histories that does not land on a round number.
+                amount = 500_000 * rng.uniform(1.0, 1.6)
+            self._emit(account_id=rng.choice(party.accounts), when=last,
+                       amount=amount, direction="OUT", channel=channel,
+                       transaction_type=ttype, merchant_id=merchant, device_id=device, defects="soft")
+        hours = (moments[-1] - moments[0]).total_seconds() / 3600
+        self._label(scenario_id, "INJECTED_POSITIVE", "ATO", party.source_id, takeover_day, takeover_day,
+                    f"{quiet} quiet days, then {len(moments)} outgoing payments within {hours:.1f} h "
+                    f"from a device this customer had never used")
+
+    def _inject_ato_edge(self, rng: random.Random, scenario_id: str, index: int) -> None:
+        """Legitimate activity carrying one or two of the three takeover
+        signals, never all three (see ATO_EDGE_KINDS)."""
+        kind, needs_new_device, note = ATO_EDGE_KINDS[index % len(ATO_EDGE_KINDS)]
+        party = self._take(1, primary="EDGE_AMBIGUOUS", individuals_only=True)
+        if not party:
+            return
+        party = party[0]
+        if kind == "NEW_PHONE_PAYDAY":
+            start = self._window_start(rng, 2)
+            paydays = [start + timedelta(days=n) for n in range(0, 40) if (start + timedelta(days=n)).day in (25, 26, 27)]
+            day = next((d for d in paydays if d <= self.reference_date - timedelta(days=1)), start)
+        else:
+            day = self._takeover_day(rng)
+        quiet = self._quiet_days(rng, day)
+        if kind != "NEW_PHONE_PAYDAY":
+            self._carve_gap(party, day - timedelta(days=quiet), day + timedelta(days=4))
+        device = self._fresh_device(day) if needs_new_device else None
+        if kind == "RETURNING_NEW_PHONE":
+            # Spread over the following days, like someone easing back in.
+            moments = sorted(self._random_moment(rng, day + timedelta(days=min(n, 3)))
+                             for n in range(rng.randrange(2, 5)))
+        elif kind == "NEW_PHONE_PAYDAY":
+            moments = self._burst(rng, day, rng.randrange(5, 11), spread_hours=6)
+        else:
+            moments = self._burst(rng, day, rng.randrange(3, 7), spread_hours=10)
+        last = moments[-1]
+        for when in moments:
+            channel, ttype, merchant = self._ordinary_payment(rng)
+            self._emit(account_id=rng.choice(party.accounts), when=when, amount=self._usual_amount(rng, party),
+                       direction="OUT", channel=channel, transaction_type=ttype, merchant_id=merchant,
+                       device_id=device or self._device_at(rng, party, when.date()), defects="soft")
+        self._label(scenario_id, "EDGE_CASE", "ATO", party.source_id, day, last.date(),
+                    f"{kind}: {note.format(days=quiet)}")
 
     # --- output ---------------------------------------------------------------
 
@@ -1330,6 +1642,7 @@ class RawDatasetGenerator:
         # Ground truth travels beside the data but is not part of the source
         # contract, so it is written separately and left out of the manifest.
         self._write_csv(out_dir, LABELS, self.labels)
+        self._write_csv(out_dir, LABEL_TRANSACTIONS, self.label_transactions)
 
         manifest = {
             "source_system_code": SOURCE_SYSTEM_CODE,
@@ -1397,7 +1710,7 @@ class RawDatasetGenerator:
             "Format (TRD §6.1): UTF-8, comma-separated, every field quoted, header row, `\\n` line endings.",
             "",
         ]
-        for spec in (*FILE_SPECS, LABELS):
+        for spec in (*FILE_SPECS, LABELS, LABEL_TRANSACTIONS):
             lines += [f"## `{spec.name}`", "", spec.purpose, "",
                       "| Field | Type | Mandatory | Allowed values | Rule / defect |", "|---|---|---|---|---|"]
             for f in spec.fields:
@@ -1443,16 +1756,18 @@ class RawDatasetGenerator:
         constructions = {
             "P01": "One transfer of IDR 2-8bn against an ordinary baseline",
             "P02": "3-5 deposits inside [350M, 500M) within 7 days, aggregate >= 500M",
-            "P03": "Credit in the morning, 94-99% of it out again the same day",
+            "P03": "A credit, then 94-99% of it out again within 1-5 hours",
             "P04": "40-90 payments over 3 days against a much lower baseline",
             "P05": "150 days with no activity, then a credit of IDR 400M-1.5bn",
-            "P06": "6-12 repetitions of one identical round amount",
+            "P06": "6-12 repetitions of one identical round amount within two weeks",
             "P07": "Weekly value stepping up 2-3x for five consecutive weeks",
             "P08": "8-18 remittances concentrated on one listed geography",
             "P09": "One device used by 4-7 otherwise unrelated entities",
             "P10": "20-45 payments at 100-1000x the ticket size the MCC implies",
             "P11": "8-16 senders converging on one account within 5 days, sharing a device",
             "P12": "Customer name one character away from a synthetic list record",
+            "ATO": "90-150 quiet days, then 5-15 outgoing payments at 2-8x the customer's usual p95 "
+                   "within 6 hours, from a device the customer never used",
         }
         for pattern, name in PATTERN_NAMES.items():
             positives = self.counters.labels.get(f"{pattern}_INJECTED_POSITIVE", 0)
@@ -1461,6 +1776,30 @@ class RawDatasetGenerator:
                 f"| `{pattern}` | {name} | {constructions[pattern]} | `{EXPECTED_REASON[pattern]}` | "
                 f"{positives} positive, {edges} edge |"
             )
+        lines += [
+            "",
+            "## ATO look-alikes",
+            "",
+            "Each carries one or two of the three takeover signals (dormancy, a never-used device, a burst),",
+            "never all three, so a detector that keys on any single signal pays for it in false positives.",
+            "",
+            "| Kind | Signals | Construction |",
+            "|---|---|---|",
+            "| `RETURNING_NEW_PHONE` | dormancy + new device | 90-150 quiet days, then 2-4 ordinary payments over a few days |",
+            "| `NEW_PHONE_PAYDAY` | new device + burst | 5-10 routine payments at the customer's own amounts on payday |",
+            "| `RETURNING_SAME_PHONE` | dormancy + burst | 90-150 quiet days, then 3-6 ordinary payments on the usual phone |",
+            "",
+            "## Ordinary device changes",
+            "",
+            f"{DEVICE_CHANGE_SHARE:.0%} of individuals start using a new device part-way through the period, so a",
+            "device never seen for a customer is common in legitimate traffic too.",
+            "",
+            "## Per-transaction ground truth",
+            "",
+            "`label_transactions.csv` lists every row each scenario and look-alike emitted, for evaluating a",
+            "per-transaction model against exact rows. Like `labels.csv` it is evaluation-only: never loaded",
+            "into the app, never a feature input.",
+        ]
         population = self._population()
         lines += [
             "",

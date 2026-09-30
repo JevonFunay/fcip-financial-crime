@@ -23,16 +23,14 @@ import pytest
 from app.scripts.generate_raw_dataset import (
     COHORT_SHARES,
     DEFECTS,
-    EDGE_PER_PATTERN,
-    BOUNDARY_PER_PATTERN,
     FULL_TARGETS,
     JAKARTA,
     MIN_TARGET_TRANSACTIONS,
-    SCENARIO_TARGETS,
+    SCENARIO_PLAN,
     RawDatasetGenerator,
 )
 from app.scripts.load_raw_dataset import check_manifest
-from app.scripts.raw_contract import CONTRACT_VERSION, FILE_SPECS, LABELS
+from app.scripts.raw_contract import CONTRACT_VERSION, FILE_SPECS, LABEL_TRANSACTIONS, LABELS
 from app.services.detection.p02_structuring import P02Parameters, find_clusters
 
 REFERENCE_DATE = date(2026, 9, 30)
@@ -64,7 +62,7 @@ def test_same_seed_reproduces_every_file_byte_for_byte(tmp_path):
     first, _ = _build(tmp_path, name="a")
     second, _ = _build(tmp_path, name="b")
 
-    for spec in (*FILE_SPECS, LABELS):
+    for spec in (*FILE_SPECS, LABELS, LABEL_TRANSACTIONS):
         assert (first / spec.name).read_bytes() == (second / spec.name).read_bytes(), spec.name
 
 
@@ -482,8 +480,8 @@ def test_custom_scale_floors_every_pattern_and_records_where_it_did(tmp_path):
     scale = report["scale"]
     factor = scale["scale_factor"]
 
-    for pattern, full in SCENARIO_TARGETS.items():
-        for kind, full_count in (("positives", full), ("edge", EDGE_PER_PATTERN), ("boundary", BOUNDARY_PER_PATTERN)):
+    for pattern, kinds in SCENARIO_PLAN.items():
+        for kind, full_count in kinds.items():
             entry = scale["scenarios"][pattern][kind]
             assert entry["requested"] == _expected_count(full_count, factor), f"{pattern} {kind}"
             assert entry["placed"] == entry["requested"], f"{pattern} {kind} placed {entry['placed']}"
@@ -539,10 +537,14 @@ def test_100k_custom_dataset_is_exact_proportional_labelled_and_reproducible(tmp
 
     # Every entity volume derived by the full-profile ratio. Accounts follow
     # from the parties (1-3 each), so they are held to a tolerance instead.
+    # Devices follow from the parties too (since 1.2.0 each transacting party
+    # has its own, TRD §11.1), so they are held to the parties instead.
     for name, file in (("customers", "customers.csv"), ("business_customers", "business_customers.csv"),
-                       ("merchants", "merchants.csv"), ("devices", "devices.csv"), ("watchlist", "watchlist.csv")):
+                       ("merchants", "merchants.csv"), ("watchlist", "watchlist.csv")):
         assert counts[file] == round(FULL_TARGETS[name] * factor), name
     assert abs(counts["accounts.csv"] - round(FULL_TARGETS["accounts"] * factor)) <= 0.02 * FULL_TARGETS["accounts"] * factor
+    parties = counts["customers.csv"] + counts["business_customers.csv"]
+    assert parties * 0.9 <= counts["devices.csv"] <= parties * 1.3
 
     # TRD §11.2 composition, exact.
     population = report["population"]
@@ -552,8 +554,8 @@ def test_100k_custom_dataset_is_exact_proportional_labelled_and_reproducible(tmp
 
     # TRD §11.3 per-pattern counts: proportional, floored at 5, all placed.
     floored = set()
-    for pattern, full in SCENARIO_TARGETS.items():
-        for kind, full_count in (("positives", full), ("edge", EDGE_PER_PATTERN), ("boundary", BOUNDARY_PER_PATTERN)):
+    for pattern, kinds in SCENARIO_PLAN.items():
+        for kind, full_count in kinds.items():
             entry = scale["scenarios"][pattern][kind]
             assert entry["requested"] == _expected_count(full_count, factor), f"{pattern} {kind}"
             assert entry["placed"] == entry["requested"], f"{pattern} {kind}"
@@ -591,7 +593,7 @@ def test_100k_custom_dataset_is_exact_proportional_labelled_and_reproducible(tmp
 
     # T-GEN-01 at this scale: the same seed reproduces it.
     again, _ = _build_custom(tmp_path, target, name="b")
-    for spec in (*FILE_SPECS, LABELS):
+    for spec in (*FILE_SPECS, LABELS, LABEL_TRANSACTIONS):
         assert (out_dir / spec.name).read_bytes() == (again / spec.name).read_bytes(), spec.name
     for name in ("seeds.json", "data_dictionary.md", "scenario_catalogue.md"):
         assert (out_dir / name).read_bytes() == (again / name).read_bytes(), name

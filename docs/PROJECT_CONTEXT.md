@@ -103,7 +103,7 @@ percentage is an estimate — the counts underneath it are not.
 | NFRs proven by measurement | 3 of 18 | 17% |
 | TRD components | ~6 full + ~5 partial of 30 | ~25% |
 
-**300 backend tests pass** (3 more marked `slow`). Frontend has no automated
+**314 backend tests pass** (4 more marked `slow`). Frontend has no automated
 tests in the repo; it was verified with a scripted Playwright click-through.
 
 ### Per domain
@@ -156,9 +156,10 @@ backend/
     services/      ingestion.py, audit.py, detection/p02_structuring.py,
                    detection/active_rules.py
     scripts/       seed.py, run_detection.py, generate_bulk_transactions.py,
-                   generate_raw_dataset.py, raw_contract.py, load_raw_dataset.py
+                   generate_raw_dataset.py, raw_contract.py, load_raw_dataset.py,
+                   audit_scenario_artefacts.py
   alembic/versions/  0001 … 0006
-  tests/             16 test modules, 300 passing
+  tests/             17 test modules, 314 passing
 frontend/src/
   api/           client.ts (token refresh), alerts, cases, data, audit, auth
   pages/         Login, Overview, AlertQueue, AlertDetail, CaseDetail, Audit
@@ -251,11 +252,21 @@ Files: `customers.csv` (20 cols), `business_customers.csv` (16), `beneficial_own
 `accounts.csv`, `merchants.csv` (MCC, expected bands), `devices.csv`,
 `transactions.csv` (16 cols), `watchlist.csv`, plus `manifest.json`
 (per-file SHA-256, `synthetic_declaration: true`), `labels.csv`,
+`label_transactions.csv` (per-row ground truth, since 1.2.0),
 `data_dictionary.md`, `scenario_catalogue.md`, `generation_report.json`, `seeds.json`.
 
-Profiles: `tiny` 1% (CI), `small` 5% (default), `full` 100% (~407k transactions in 6s).
-All volumes land inside TRD §11.1 targets. Generator version **1.1.0** (TRD §11.7:
+Profiles: `tiny` 1% (CI), `small` 5% (default), `full` 100% (~404k transactions in 6s).
+All volumes land inside TRD §11.1 targets. Generator version **1.2.0** (TRD §11.7:
 bumped whenever the same seed would produce different bytes).
+
+**1.2.0 (30 Sep) removed the scenario artefacts** (§8): an automatic audit
+(`audit_scenario_artefacts.py`) compares every raw column between scenario and
+background rows; 1.1.0 had 36 flags, 1.2.0 has 0 on five seeds. It also added
+the **ATO** scenario (60 + 30 look-alikes at full), ordinary phone changes, a
+device of its own for every party with ~120 shared (TRD §11.1), and
+`label_transactions.csv`. ML datasets: training = full, seed 20260923 (403,557
+transactions, 749 positive entities); test = full, seed 20261001 (407,812,
+744); not committed, commands in the README.
 
 **Custom scale:** `--target-transactions N` (min 20,000) derives every volume
 from N by the full profile's ratio, calibrates the row count to exactly N using
@@ -267,17 +278,17 @@ Key properties:
 - **Deterministic** — same seed reproduces every file byte-for-byte (T-GEN-01)
 - **Provably synthetic but structurally correct** — NIK-shaped IDs encoding gender the real way (female birth day +40), on province prefix `99` which is never issued; `+62899` phone block; RFC 5737 IP ranges
 - **Population mix held exactly** (TRD §11.2) — retail 62 / business 18 / control 8 / edge 8 / injected 4, as exact counts at every scale; individual sole traders fill the business cohort beyond the ~11% that §11.1's real businesses supply
-- **Labelled** — all 12 patterns get injected positives, behavioural look-alikes and exact-threshold boundary cases, each writing to `labels.csv`. Each entity carries at most one label, and the control cohort is never touched
+- **Labelled** — all 12 patterns and ATO get injected positives and behavioural look-alikes (the 12 also exact-threshold boundary cases), each writing to `labels.csv`, and every row they emit to `label_transactions.csv`. Each entity carries at most one label, and the control cohort is never touched
 - **Deliberately defective** — 12 defect types at controlled rates (TRD §11.4)
 - **ER population** — 5 constructions per TRD §11.5, each stating what resolution must do
 
-Measured on `small` through the real API: 20,509 rows read, 20,058 accepted,
-451 quarantined across every defect type. P02 raises exactly 2 alerts: it
-catches **2/2** injected positives, fires on **0/2** labelled look-alikes, and
-raises **nothing** on the 42-entity control cohort (FRD §8.14). On `full`,
-checked offline: 45/45 positives, 0/30 look-alikes, 0/830 control, plus 17
-cross-pattern hits on entities labelled P07/P08, whose values fall inside
-P02's band — genuinely suspicious entities, not false positives.
+Measured on the shared `Small` (1.2.0) through the real API: 20,541 rows read,
+20,086 accepted, 455 quarantined across every defect type. P02 raises 3
+alerts: **2/2** injected positives, **0/2** labelled look-alikes, **nothing** on
+the 42-entity control cohort (FRD §8.14), plus one cross-pattern hit on a P07
+entity. On `full` (1.2.0), checked offline on both ML seeds: 45/45 positives,
+0/30 look-alikes, 0/830 control, plus 14/16 cross-pattern hits on entities
+labelled P07/P08, whose values fall inside P02's band, and no unlabelled hit.
 
 `app/scripts/load_raw_dataset.py` bridges it into the skeleton and **prints
 which columns it could not carry across** (merchant, device, IP, source status,
@@ -465,7 +476,7 @@ of day otherwise show no difference. Planned fix in generator 1.2.0: scenario
 rows use the entity's own device, and the non-quarantining defects (missing
 device, missing counterparty) apply to them at the declared rates.
 
-**The check becomes automatic** (decided 30 Sep): every raw transaction column
+**The check is automatic** (built 30 Sep; results in §5): every raw transaction column
 (hour, weekday, channel, type, direction, missing counterparty, missing device,
 last digits of the amount, …) is compared between scenario and background
 transactions, and a column that differs strongly without being part of that
@@ -570,9 +581,9 @@ harus dalam bentuk enterprise, jadi butuh ribuan data. Data masuk model, lalu
 di-training. Kalau sudah, dites pakai dataset baru, lalu dikembangkan ke live
 monitoring." Plus a second directive: Fraud **and** AML must both be covered
 (see §8, "Mentor directives"). Plan approved 30 Sep, stages: 1a generator
-1.2.0 · 1b feature library + leakage tests · 2 labels + training (two models)
-· 3 evaluation per domain · 4 integration, whose target is **§13 "Konsep
-produk"**.
+1.2.0 (**done 30 Sep**) · 1b feature library + leakage tests · 2 labels +
+training (two models) · 3 evaluation per domain · 4 integration, whose target
+is **§13 "Konsep produk"**.
 
 **Must not be missed in the ML integration stage:** the app's `transaction`
 table does not carry `device_id`, `counterparty_country`, `transaction_type`

@@ -1,31 +1,32 @@
 {
-  "generator_version": "1.1.0",
+  "generator_version": "1.2.0",
   "profile": "tiny",
   "seed": 20260923,
   "reference_date": "2026-09-30",
   "period_start": "2026-04-01",
-  "generated_at": "2026-09-29T01:57:58.387833+00:00",
+  "generated_at": "2026-09-30T01:27:41.177715+00:00",
   "row_counts": {
     "accounts.csv": 134,
     "beneficial_owners.csv": 28,
     "business_customers.csv": 12,
     "customers.csv": 100,
-    "devices.csv": 100,
-    "labels.csv": 60,
+    "devices.csv": 118,
+    "label_transactions.csv": 325,
+    "labels.csv": 59,
     "merchants.csv": 15,
-    "transactions.csv": 4239,
+    "transactions.csv": 4351,
     "watchlist.csv": 25
   },
   "defect_counts": {
-    "missing_counterparty": 105,
-    "missing_device": 194,
+    "missing_counterparty": 123,
+    "missing_device": 218,
     "malformed_date": 18,
-    "invalid_currency": 11,
-    "invalid_amount": 11,
+    "invalid_currency": 12,
+    "invalid_amount": 10,
     "unresolved_account": 25,
-    "exact_duplicate": 39,
-    "idempotency_conflict": 1,
-    "late_arrival": 51,
+    "exact_duplicate": 40,
+    "idempotency_conflict": 2,
+    "late_arrival": 53,
     "missing_bo": 1,
     "placeholder_address": 1,
     "truncated_name": 2
@@ -69,11 +70,13 @@
       },
       "edge_and_boundary": {
         "EDGE_AMBIGUOUS": 8,
-        "RETAIL_NORMAL": 16
+        "RETAIL_NORMAL": 17
       }
     }
   },
   "label_counts": {
+    "ATO_EDGE_CASE": 1,
+    "ATO_INJECTED_POSITIVE": 1,
     "CONTROL_CLEAN": 8,
     "ER_AMBIGUOUS_BAND": 2,
     "ER_IDENTIFIER_CONFLICT": 2,
@@ -97,7 +100,7 @@
     "P08_EDGE_CASE": 2,
     "P08_INJECTED_POSITIVE": 1,
     "P09_EDGE_CASE": 2,
-    "P09_INJECTED_POSITIVE": 7,
+    "P09_INJECTED_POSITIVE": 4,
     "P10_EDGE_CASE": 2,
     "P10_INJECTED_POSITIVE": 1,
     "P11_EDGE_CASE": 2,
@@ -106,13 +109,13 @@
     "P12_INJECTED_POSITIVE": 1
   },
   "file_checksums": {
-    "customers.csv": "a0be725bedc7ae72e5db68ecc1910200c267b970d8dd308d63cb0995cfb8e304",
+    "customers.csv": "82ca6c100892dd660b6cbccfc2acb5b1cab77da5627ea47b496ce2e41dc768e1",
     "business_customers.csv": "c583196a6a88471a2272436256dffe117870d16e9ece8546f7dbfbd283df67fb",
     "beneficial_owners.csv": "a66cf67d7d10b74aba319295bd77a9bc7d17ea46e732033a45f2a0b198811cc3",
     "accounts.csv": "f7c7c5584f6d3c7d37cc82b3accf5704fb43727f9b35a21157b77fb1b3a37ce2",
     "merchants.csv": "f077495f7f055a53902b18d899e47c39f0e1bd158637e1e2e841055f8806f6ca",
-    "devices.csv": "9125fe7a567d0b11f43f1d4136c8a50636bb1f9e25daebdd165263c4e297294b",
-    "transactions.csv": "6af45748905b3deb2a58ed02af97a3fab170a55400a7b4c53ebbd9d50bc98db0",
+    "devices.csv": "90b66fc1f5cad33901e678db242a61ac2feef8b9654314c9c91d1cd03d7137fb",
+    "transactions.csv": "aefec836044283a8ae0b1fefbf44cb75f14a8d383c47c45c1e896fb64ed750ee",
     "watchlist.csv": "97314bddcf0255e583cc2319e0dd7137a259cb975ba9439c14f498e318e23c9f"
   }
 }

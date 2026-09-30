@@ -44,3 +44,8 @@ backend/sample_data/*/transactions_app_format.csv
 # to the history on every change, and it is reproducible byte-for-byte from the
 # seed in ~6 s (python -m app.scripts.generate_raw_dataset --profile full).
 backend/sample_data/Full/
+
+# ML pipeline datasets and model files: reproducible from their seeds (README,
+# "Datasets for the ML pipeline"), so regenerated rather than committed.
+backend/ml_data/
+backend/ml_models/

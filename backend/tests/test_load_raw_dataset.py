@@ -145,8 +145,8 @@ def test_shared_dataset_is_exactly_what_the_current_generator_produces(name, tmp
     generator.write(fresh)
 
     stale = [
-        name_ for name_ in (*(spec.name for spec in FILE_SPECS), "labels.csv", "seeds.json",
-                            "data_dictionary.md", "scenario_catalogue.md")
+        name_ for name_ in (*(spec.name for spec in FILE_SPECS), "labels.csv", "label_transactions.csv",
+                            "seeds.json", "data_dictionary.md", "scenario_catalogue.md")
         if (fresh / name_).read_bytes() != (folder / name_).read_bytes()
     ]
     assert stale == [], (

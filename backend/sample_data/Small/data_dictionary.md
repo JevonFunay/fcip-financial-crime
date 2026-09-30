@@ -1,6 +1,6 @@
 # Data dictionary — FCIP synthetic raw source files
 
-Generator `1.1.0`, contract version `1`, profile `small`, seed `20260923`.
+Generator `1.2.0`, contract version `1`, profile `small`, seed `20260923`.
 
 Generated from `app/scripts/raw_contract.py`, which is also what the generator writes the
 CSVs from — this file cannot describe columns that were not produced.
@@ -181,6 +181,15 @@ Ground truth for every injected scenario (TRD §11.3), so recall and control-coh
 | `expected_reason_code` | string | no | — | — |
 | `note` | string | no | — | — |
 
+## `label_transactions.csv`
+
+Ground truth per transaction: which rows each injected scenario or look-alike emitted, so a per-transaction model (the Fraud side) is scored against exact rows rather than a date window. Like labels.csv it is not part of the source contract, is never loaded into the app, and must never be an input to a feature.
+
+| Field | Type | Mandatory | Allowed values | Rule / defect |
+|---|---|---|---|---|
+| `scenario_id` | string | yes | — | Matches a scenario_id in labels.csv |
+| `source_transaction_reference` | string | yes | — | Matches a row in transactions.csv |
+
 ## Deliberate quality defects (TRD §11.4)
 
 Produced counts are taken from the rows actually written. An exact-duplicate row counts
@@ -189,14 +198,14 @@ unparseable date can appear on a few more rows than its own count.
 
 | Defect | Target rate | Expected handling |
 |---|---|---|
-| `missing_counterparty` | 3.00% | Loaded; lowers referential-integrity metric; drives the Entity 360 banner (produced: 593) |
-| `missing_device` | 5.00% | Loaded; feature marked `DATA_UNAVAILABLE` (produced: 986) |
-| `malformed_date` | 0.40% | Quarantined `INVALID_DATE_FORMAT` (produced: 72) |
+| `missing_counterparty` | 3.00% | Loaded; lowers referential-integrity metric; drives the Entity 360 banner (produced: 612) |
+| `missing_device` | 5.00% | Loaded; feature marked `DATA_UNAVAILABLE` (produced: 1,006) |
+| `malformed_date` | 0.40% | Quarantined `INVALID_DATE_FORMAT` (produced: 73) |
 | `invalid_currency` | 0.20% | Quarantined `INVALID_CURRENCY` (produced: 39) |
-| `invalid_amount` | 0.20% | Quarantined `INVALID_AMOUNT` (produced: 35) |
+| `invalid_amount` | 0.20% | Quarantined `INVALID_AMOUNT` (produced: 36) |
 | `unresolved_account` | 0.50% | Held to end of batch, then quarantined `UNRESOLVED_ACCOUNT` (produced: 100) |
-| `exact_duplicate` | 1.00% | Suppressed by idempotency, still counted (produced: 197) |
-| `idempotency_conflict` | 0.05% | Quarantined `IDEMPOTENCY_CONFLICT` (produced: 9) |
+| `exact_duplicate` | 1.00% | Suppressed by idempotency, still counted (produced: 198) |
+| `idempotency_conflict` | 0.05% | Quarantined `IDEMPOTENCY_CONFLICT` (produced: 10) |
 | `late_arrival` | 1.50% | Flagged `LATE_ARRIVAL`, triggers targeted re-evaluation (produced: 282) |
 | `missing_bo` | 4.00% | Loaded; flagged `BO_MISSING`; feeds a risk factor (produced: 2) |
 | `placeholder_address` | 2.00% | Loaded; produces a `LOW_SPECIFICITY` graph edge (produced: 10) |
