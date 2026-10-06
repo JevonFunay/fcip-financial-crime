@@ -143,6 +143,11 @@ def load_dataset(folder: Path) -> Dataset:
                 "direction": DIRECTION_MAP.get(row["direction"], row["direction"]),
                 "channel": row["channel"],
                 "counterparty_ref": row["counterparty_reference"],
+                "transaction_type": row["transaction_type"],
+                "counterparty_country": row["counterparty_country"],
+                "merchant_ref": row["source_merchant_id"],
+                "device_ref": row["source_device_id"],
+                "source_status": row["status_from_source"],
             })
         except RowValidationError:
             rejected["invalid"] += 1
@@ -163,11 +168,11 @@ def load_dataset(folder: Path) -> Dataset:
             amount=float(parsed.amount),
             out=parsed.direction.value == "DEBIT",
             channel=parsed.channel,
-            txn_type=row["transaction_type"],
+            txn_type=parsed.transaction_type or "",
             counterparty=parsed.counterparty_ref or "",
-            counterparty_country=row["counterparty_country"],
-            merchant=row["source_merchant_id"],
-            device=row["source_device_id"],
-            reversed=row["status_from_source"] == "REVERSED",
+            counterparty_country=parsed.counterparty_country or "",
+            merchant=parsed.merchant_ref or "",
+            device=parsed.device_ref or "",
+            reversed=parsed.source_status == "REVERSED",
         ))
     return Dataset(transactions, accounts, merchants, devices, rejected)

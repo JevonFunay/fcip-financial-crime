@@ -606,6 +606,78 @@ patterns, and two robustness experiments (each pattern left out of training;
 each pattern's own features removed). Every figure is synthetic (TRD §10.6,
 L-01).
 
+### The models inside the app (stage 4)
+
+The trained models run in the app itself: `POST /detection/run` (the Overview
+page's **Jalankan deteksi** button) runs every ACTIVE rule and then every
+ACTIVE model version, and the scores show in the app.
+
+**Try it** (Docker; from the repository root):
+
+```bash
+docker compose build backend && docker compose up -d          # new dependencies; migrations run on start
+docker compose exec backend python -m app.scripts.seed        # users (password DevPassword123!) and demo rows
+
+# the unseen test seed, and the models (skip what you already have)
+docker compose exec backend python -m app.scripts.generate_raw_dataset --profile full --seed 20261001 --out ml_data/test_full_s20261001
+docker compose exec backend python -m app.scripts.generate_raw_dataset --profile full --out ml_data/train_full_s20260923
+docker compose exec backend python -m app.ml.build_features ml_data/train_full_s20260923
+docker compose exec backend python -m app.ml.train ml_data/train_full_s20260923
+
+# into the app: master data, then the transactions through the ingestion service
+docker compose exec backend python -m app.scripts.load_raw_dataset --raw-dir ml_data/test_full_s20261001 --ingest
+docker compose exec backend python -m app.scripts.register_models
+```
+
+Then open http://localhost:5173, log in as `analyst@fcip.internal`, press
+**Jalankan deteksi** on the Overview page (about a minute at full size), and
+look at the **Alert queue** (a *Model score* column, and on each alert a
+*Model signals* section) and the new **Model flags** page. The full dataset is
+above the 50 MB upload limit, so it goes in through `--ingest`, which runs the
+upload's own path: a registered batch, the same validation and quarantine.
+Scoring the full dataset needs about 3 GB of memory in the backend container.
+
+What is in place:
+
+- **Data in.** The ingestion contract now carries `transaction_type`,
+  `counterparty_country`, `merchant_ref`, `device_ref` and `source_status`
+  (optional columns; a file without them still loads), and the bridge loads
+  merchants and devices as master data (migration 0007). The Fraud model needs
+  the device; the bridge used to drop it
+- **Model versions** (`model_version`, migration 0008) hold the model itself,
+  its threshold and its card under the TRD §10.5 envelope. A version is checked
+  against its definition hash and against this checkout's feature set and MCC
+  reference whenever it is loaded, and the database refuses any edit to it.
+  `register_models` writes it ACTIVE without maker-checker, a documented
+  bypass like RUL-0001's, because FR-405's flow and ROLE_MLRO are not built
+- **Scores** (`ml_score`): every unit at or above its version's threshold, and
+  every week of an entity with a rule alert, each with its eight strongest
+  named features (BR-401.3). Insert-only, and each keeps the version that
+  produced it (BR-405.1). A run rebuilds the feature library's dataset from the
+  database and calls the training code itself, so a unit scores in the app
+  exactly as it scored offline (tested on Small, measured at full size below)
+- **CF-05.** A score is a **supporting signal** on alerts (option a: the
+  queue's *Model score*, the alert's *Model signals*). A score raises an alert
+  of its own only through the `ML_SCORE` rule (RUL-0002, option b), which is
+  seeded **DRAFT** until the mentor confirms in writing; activating it is a
+  state change, not a code change. Its reason code `RC-ML-01` and severity
+  MEDIUM are our proposal and await ratification
+- **FR-406.** Every surface that shows a score carries the fixed notice — the
+  signal is an observation that supports an investigation, not evidence of
+  wrongdoing — and the synthetic-data notice, as fields, and describes rather
+  than accuses (BR-406.2). Fraud detection stops at a signal or an alert:
+  nothing blocks or reverses a transaction (NG-01)
+
+**Measured at full size (test seed 20261001, throwaway database):** master
+data in 5 s (11,200 customers, 13,327 accounts, 1,500 merchants, 11,932
+devices); 421,456 rows ingested in 40 s, 412,160 accepted — exactly the rows
+the offline loader accepts — and 9,296 quarantined. One `POST /detection/run`
+in 44 s: P02 raised 65 alerts; the weekly entity model scored 149,150
+entity-weeks and flagged 1,975, the transaction model scored 412,160
+transactions and flagged 4,339 — **the same units, exactly, as the models
+flag offline** on the same data. With `ML_SCORE` in DRAFT no alert came from a
+score; all 65 P02 alerts show a model score (0.94 and above).
+
 ### Loading it into the skeleton
 
 The skeleton models customers, accounts and transactions, and its ingestion
@@ -616,7 +688,12 @@ projects the transactions onto that shape:
 docker compose exec backend python -m app.scripts.load_raw_dataset --profile small            # generated locally
 docker compose exec backend python -m app.scripts.load_raw_dataset --profile custom-100000
 docker compose exec backend python -m app.scripts.load_raw_dataset --shared small             # committed to the repo
+docker compose exec backend python -m app.scripts.load_raw_dataset --raw-dir <dir> --ingest   # ingest it here too
 ```
+
+Master data now includes merchants and devices, and the projected CSV carries
+the transaction type, counterparty country, merchant, device and source status
+(since stage 4).
 
 Before reading anything it checks the manifest the way TRD §6.1 requires of any
 source drop: the dataset must declare `synthetic_declaration: true` (FR-501) and
@@ -624,10 +701,10 @@ every file must match its recorded SHA-256, otherwise it is refused. It prints
 the dataset's provenance and warns when a different generator version produced
 it.
 
-It prints exactly which columns it could not carry across (merchant, device,
-IP, source status, business date, transaction type) — that gap **is** the
-distance between the skeleton and the full pipeline, so it is reported rather
-than hidden. Then upload the projected file from the Overview page, or:
+It prints exactly which columns it could not carry across (business date, IP
+address, counterparty name) — that gap **is** the distance between the
+skeleton and the full pipeline, so it is reported rather than hidden. Then
+upload the projected file from the Overview page (or pass `--ingest`), or:
 
 ```bash
 curl -s -X POST http://localhost:8000/ingestion/transactions \
@@ -956,6 +1033,11 @@ here so they're easy to explain and are tracked for follow-up:
   cannot change them: each is a small change in `evaluate` / `find_clusters`
   plus a `TEMPLATE_VERSION` bump if the FRD says otherwise.
 - **No scheduler.** Detection is triggered manually (script or endpoint).
+- **Model scoring rescans the whole database on every run** (about 45 s and
+  3 GB at full size). Scoring only what a new batch touches is the live-mode
+  work; the feature functions already take one entity at a time.
+- **Model versions are registered ACTIVE without maker-checker**, a documented
+  bypass like RUL-0001's, until FR-405's approval flow and ROLE_MLRO exist.
 - **No CSRF token on `/auth/*`.** `SameSite=Strict` on the refresh cookie
   already blocks cross-site requests from carrying it; a dedicated CSRF token
   isn't added on top for the skeleton.

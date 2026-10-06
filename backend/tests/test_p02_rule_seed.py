@@ -147,13 +147,14 @@ def test_seed_migration_round_trips_and_records_the_bypass_in_the_audit_trail(al
         engine.dispose()
 
     with engine.connect() as conn:
-        assert conn.execute(text("SELECT rule_ref FROM rule")).scalars().all() == ["RUL-0001"]
+        # RUL-0002 is the ML_SCORE rule, seeded DRAFT by migration 0008.
+        assert sorted(conn.execute(text("SELECT rule_ref FROM rule")).scalars().all()) == ["RUL-0001", "RUL-0002"]
         entry = conn.execute(
             text("SELECT object_type, from_state, to_state, actor_user_id, details FROM audit_log "
                  "WHERE action = 'RULE_SEEDED_ACTIVE'")
         ).one()
-        # The next rule an analyst creates is RUL-0002, never a second RUL-0001.
-        assert conn.execute(text("SELECT nextval('rule_ref_seq')")).scalar() >= 2
+        # The next rule an analyst creates is RUL-0003, never a second RUL-0001 or RUL-0002.
+        assert conn.execute(text("SELECT nextval('rule_ref_seq')")).scalar() >= 3
     assert (entry.object_type, entry.from_state, entry.to_state) == ("RULE_VERSION", None, "ACTIVE")
     assert entry.actor_user_id is None
     assert entry.details["maker_checker"] == "BYPASSED"
@@ -217,7 +218,7 @@ def test_every_active_rule_for_the_pattern_is_evaluated(db, sample_data):
     (FRD §5.3: a reason code must be "unik dan terdaftar", decided in stage 3);
     the detector does not assume it cannot."""
     _, v1 = _p02(db)
-    stricter = Rule(rule_ref="RUL-0002", pattern_code="P02_STRUCTURING", correlation_id=uuid.uuid4())
+    stricter = Rule(rule_ref="RUL-0003", pattern_code="P02_STRUCTURING", correlation_id=uuid.uuid4())
     db.add(stricter)
     db.flush()
     db.add(
@@ -240,11 +241,11 @@ def test_every_active_rule_for_the_pattern_is_evaluated(db, sample_data):
 
     summary = run_p02_structuring(db)
 
-    assert [(r.rule_ref, r.version) for r in summary.rules_evaluated] == [("RUL-0001", 1), ("RUL-0002", 1)]
+    assert [(r.rule_ref, r.version) for r in summary.rules_evaluated] == [("RUL-0001", 1), ("RUL-0003", 1)]
     assert sorted((a.rule_ref, a.customer_ref) for a in summary.alerts) == [
         ("RUL-0001", "CUST-001"),
         ("RUL-0001", "CUST-006"),
-        ("RUL-0002", "CUST-001"),
+        ("RUL-0003", "CUST-001"),
     ]
 
 

@@ -13,6 +13,8 @@ OBJECT_DETECTION_RUN = "DETECTION_RUN"
 OBJECT_AUDIT_EXPORT = "AUDIT_EXPORT"
 # FR-301..FR-303: rule states belong to versions, so rule events point at one.
 OBJECT_RULE_VERSION = "RULE_VERSION"
+# FR-405: a model version's lifecycle, like a rule version's.
+OBJECT_MODEL_VERSION = "MODEL_VERSION"
 
 OBJECT_TYPES = (
     OBJECT_ALERT,
@@ -21,6 +23,7 @@ OBJECT_TYPES = (
     OBJECT_DETECTION_RUN,
     OBJECT_AUDIT_EXPORT,
     OBJECT_RULE_VERSION,
+    OBJECT_MODEL_VERSION,
 )
 
 
@@ -34,6 +37,8 @@ def record_transition(
     from_state: str | None,
     to_state: str,
     reason: str | None = None,
+    action: str | None = None,
+    details: dict | None = None,
 ) -> AuditLog:
     entry = AuditLog(
         correlation_id=correlation_id,
@@ -44,6 +49,8 @@ def record_transition(
         from_state=from_state,
         to_state=to_state,
         reason=reason,
+        action=action,
+        details=details,
     )
     db.add(entry)
     return entry

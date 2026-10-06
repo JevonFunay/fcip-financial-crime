@@ -3,7 +3,10 @@ from app.models.alert import Alert, AlertTransaction
 from app.models.audit_log import AuditLog
 from app.models.case import Case
 from app.models.customer import Customer
+from app.models.device import Device
 from app.models.ingestion_batch import IngestionBatch
+from app.models.merchant import Merchant
+from app.models.ml import MlScore, ModelVersion
 from app.models.processing_log import ProcessingLog
 from app.models.quarantine_item import QuarantineItem
 from app.models.rule import Rule, RuleVersion, SimulationResult
@@ -18,7 +21,11 @@ __all__ = [
     "AuditLog",
     "Case",
     "Customer",
+    "Device",
     "IngestionBatch",
+    "Merchant",
+    "MlScore",
+    "ModelVersion",
     "ProcessingLog",
     "QuarantineItem",
     "Rule",

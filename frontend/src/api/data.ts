@@ -1,5 +1,5 @@
 import type {
-  DetectionRunSummary,
+  DetectionRunAll,
   Direction,
   IngestionBatchListResponse,
   IngestionSummary,
@@ -55,7 +55,9 @@ export async function fetchBatches(limit = 10): Promise<IngestionBatchListRespon
   return data;
 }
 
-export async function runDetection(): Promise<DetectionRunSummary> {
-  const { data } = await apiClient.post<DetectionRunSummary>("/detection/p02/run");
+/** Every ACTIVE rule, then every ACTIVE model version. Scoring the full
+ *  dataset takes about a minute, so the request is given room. */
+export async function runDetection(): Promise<DetectionRunAll> {
+  const { data } = await apiClient.post<DetectionRunAll>("/detection/run", undefined, { timeout: 600_000 });
   return data;
 }

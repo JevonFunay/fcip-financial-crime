@@ -1,4 +1,3 @@
-import hashlib
 import uuid
 from datetime import date, datetime, timezone
 
@@ -10,7 +9,7 @@ from app.core.rbac import require_role
 from app.database import get_db
 from app.models.enums import IngestionBatchStatus, UserRole
 from app.models.ingestion_batch import IngestionBatch
-from app.models.processing_log import EVENT_BATCH_FAILED, EVENT_BATCH_REGISTERED, ProcessingLog
+from app.models.processing_log import EVENT_BATCH_FAILED, ProcessingLog
 from app.models.quarantine_item import QuarantineItem
 from app.models.user import User
 from app.schemas.ingestion import (
@@ -22,7 +21,12 @@ from app.schemas.ingestion import (
 )
 from app.schemas.quarantine import QuarantineListResponse, QuarantineOut
 from app.services.audit import OBJECT_BATCH, record_transition
-from app.services.ingestion import IngestionFileError, ingest_transactions_csv
+from app.services.ingestion import (
+    DuplicateBatchError,
+    IngestionFileError,
+    ingest_transactions_csv,
+    register_batch,
+)
 
 router = APIRouter()
 
@@ -57,74 +61,6 @@ def _batch_out(batch: IngestionBatch, registered_by_email: str | None) -> Ingest
         created_at=batch.created_at,
         completed_at=batch.completed_at,
     )
-
-
-def _register_batch(
-    db: Session,
-    *,
-    actor: User,
-    file_name: str,
-    raw_bytes: bytes,
-    source_system: str,
-    business_date: date,
-    expected_records: int | None,
-) -> IngestionBatch:
-    """FR-101: publish a batch id, store the file checksum, and reject a file
-    already registered for the same source system and business date."""
-    checksum = hashlib.sha256(raw_bytes).hexdigest()
-
-    existing = db.scalar(
-        select(IngestionBatch).where(
-            IngestionBatch.source_system == source_system,
-            IngestionBatch.business_date == business_date,
-            IngestionBatch.file_checksum == checksum,
-        )
-    )
-    if existing is not None:
-        raise HTTPException(
-            status.HTTP_409_CONFLICT,
-            f"This file was already registered as {existing.batch_ref} for {source_system} "
-            f"on business date {business_date.isoformat()}",
-        )
-
-    sequence_value = db.scalar(select(func.nextval("batch_ref_seq")))
-    batch = IngestionBatch(
-        batch_ref=f"BAT-{sequence_value:06d}",
-        source_system=source_system,
-        business_date=business_date,
-        file_name=file_name,
-        file_checksum=checksum,
-        file_size_bytes=len(raw_bytes),
-        expected_records=expected_records,
-        status=IngestionBatchStatus.REGISTERED,
-        correlation_id=uuid.uuid4(),
-        registered_by=actor.id,
-    )
-    db.add(batch)
-    db.flush()
-    db.add(
-        ProcessingLog(
-            ingestion_batch_id=batch.id,
-            event_code=EVENT_BATCH_REGISTERED,
-            message=f"Registered {file_name} ({len(raw_bytes)} bytes) for {source_system}",
-            details={"file_checksum": checksum, "expected_records": expected_records},
-        )
-    )
-    record_transition(
-        db,
-        correlation_id=batch.correlation_id,
-        actor=actor,
-        object_type=OBJECT_BATCH,
-        object_id=batch.id,
-        from_state=None,
-        to_state=IngestionBatchStatus.REGISTERED.value,
-        reason=f"Registered {file_name} for {source_system} on {business_date.isoformat()}",
-    )
-    # Committed before parsing starts: a batch that then fails structurally has
-    # to stay visible as FAILED (TRD C-01), which it cannot do if the row is
-    # rolled back along with the failure.
-    db.commit()
-    return batch
 
 
 def _fail_batch(db: Session, batch_id: uuid.UUID, *, actor: User, reason: str) -> None:
@@ -170,17 +106,20 @@ def upload_transactions(
         raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, f"File exceeds the {limit_mb} MB upload limit")
 
     file_name = file.filename or "upload.csv"
-    batch = _register_batch(
-        db,
-        actor=user,
-        file_name=file_name,
-        raw_bytes=raw_bytes,
-        source_system=source_system,
-        # Defaults to the day the upload happens; a backdated file should pass
-        # its own business date so the batch is filed against the right day.
-        business_date=business_date or datetime.now(timezone.utc).date(),
-        expected_records=expected_records,
-    )
+    try:
+        batch = register_batch(
+            db,
+            actor=user,
+            file_name=file_name,
+            raw_bytes=raw_bytes,
+            source_system=source_system,
+            # Defaults to the day the upload happens; a backdated file should pass
+            # its own business date so the batch is filed against the right day.
+            business_date=business_date or datetime.now(timezone.utc).date(),
+            expected_records=expected_records,
+        )
+    except DuplicateBatchError as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
 
     try:
         content = raw_bytes.decode("utf-8-sig")

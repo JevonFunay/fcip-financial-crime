@@ -408,3 +408,36 @@ button:disabled {
   padding: 0.5rem 0.75rem;
   border-radius: 4px;
 }
+
+/* FR-406: the fixed notice on every model signal; not dismissible. */
+.notice {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-left: 4px solid #64748b;
+  padding: 0.5rem 0.75rem;
+  border-radius: 4px;
+  color: #334155;
+  font-size: 0.9rem;
+}
+
+.score-high {
+  font-weight: 600;
+}
+
+.clickable-row {
+  cursor: pointer;
+}
+
+.table.compact td,
+.table.compact th {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.85rem;
+}
+
+td.up {
+  color: #9a3412;
+}
+
+td.down {
+  color: #1e40af;
+}

@@ -24,6 +24,8 @@ from app.schemas.alert import (
     TransactionOut,
 )
 from app.services.audit import OBJECT_ALERT, record_transition
+from app.services.ml_queries import alert_signals, max_signal_by_alert
+from app.services.ml_scoring import SIGNAL_NOTICE
 
 router = APIRouter()
 
@@ -34,7 +36,7 @@ DECISION_TO_STATUS = {
 }
 
 
-def _summary(alert: Alert, customer: Customer) -> AlertSummary:
+def _summary(alert: Alert, customer: Customer, model_score: float | None = None) -> AlertSummary:
     return AlertSummary(
         id=alert.id,
         pattern_code=alert.pattern_code,
@@ -45,6 +47,7 @@ def _summary(alert: Alert, customer: Customer) -> AlertSummary:
         reason=alert.reason,
         case_id=alert.case_id,
         created_at=alert.created_at,
+        model_score=model_score,
     )
 
 
@@ -86,8 +89,9 @@ def _detail(db: Session, alert_id: uuid.UUID) -> AlertDetail:
     if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Alert not found")
     alert, customer, disposed_by_email, version, rule = row
+    signals = alert_signals(db, alert)
     return AlertDetail(
-        **_summary(alert, customer).model_dump(),
+        **_summary(alert, customer, max((s.score for s in signals), default=None)).model_dump(),
         correlation_id=alert.correlation_id,
         rule=AlertRule(
             rule_id=rule.id,
@@ -108,6 +112,8 @@ def _detail(db: Session, alert_id: uuid.UUID) -> AlertDetail:
         disposed_at=alert.disposed_at,
         disposition_reason=alert.disposition_reason,
         transactions=_evidence(db, alert.id),
+        model_signals=signals,
+        signal_notice=SIGNAL_NOTICE,
     )
 
 
@@ -128,8 +134,9 @@ def list_alerts(
         .limit(limit)
         .offset(offset)
     ).all()
+    scores = max_signal_by_alert(db, [alert for alert, _ in rows])
     return AlertListResponse(
-        items=[_summary(alert, customer) for alert, customer in rows],
+        items=[_summary(alert, customer, scores.get(alert.id)) for alert, customer in rows],
         total=total,
         limit=limit,
         offset=offset,

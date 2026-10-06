@@ -53,6 +53,9 @@ export function AlertQueuePage() {
               <th>Customer</th>
               <th>Pattern</th>
               <th>Status</th>
+              <th className="num" title="Highest stored model score for this entity over the alert's window">
+                Model score
+              </th>
               <th>Reason</th>
             </tr>
           </thead>
@@ -70,6 +73,7 @@ export function AlertQueuePage() {
                 <td>
                   <StatusBadge status={alert.status} />
                 </td>
+                <td className="num mono">{alert.model_score === null ? "-" : alert.model_score.toFixed(2)}</td>
                 <td className="reason-cell">{alert.reason}</td>
               </tr>
             ))}

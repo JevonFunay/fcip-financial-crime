@@ -32,6 +32,17 @@ class Transaction(Base):
     channel: Mapped[str] = mapped_column(String, nullable=False)
     counterparty_ref: Mapped[str | None] = mapped_column(String, nullable=True)
     description: Mapped[str | None] = mapped_column(String, nullable=True)
+    # The rest of the TRD §6.1 transaction contract that detection needs
+    # (migration 0007). All optional, so a file without them still loads; the
+    # Fraud model cannot judge a device it is not told about, so a row without
+    # one is scored with its device features unknown, like a source row that
+    # lacks it (TRD §11.4 missing_device).
+    transaction_type: Mapped[str | None] = mapped_column(String, nullable=True)
+    counterparty_country: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    merchant_ref: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    device_ref: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    # status_from_source (e.g. REVERSED), for P10's refund rate.
+    source_status: Mapped[str | None] = mapped_column(String, nullable=True)
     # Which registered batch loaded this row (FR-101). Nullable because rows
     # created by the seed script and by direct service calls in tests have no
     # batch behind them.

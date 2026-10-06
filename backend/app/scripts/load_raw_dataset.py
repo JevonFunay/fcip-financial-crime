@@ -4,12 +4,16 @@ The raw contract (TRD §6.1) is eight files with the full banking column set.
 The walking skeleton only models customers, accounts and transactions, and its
 ingestion endpoint takes a narrower CSV, so this script:
 
-1. loads `customers.csv` / `business_customers.csv` / `accounts.csv` into the
-   `customer` and `account` master-data tables (which are seeded, not ingested,
-   at this stage — see the README's known simplifications), and
+1. loads `customers.csv` / `business_customers.csv` / `accounts.csv` /
+   `merchants.csv` / `devices.csv` into the master-data tables (which are
+   seeded, not ingested, at this stage — see the README's known
+   simplifications), and
 2. projects `transactions.csv` onto the ingestion CSV shape, so it can be
    uploaded through the real `POST /ingestion/transactions` endpoint and go
    through batch registration, validation and quarantine like any other file.
+   With `--ingest` the script runs that same ingestion itself (a registered
+   batch, the same validation and quarantine), for a file above the upload
+   limit such as the full profile (decision: upload option C).
 
 What is dropped in step 2 is the gap between the skeleton and the full pipeline,
 and the script prints it rather than hiding it.
@@ -25,6 +29,7 @@ Run:
     python -m app.scripts.load_raw_dataset --shared small        # dataset committed to the repo
     python -m app.scripts.load_raw_dataset --profile full        # dataset you generated locally
     python -m app.scripts.load_raw_dataset --raw-dir <dir> --master-data-only
+    python -m app.scripts.load_raw_dataset --raw-dir ml_data/test_full_s20261001 --ingest
 """
 
 from __future__ import annotations
@@ -43,7 +48,11 @@ from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.models.account import Account
 from app.models.customer import Customer
-from app.models.enums import AccountStatus, EntityType
+from app.models.device import Device
+from app.models.enums import AccountStatus, EntityType, UserRole
+from app.models.merchant import Merchant
+from app.models.user import User
+from app.services.ingestion import DuplicateBatchError, IngestionFileError, ingest_transactions_csv, register_batch
 from app.scripts.generate_raw_dataset import BACKEND_DIR, DEFAULT_OUT
 from app.scripts.raw_contract import FILE_SPECS, GENERATOR_VERSION
 
@@ -57,6 +66,7 @@ SHARED_ROOT = BACKEND_DIR / "sample_data"
 APP_COLUMNS = (
     "transaction_ref", "account_number", "transaction_date", "amount",
     "currency", "direction", "channel", "counterparty_ref", "description",
+    "transaction_type", "counterparty_country", "merchant_ref", "device_ref", "source_status",
 )
 DIRECTION_MAP = {"IN": "CREDIT", "OUT": "DEBIT"}
 # A well-formed ISO 4217 code. Only these can be "foreign currency"; anything
@@ -173,6 +183,41 @@ def load_master_data(db: Session, raw_dir: Path) -> tuple[int, int]:
     return len(new_customers), len(new_accounts)
 
 
+def load_merchants_and_devices(db: Session, raw_dir: Path) -> tuple[int, int]:
+    """Idempotent, like the customers: a merchant_ref / device_ref already
+    present is left alone. Run after load_master_data (a merchant's owner)."""
+    owner_ids = {ref: cid for ref, cid in db.execute(select(Customer.customer_ref, Customer.id))}
+    existing = set(db.scalars(select(Merchant.merchant_ref)))
+    merchants = [
+        Merchant(
+            merchant_ref=row["source_merchant_id"],
+            customer_id=owner_ids[row["source_business_id"]],
+            name=row["merchant_name"],
+            mcc=row["mcc"],
+            declared_ticket_band=row["declared_expected_ticket_band"] or None,
+            operating_hours=row["operating_hours_declared"] or None,
+            status=row["status"],
+        )
+        for row in _read(raw_dir / "merchants.csv")
+        if row["source_merchant_id"] not in existing and row["source_business_id"] in owner_ids
+    ]
+    existing = set(db.scalars(select(Device.device_ref)))
+    devices = [
+        Device(
+            device_ref=row["source_device_id"],
+            device_type=row["device_type"] or None,
+            is_emulator=row["is_emulator"] == "true",
+            is_rooted=row["is_rooted"] == "true",
+        )
+        for row in _read(raw_dir / "devices.csv")
+        if row["source_device_id"] not in existing
+    ]
+    db.add_all(merchants)
+    db.add_all(devices)
+    db.commit()
+    return len(merchants), len(devices)
+
+
 def project_transactions(raw_dir: Path, out_path: Path) -> dict[str, int]:
     """Project the raw transaction contract onto the app's ingestion CSV.
 
@@ -208,16 +253,42 @@ def project_transactions(raw_dir: Path, out_path: Path) -> dict[str, int]:
                     row["transaction_type"], row["counterparty_name"],
                     f"[{row['counterparty_country']}]" if row["counterparty_country"] not in ("", "ID") else "",
                 ) if part).strip(),
+                "transaction_type": row["transaction_type"],
+                "counterparty_country": row["counterparty_country"],
+                "merchant_ref": row["source_merchant_id"],
+                "device_ref": row["source_device_id"],
+                "source_status": row["status_from_source"],
             })
             stats["written"] += 1
     return stats
 
 
 DROPPED_FIELDS = (
-    "business_date", "source_merchant_id", "source_device_id", "ip_address",
-    "status_from_source", "transaction_type (folded into description)",
-    "counterparty_name (folded into description)", "counterparty_country (folded into description)",
+    "business_date", "ip_address", "counterparty_name (folded into description)",
 )
+
+
+def ingest_projected(db: Session, path: Path, manifest: dict, operator_email: str):
+    """The upload endpoint's own path, run in-process: a registered batch
+    (FR-101), the same validation and quarantine, the same audit events."""
+    operator = db.scalar(select(User).where(User.email == operator_email))
+    if operator is None or operator.role is not UserRole.ROLE_DATA_OPS:
+        raise SystemExit(f"--ingest needs an existing ROLE_DATA_OPS user; {operator_email} is not one "
+                         "(python -m app.scripts.seed creates dataops@fcip.internal)")
+    raw_bytes = path.read_bytes()
+    try:
+        batch = register_batch(
+            db, actor=operator, file_name=path.name, raw_bytes=raw_bytes,
+            source_system=manifest["source_system_code"], business_date=date.fromisoformat(manifest["business_date"]),
+            expected_records=None,
+        )
+    except DuplicateBatchError as exc:
+        raise SystemExit(f"  ! {exc}") from exc
+    try:
+        return ingest_transactions_csv(db, file_name=path.name, content=raw_bytes.decode("utf-8"), batch=batch,
+                                       actor=operator)
+    except IngestionFileError as exc:
+        raise SystemExit(f"  ! ingestion failed: {exc}") from exc
 
 
 def main() -> None:
@@ -227,7 +298,12 @@ def main() -> None:
     source.add_argument("--shared", choices=sorted(SHARED_DATASETS),
                         help="a dataset committed to the repository, under sample_data/<Tiny|Small>")
     source.add_argument("--raw-dir", type=Path, help="any dataset directory")
-    parser.add_argument("--master-data-only", action="store_true", help="load customers/accounts, skip the CSV projection")
+    parser.add_argument("--master-data-only", action="store_true", help="load master data, skip the CSV projection")
+    parser.add_argument("--ingest", action="store_true",
+                        help="ingest the projected file here, through the same service as an upload "
+                             "(for files above the upload limit, such as the full profile)")
+    parser.add_argument("--as", dest="operator", default="dataops@fcip.internal",
+                        help="the ROLE_DATA_OPS user the --ingest batch is registered to")
     args = parser.parse_args()
 
     if args.shared:
@@ -260,7 +336,9 @@ def main() -> None:
 
     with SessionLocal() as db:
         customers, accounts = load_master_data(db, raw_dir)
-    print(f"  master data loaded: {customers:,} customer(s), {accounts:,} account(s)")
+        merchants, devices = load_merchants_and_devices(db, raw_dir)
+    print(f"  master data loaded: {customers:,} customer(s), {accounts:,} account(s), {merchants:,} merchant(s), "
+          f"{devices:,} device(s)")
 
     if args.master_data_only:
         return
@@ -273,6 +351,14 @@ def main() -> None:
     print("  ! not carried across (no column in the skeleton's ingestion contract):")
     for field in DROPPED_FIELDS:
         print(f"      - {field}")
+    if args.ingest:
+        with SessionLocal() as db:
+            summary = ingest_projected(db, out_path, manifest, args.operator)
+        print(f"  ingested as {summary.batch_ref} ({summary.batch_status}): {summary.accepted:,} accepted, "
+              f"{summary.quarantined:,} quarantined of {summary.total_rows:,}")
+        print("\nNext: run detection (rules and models) from the Overview page, or "
+              "python -m app.scripts.run_detection")
+        return
     print("\nNext: upload that file as ROLE_DATA_OPS, from the Overview page or:")
     print(f'  curl -X POST http://localhost:8000/ingestion/transactions -H "Authorization: Bearer <token>" \\')
     print(f'    -F "file=@{out_path}" -F "source_system={manifest["source_system_code"]}" '

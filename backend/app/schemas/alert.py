@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from pydantic import BaseModel, field_validator
 
 from app.models.enums import AlertStatus, RuleSeverity, RuleState, RuleWindowType
+from app.schemas.ml import ScoreOut
 from app.schemas.transaction import TransactionOut
 
 MIN_DISPOSITION_REASON_LENGTH = 20
@@ -31,6 +32,9 @@ class AlertSummary(BaseModel):
     reason: str
     case_id: uuid.UUID | None
     created_at: datetime
+    # The highest stored model score for the alert's entity over its window
+    # (CF-05 option a: a supporting signal); None when no model has scored it.
+    model_score: float | None = None
 
 
 class AlertRule(BaseModel):
@@ -61,6 +65,10 @@ class AlertDetail(AlertSummary):
     disposed_at: datetime | None
     disposition_reason: str | None
     transactions: list[TransactionOut]
+    # CF-05 option a: the models' view of this entity over the alert's window,
+    # with FR-406's fixed notice.
+    model_signals: list[ScoreOut] = []
+    signal_notice: str = ""
 
 
 class AlertListResponse(BaseModel):

@@ -1,16 +1,17 @@
 """Transaction CSV ingestion: valid rows become transactions, invalid rows are quarantined with a reason."""
 
 import csv
+import hashlib
 import io
 import re
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
@@ -18,6 +19,7 @@ from app.models.account import Account
 from app.models.enums import IngestionBatchStatus, TransactionDirection
 from app.models.ingestion_batch import IngestionBatch
 from app.models.processing_log import (
+    EVENT_BATCH_REGISTERED,
     EVENT_RECONCILIATION_MISMATCH,
     EVENT_RECONCILIATION_OK,
     EVENT_VALIDATION_COMPLETED,
@@ -38,7 +40,10 @@ REQUIRED_COLUMNS = (
     "direction",
     "channel",
 )
-OPTIONAL_COLUMNS = ("counterparty_ref", "description")
+# The rest of TRD §6.1's transaction contract that detection reads (migration
+# 0007). Optional: a file without them still loads.
+CONTEXT_COLUMNS = ("transaction_type", "counterparty_country", "merchant_ref", "device_ref", "source_status")
+OPTIONAL_COLUMNS = ("counterparty_ref", "description", *CONTEXT_COLUMNS)
 
 QUARANTINE_PREVIEW_LIMIT = 20
 LOOKUP_CHUNK_SIZE = 1000
@@ -46,6 +51,11 @@ MAX_AMOUNT = Decimal(10) ** 16  # transaction.amount is NUMERIC(18, 2)
 
 _AMOUNT_PATTERN = re.compile(r"[0-9]+(\.[0-9]{1,2})?")
 _CURRENCY_PATTERN = re.compile(r"[A-Z]{3}")
+_COUNTRY_PATTERN = re.compile(r"[A-Z]{2}")
+
+
+class DuplicateBatchError(Exception):
+    """FR-101: the same file was already registered for this source and business date."""
 
 
 class IngestionFileError(Exception):
@@ -69,6 +79,11 @@ class ParsedTransaction:
     channel: str
     counterparty_ref: str | None
     description: str | None
+    transaction_type: str | None = None
+    counterparty_country: str | None = None
+    merchant_ref: str | None = None
+    device_ref: str | None = None
+    source_status: str | None = None
 
 
 def _parse_amount(value: str) -> Decimal:
@@ -107,6 +122,13 @@ def _parse_currency(value: str) -> str:
     return code
 
 
+def _parse_country(value: str) -> str:
+    code = value.upper()
+    if not _COUNTRY_PATTERN.fullmatch(code):
+        raise ValueError("must be a 2-letter ISO country code (e.g. ID)")
+    return code
+
+
 def parse_transaction_row(raw: dict[str, Any]) -> ParsedTransaction:
     values = {name: (raw.get(name) or "").strip() for name in REQUIRED_COLUMNS + OPTIONAL_COLUMNS}
     errors = [f"{name} is required" for name in REQUIRED_COLUMNS if not values[name]]
@@ -124,6 +146,7 @@ def parse_transaction_row(raw: dict[str, Any]) -> ParsedTransaction:
     transaction_date = parsed("transaction_date", _parse_datetime)
     direction = parsed("direction", _parse_direction)
     currency = parsed("currency", _parse_currency)
+    counterparty_country = parsed("counterparty_country", _parse_country)
 
     if errors:
         raise RowValidationError(errors)
@@ -138,6 +161,11 @@ def parse_transaction_row(raw: dict[str, Any]) -> ParsedTransaction:
         channel=values["channel"].upper(),
         counterparty_ref=values["counterparty_ref"] or None,
         description=values["description"] or None,
+        transaction_type=values["transaction_type"].upper() or None,
+        counterparty_country=counterparty_country,
+        merchant_ref=values["merchant_ref"] or None,
+        device_ref=values["device_ref"] or None,
+        source_status=values["source_status"].upper() or None,
     )
 
 
@@ -221,6 +249,73 @@ def _finalise_batch(
         to_state=batch.status.value,
         reason=message,
     )
+
+
+def register_batch(
+    db: Session,
+    *,
+    actor: User,
+    file_name: str,
+    raw_bytes: bytes,
+    source_system: str,
+    business_date: date,
+    expected_records: int | None,
+) -> IngestionBatch:
+    """FR-101: publish a batch id, store the file checksum, and reject a file
+    already registered for the same source system and business date."""
+    checksum = hashlib.sha256(raw_bytes).hexdigest()
+
+    existing = db.scalar(
+        select(IngestionBatch).where(
+            IngestionBatch.source_system == source_system,
+            IngestionBatch.business_date == business_date,
+            IngestionBatch.file_checksum == checksum,
+        )
+    )
+    if existing is not None:
+        raise DuplicateBatchError(
+            f"This file was already registered as {existing.batch_ref} for {source_system} "
+            f"on business date {business_date.isoformat()}"
+        )
+
+    sequence_value = db.scalar(select(func.nextval("batch_ref_seq")))
+    batch = IngestionBatch(
+        batch_ref=f"BAT-{sequence_value:06d}",
+        source_system=source_system,
+        business_date=business_date,
+        file_name=file_name,
+        file_checksum=checksum,
+        file_size_bytes=len(raw_bytes),
+        expected_records=expected_records,
+        status=IngestionBatchStatus.REGISTERED,
+        correlation_id=uuid.uuid4(),
+        registered_by=actor.id,
+    )
+    db.add(batch)
+    db.flush()
+    db.add(
+        ProcessingLog(
+            ingestion_batch_id=batch.id,
+            event_code=EVENT_BATCH_REGISTERED,
+            message=f"Registered {file_name} ({len(raw_bytes)} bytes) for {source_system}",
+            details={"file_checksum": checksum, "expected_records": expected_records},
+        )
+    )
+    record_transition(
+        db,
+        correlation_id=batch.correlation_id,
+        actor=actor,
+        object_type=OBJECT_BATCH,
+        object_id=batch.id,
+        from_state=None,
+        to_state=IngestionBatchStatus.REGISTERED.value,
+        reason=f"Registered {file_name} for {source_system} on {business_date.isoformat()}",
+    )
+    # Committed before parsing starts: a batch that then fails structurally has
+    # to stay visible as FAILED (TRD C-01), which it cannot do if the row is
+    # rolled back along with the failure.
+    db.commit()
+    return batch
 
 
 def ingest_transactions_csv(
@@ -309,6 +404,11 @@ def ingest_transactions_csv(
                     "channel": parsed.channel,
                     "counterparty_ref": parsed.counterparty_ref,
                     "description": parsed.description,
+                    "transaction_type": parsed.transaction_type,
+                    "counterparty_country": parsed.counterparty_country,
+                    "merchant_ref": parsed.merchant_ref,
+                    "device_ref": parsed.device_ref,
+                    "source_status": parsed.source_status,
                     "ingestion_batch_id": batch.id if batch is not None else None,
                 }
                 for _, _, parsed, account_id in to_insert

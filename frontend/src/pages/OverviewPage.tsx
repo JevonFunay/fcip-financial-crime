@@ -174,12 +174,30 @@ export function OverviewPage() {
                 </div>
                 {detect.error && <p className="error">{errorMessage(detect.error)}</p>}
                 {detect.data && (
-                  <p className="ok">
-                    {detect.data.alerts_created} alert baru
-                    {detect.data.alerts_already_existing > 0 &&
-                      `, ${detect.data.alerts_already_existing} sudah ada sebelumnya`}
-                    . <Link to="/alerts">Lihat antrean alert →</Link>
-                  </p>
+                  <div className="ok">
+                    {detect.data.rules.map((rule) => (
+                      <p key={rule.detection_run_id}>
+                        {rule.pattern_code}: {rule.alerts_created} alert baru
+                        {rule.alerts_already_existing > 0 && `, ${rule.alerts_already_existing} sudah ada sebelumnya`}.{" "}
+                        <Link to="/alerts">Lihat antrean alert →</Link>
+                      </p>
+                    ))}
+                    {detect.data.ml.models.length === 0 && (
+                      <p className="muted">Belum ada versi model ACTIVE: daftarkan dengan app.scripts.register_models.</p>
+                    )}
+                    {detect.data.ml.models.map((model) => (
+                      <p key={model.model_version}>
+                        {model.model_version}: {model.units_scored.toLocaleString("id-ID")} unit dinilai,{" "}
+                        {model.units_flagged.toLocaleString("id-ID")} di atas threshold.{" "}
+                        <Link to="/model-flags">Lihat sinyal model →</Link>
+                      </p>
+                    ))}
+                    {detect.data.ml.ml_rule_versions_evaluated.length === 0 ? (
+                      <p className="muted">Rule ML_SCORE masih DRAFT: skor tampil sebagai sinyal, tidak membuat alert (CF-05).</p>
+                    ) : (
+                      <p>ML_SCORE: {detect.data.ml.alerts_created} alert baru.</p>
+                    )}
+                  </div>
                 )}
               </div>
             )}

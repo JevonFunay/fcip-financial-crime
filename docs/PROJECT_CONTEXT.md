@@ -97,13 +97,13 @@ percentage is an estimate — the counts underneath it are not.
 | FR (full-equivalent) | ~16 of 120 | 13% |
 | FR priority **Must** only | ~15 of 84 | 18% |
 | Detection patterns | 1 of 12 (P02) | 8% |
-| Database tables | 15 of ~90 | 17% |
-| API endpoints | 17 of 80 | 21% |
+| Database tables | 19 of ~90 | 21% |
+| API endpoints | 20 of 80 | 25% |
 | RBAC roles | 4 of 9 | 44% |
 | NFRs proven by measurement | 3 of 18 | 17% |
 | TRD components | ~6 full + ~5 partial of 30 | ~25% |
 
-**347 backend tests pass** (5 more marked `slow`). Frontend has no automated
+**406 backend tests pass** (5 more marked `slow`). Frontend has no automated
 tests in the repo; it was verified with a scripted Playwright click-through.
 
 ### Per domain
@@ -356,6 +356,37 @@ No scorer flags a control-clean entity. Canary (ten shuffles): mean ROC-AUC
 validation on synthetic data is the warning the plan anticipated; stage 3's
 leave-one-pattern-out and ablation answer it.
 
+### ML in the app (stage 4, 6 Oct)
+The models run inside the app. `POST /detection/run` (Overview's button, also
+`app.scripts.run_detection`) runs every ACTIVE rule, then every ACTIVE model
+version; `GET /ml/models` and `GET /ml/scores` read them; alerts carry a
+`model_score` and, in their detail, `model_signals`. New: migration 0007 (the
+transaction contract gains type, counterparty country, merchant, device, source
+status; `merchant` and `device` master tables), migration 0008 (`model_version`
+with the TRD §10.5 envelope, immutable; `ml_score`, insert-only; the `ML_SCORE`
+rule RUL-0002 seeded **DRAFT**), `app/services/ml_scoring.py`,
+`app/scripts/register_models.py`, a *Model flags* page. Decisions taken by
+Jevon (6 Oct): build CF-05 (a) and (b) with `ML_SCORE` DRAFT until the
+mentor's written confirmation; test on the full test seed loaded by script.
+
+- **Parity by construction**: a run rebuilds the feature library's `Dataset`
+  from the database and calls the training code (`build_matrices`, the stored
+  MCC reference), so scores equal the offline ones. Tested on Small; at full
+  size the app flagged exactly the units the models flag offline (1,975 AML
+  entity-weeks, 4,339 transactions)
+- **Integrity**: a model version is checked against its definition hash and
+  against the feature set and MCC reference it was trained on, whenever it is
+  loaded; the database refuses edits to a version and to a stored score
+- **Stored**: units at or above threshold, plus every week of an entity with a
+  rule alert (the alert's supporting signal), each with its eight strongest
+  named features (BR-401.3); FR-406's notice and the synthetic notice on every
+  surface
+- Measured at full size: 412,160 rows ingested by `--ingest` (exactly the
+  offline loader's), one detection run in 44 s and ~2.4 GB, 65 P02 alerts,
+  each with a model score of 0.94 or more; no alert from a score (DRAFT)
+- Still a bypass: models are registered ACTIVE without maker-checker (FR-405's
+  flow and ROLE_MLRO do not exist), like RUL-0001
+
 `app/scripts/load_raw_dataset.py` bridges it into the skeleton and **prints
 which columns it could not carry across** (merchant, device, IP, source status,
 business date, transaction type) — that gap is the distance to the full pipeline.
@@ -523,7 +554,10 @@ transaction as it arrives and raising an alert for a human, nothing more.
 **Open items from this work:**
 - **RC-ML-01**: an alert raised by a model score (CF-05 option b) needs a
   reason code, and the FRD catalogue (one code per pattern, §8.1–8.12) has
-  none for it. Proposed `RC-ML-01`. Needs ratification
+  none for it. Proposed `RC-ML-01`. Needs ratification. Since 6 Oct it is the
+  reason code of the seeded `ML_SCORE` rule (RUL-0002 v1, DRAFT), together with
+  a severity of **MEDIUM**, also ours (FRD §8.0 gives severities per pattern;
+  P04, P05, P07 and P09, the closest, are MEDIUM)
 - **ATO label and reason code**: not in the FRD catalogue. Needs ratification
 - **`geo_list_v1`** (`backend/app/reference/geo_list_v1.csv`) is the
   organisation's configured high-risk geography list, with the same standing
@@ -791,15 +825,15 @@ monitoring." Plus a second directive: Fraud **and** AML must both be covered
 (see §8, "Mentor directives"). Plan approved 30 Sep, stages: 1a generator
 1.2.0 and 1.3.0 (**done 30 Sep**) · 1b feature library + leakage tests (**done 30 Sep**) ·
 generator 1.4.0, TRD §11.2 in full (**done 30 Sep**) · fs_v2 (**done 30 Sep**) · 2 labels +
-training (two models, **done 30 Sep**) · 3 evaluation per domain (**done 30 Sep**, results in §8;
-stage 4 waits for Jevon and the mentor) · 4 integration, whose target
-is **§13 "Konsep produk"**.
+training (two models, **done 30 Sep**) · 3 evaluation per domain (**done 30 Sep**, results in §8) ·
+4 integration, whose target is **§13 "Konsep produk"** (**first version done 6 Oct**: scoring in
+the app, CF-05 (a) live and (b) built but DRAFT; still open: FR-405's approval flow, live mode,
+package upload).
 
-**Must not be missed in the ML integration stage:** the app's `transaction`
-table does not carry `device_id`, `counterparty_country`, `transaction_type`
-or `merchant_id` (the bridge drops them). The Fraud side cannot score in the
-app without `device_id`, so extending the ingestion contract and the table is
-**mandatory** there, not optional. Adding LightGBM to the backend image also
+**Done in stage 4 (6 Oct):** the app's `transaction` table did not carry
+`device_id`, `counterparty_country`, `transaction_type` or `merchant_id` (the
+bridge dropped them), and the Fraud side cannot score without the device. The
+ingestion contract and the table now carry them (migration 0007). Adding LightGBM to the backend image also
 needs `libgomp1` in the Dockerfile (`python:3.11-slim` lacks it) — **done in stage 2**, because the
 tests train models inside the container.
 
@@ -939,7 +973,9 @@ Small or new data. The other conflicts below are accepted as analysed.
    same documented maker-checker bypass as RUL-0001. Under option (a) the
    list is rule alerts carrying the score as a factor. **Direction (30 Sep):
    option (b), with (a) as the explanation on the alert detail**; see CF-05 in
-   §8, awaiting the mentor's written confirmation
+   §8, awaiting the mentor's written confirmation. **Built 6 Oct** (Jevon's
+   decision): (a) live, (b) as RUL-0002 seeded DRAFT, so activating it once
+   confirmed is a state change, not a code change
 2. **One front page for everyone meets RBAC.** Uploading is ROLE_DATA_OPS only
    (FRD §4.1.2; the permission matrix in §9); triage cannot upload. So the home
    screen is role-aware

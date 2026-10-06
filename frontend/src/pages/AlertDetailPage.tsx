@@ -5,6 +5,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { disposeAlert, fetchAlert } from "../api/alerts";
 import { createCase } from "../api/cases";
 import { errorMessage } from "../api/errors";
+import { ModelSignals } from "../components/ModelSignals";
 import { StatusBadge } from "../components/StatusBadge";
 import { useAuth } from "../context/AuthContext";
 import { formatAmount, formatDateTime, formatDetailValue, formatDuration } from "../format";
@@ -222,6 +223,11 @@ export function AlertDetailPage() {
             ))}
           </tbody>
         </table>
+      </section>
+
+      <section className="card">
+        <h2>Model signals ({alert.model_signals.length})</h2>
+        <ModelSignals scores={alert.model_signals} notice={alert.signal_notice} />
       </section>
 
       <section className="card">

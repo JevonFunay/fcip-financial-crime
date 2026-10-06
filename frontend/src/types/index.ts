@@ -36,6 +36,8 @@ export interface AlertSummary {
   reason: string;
   case_id: string | null;
   created_at: string;
+  /** Highest stored model score for the entity over the alert's window (CF-05 option a). */
+  model_score: number | null;
 }
 
 export interface TransactionOut {
@@ -201,6 +203,83 @@ export interface AlertDetail extends AlertSummary {
   disposed_at: string | null;
   disposition_reason: string | null;
   transactions: TransactionOut[];
+  model_signals: ModelScore[];
+  /** FR-406: shown with every model signal, never dismissible. */
+  signal_notice: string;
+}
+
+/** One named feature behind a score (TreeSHAP, log-odds). */
+export interface Contribution {
+  feature: string;
+  definition: string;
+  value: number | null;
+  contribution: number;
+}
+
+export type ModelUnit = "AML" | "FRAUD";
+
+export interface ModelScore {
+  id: string;
+  model_version: string;
+  unit: ModelUnit;
+  customer_id: string;
+  customer_ref: string;
+  customer_name: string;
+  as_of: string;
+  transaction_ref: string | null;
+  transaction_amount: number | null;
+  score: number;
+  threshold: number;
+  flagged: boolean;
+  contributions: Contribution[];
+}
+
+export interface ScoreListResponse {
+  items: ModelScore[];
+  total: number;
+  limit: number;
+  offset: number;
+  signal_notice: string;
+  synthetic_notice: string;
+}
+
+export interface ModelVersionOut {
+  id: string;
+  version: string;
+  unit: ModelUnit;
+  state: RuleState;
+  artefact_type: string;
+  definition_hash: string;
+  feature_set_version: string;
+  threshold: number;
+  trained_on: { generator_version?: string; profile?: string; seed?: number };
+  validation: { average_precision?: number; precision?: number; recall?: number; f1?: number };
+  created_at: string;
+  synthetic_notice: string;
+}
+
+export interface MlRunSummary {
+  detection_run_id: string;
+  models: {
+    model_version: string;
+    unit: ModelUnit;
+    threshold: number;
+    units_scored: number;
+    units_flagged: number;
+    scores_stored: number;
+  }[];
+  ml_rule_versions_evaluated: string[];
+  alerts_created: number;
+  alerts_already_existing: number;
+  seconds: number;
+  signal_notice: string;
+  synthetic_notice: string;
+}
+
+/** One run for rules and models (TRD A22). */
+export interface DetectionRunAll {
+  rules: DetectionRunSummary[];
+  ml: MlRunSummary;
 }
 
 export interface AlertListResponse {

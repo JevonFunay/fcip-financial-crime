@@ -1,6 +1,6 @@
 # FCIP — Progress Status
 
-**As of 29 September 2026 · Week 4 of 16 · ~17% of MVP scope**
+**As of 6 October 2026 · Week 5 of 16 · ~17% of MVP scope** (percentage last recounted 29 Sep; table and endpoint counts updated 6 Oct)
 
 Supersedes any earlier progress figure. Scope definitions, architecture and open
 questions are unchanged — see `PROJECT_CONTEXT.md`.
@@ -14,13 +14,13 @@ questions are unchanged — see `PROJECT_CONTEXT.md`.
 | Functional requirements (full-equivalent) | ~16 of 120 | 13% |
 | FR priority **Must** only | ~15 of 84 | 18% |
 | Detection patterns | 1 of 12 (P02) | 8% |
-| Database tables | 15 of ~90 | 17% |
-| API endpoints | 17 of 80 | 21% |
+| Database tables | 19 of ~90 | 21% |
+| API endpoints | 20 of 80 | 25% |
 | RBAC roles | 4 of 9 | 44% |
 | NFRs proven by measurement | 3 of 18 | 17% |
 | TRD components | ~6 full + ~5 partial of 30 | ~25% |
 
-**396 backend tests pass** (5 more marked `slow`, all passing). Frontend typechecks and builds.
+**406 backend tests pass** (5 more marked `slow`, all passing). Frontend typechecks and builds.
 
 Pure FR counting gives ~10%; ~17% weights the foundation work already done.
 Neither document assigns effort weights, so the percentage is an estimate — the
@@ -52,6 +52,22 @@ Partial: FR-306, FR-309, FR-310, FR-1103, FR-808, FR-612.
 ---
 
 ## Built since the last progress report
+
+### 6 October — ML stage 4: the models inside the app
+
+`POST /detection/run` (the Overview button) runs every ACTIVE rule and then
+every ACTIVE model version; scores show as a *Model score* column in the alert
+queue, a *Model signals* section on each alert (with FR-406's fixed notice and
+the strongest named features), and a new *Model flags* page. Underneath:
+the transaction contract carries type, country, merchant, device and source
+status, merchants and devices are master data (migration 0007); model
+versions are stored immutable with the TRD §10.5 envelope and scores
+insert-only (migration 0008); the `ML_SCORE` rule (RUL-0002) is seeded DRAFT,
+so no alert comes from a score until the mentor confirms CF-05 (b) in
+writing. Full test seed loaded by script (`--ingest`): 412,160 rows, one run
+in 44 s, and the app flags exactly the units the models flag offline (1,975
+entity-weeks, 4,339 transactions). Models registered ACTIVE without
+maker-checker, a documented bypass like RUL-0001's.
 
 ### 30 September — ML stage 3: evaluation on the unseen test seed
 
@@ -353,7 +369,7 @@ AI, maker-checker, dashboards.
 
 **Safe to build now** — independent of the unanswered MQ-01…MQ-10:
 
-0. **ML pipeline** — current priority by mentor directive (29 Sep); stages 1a, 1b and generator 1.4.0 done, stage 2 (labels + training) next after the fs_v2 decision
+0. **ML pipeline** — stages 1–4 done (first version of 4); next for it: FR-405's approval flow, live mode, and activating `ML_SCORE` once CF-05 is confirmed
 1. **Rule as data, stages 3–4** (rule endpoints FR-301/302, simulation FR-303) — deferred for the ML pipeline; schema already in place
 2. **Case lifecycle** (FR-804) and case queue (FR-808) — columns exist, endpoints don't
 3. **Alert assignment** (FR-603) and SLA tracking (FR-607)
