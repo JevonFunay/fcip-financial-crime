@@ -10,7 +10,13 @@ export function ProtectedRoute() {
     return <p className="muted content">Checking session...</p>;
   }
   if (!user) {
-    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+    return (
+      <Navigate
+        to="/login"
+        replace
+        state={{ from: location.pathname + location.search + location.hash }}
+      />
+    );
   }
   return <Outlet />;
 }

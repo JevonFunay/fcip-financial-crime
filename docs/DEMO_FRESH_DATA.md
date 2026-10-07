@@ -2,7 +2,8 @@
 
 Panduan ini memakai aplikasi berjalan di http://localhost:5173. Mockup untuk
 mentor adalah [file preview terpisah](mockups/fcip-upload-results-preview.html);
-upload sebenarnya dilakukan di halaman **Overview** aplikasi.
+upload sebenarnya dilakukan di halaman **Overview** aplikasi. UI aplikasi
+telah diperbarui: navigasi ada di sidebar, dengan menu untuk layar kecil.
 
 ## Kondisi awal
 
@@ -21,7 +22,8 @@ Dataset baru dibuat 7 Oktober, setelah training model: generator **1.4.0**,
 profil **Full**, seed **20261007**, reference date **2026-09-30** yang sama
 dengan preset training/test. Dataset berisi **421.746 transaksi mentah**;
 hasil penerimaan/quarantine pembanding telah diuji pada database terpisah
-seperti tabel di bawah, sementara database demo menunggu upload sendiri.
+seperti tabel di bawah. Angka kondisi awal di atas adalah keadaan saat
+database disiapkan, sebelum upload dan pengujian berikutnya.
 Semua data sintetis; hasilnya bukan estimasi performa pada transaksi nyata.
 
 ## Akun dan kewenangan
@@ -63,18 +65,19 @@ ZIP paket, `labels.csv`, dan `label_transactions.csv` tidak diunggah.
 
 1. Login sebagai **Data Ops**, lalu buka **Overview**.
 2. Pilih `transactions_001.csv`. Isi Source system `NDP_WALLET_CORE`,
-   Business date `2026-09-30`, Expected records `313720`, lalu **Upload**.
+   Business date `2026-09-30`, Expected records `313720`, lalu **Upload CSV**.
    Tunggu hasil batch dan catat accepted/quarantine yang ditampilkan.
 3. Pilih `transactions_002.csv`, dengan Source system dan Business date yang
-   sama, Expected records `108026`, lalu **Upload**. Tunggu batch selesai.
+   sama, Expected records `108026`, lalu **Upload CSV**. Tunggu batch selesai.
 4. **Upload kedua bagian sebelum menjalankan deteksi.** Skor yang tersimpan
    bersifat immutable; run dengan riwayat parsial bukan hasil akhir dataset.
-5. Tekan **Jalankan deteksi** satu kali. Tombol masih berlabel P02, tetapi
-   endpoint menjalankan rule P02 serta kedua model ACTIVE. Tunggu selesai.
+5. Tekan **Jalankan deteksi** di kartu **Rule & model** satu kali. Endpoint
+   menjalankan rule P02 serta kedua model ACTIVE. Tunggu selesai; UI
+   menampilkan hasil aktual tanpa persentase progress buatan.
 6. Buka **Alert queue** untuk alert P02; buka detailnya untuk faktor rule dan
    **Model signals**. Buka **Model flags** untuk unit di atas threshold:
-   AML per entity-week dan Fraud per transaksi. Jumlah kedua jenis unit tidak
-   dijumlahkan sebagai jumlah transaksi unik.
+   halaman ini berjudul **Model signals**. AML memakai entity-week, Fraud
+   memakai transaksi; kedua jumlah tidak dijumlahkan sebagai transaksi unik.
 7. Logout, login sebagai **Triage**, lalu buka sebuah alert OPEN. Pilih
    false positive atau escalate dengan alasan minimal **20 karakter**.
    Dari alert escalated, Triage atau Investigator dapat membuka case.
@@ -89,9 +92,9 @@ Sinyal merupakan observasi pendukung investigasi, bukan bukti perbuatan salah
 ## Hasil pembanding yang sudah diuji
 
 Angka berikut berasal dari pengujian endpoint pada **database verifikasi
-terpisah**, bukan isi database demo saat ini. Database demo tetap kosong
-untuk upload Jevon. Jika kedua bagian diunggah berurutan ke keadaan awal yang
-disiapkan, hasil pembandingnya:
+terpisah**, bukan isi database demo saat ini. Jika kedua bagian diunggah
+berurutan ke keadaan awal yang disiapkan, sebelum run deteksi pertama,
+hasil pembandingnya:
 
 | File | Total | Accepted | Quarantine | Status batch |
 |---|---:|---:|---:|---|
@@ -117,6 +120,22 @@ dan dua skenario P05. Angka ini berbeda dari recall per transaksi/unit dan
 tidak membuktikan performa data nyata. Lihat
 [laporan evaluasi fresh](ml/evaluation_manual_s20261007.md) untuk metrik,
 provenance, dan keterbatasan. Labels tidak dipakai oleh website/inference.
+
+## Catatan sesi UI, 7 Oktober
+
+Pada pemeriksaan sesi UI, Jevon sudah mengunggah bagian pertama sebagai
+`BAT-000001` (306.718 diterima / 7.002 quarantine) dan menjalankan deteksi
+parsial (37 alert). Run parsial tidak dapat dianggap hasil akhir Full:
+skor yang sudah tersimpan tidak diganti ketika bagian kedua ditambahkan.
+Database dan hasil manual tersebut dipertahankan selama makeover.
+
+Pada 15:15:37 WIB, intersepsi tes UI gagal dan CSV dummy
+`qa-transactions.csv` masuk sebagai **BAT-000002**: **0 transaksi diterima,
+3 baris quarantine**. Batch serta auditnya tetap tersimpan; jumlah quarantine
+demo bertambah 3 dari artefak tes ini. Correlation ID:
+`ce24ef64-401d-4dc7-8c47-33ae81a4a601`. Seluruh tes operasi setelah kejadian
+ini dijalankan pada frontend, backend dan database QA terpisah. Catatan ini
+menjelaskan selisih artefak QA ketika membandingkan dengan angka dataset.
 
 ## Reproduksi melalui CLI
 

@@ -106,8 +106,9 @@ percentage is an estimate — the counts underneath it are not.
 
 **411 regular backend tests pass** (410 in Docker plus one documentation
 check on the host; 5 slow tests passed on the earlier unchanged baseline).
-Frontend has no automated tests in the repo; it was verified with a scripted
-Playwright click-through, including the fresh empty-demo role controls.
+Frontend has no committed automated test suite; the production UI refresh
+was verified with a scripted Playwright click-through (see §13). Backend
+test figures are the preceding unchanged baseline, not a new UI-stage run.
 
 ### Per domain
 
@@ -167,8 +168,8 @@ backend/
   tests/             18 test modules, 347 passing
 frontend/src/
   api/           client.ts (token refresh), alerts, cases, data, audit, auth
-  pages/         Login, Overview, AlertQueue, AlertDetail, CaseDetail, Audit
-  components/    Layout, ProtectedRoute, StatusBadge
+  pages/         Login, Overview, AlertQueue, AlertDetail, CaseDetail, ModelFlags, Audit
+  components/    Layout, ProtectedRoute, StatusBadge, ModelSignals, Icon, Notices
 docs/            FRD + TRD PDFs, screenshots/, PROJECT_CONTEXT.md
 ```
 
@@ -507,6 +508,13 @@ FRD's.
 | AS-03 | **`LOW_CONFIDENCE_BASELINE` threshold** (FR-401 E2: "batas atas yang dikonfigurasi", no value) | none invented: `BASELINE_CV` is exposed as a feature and the model uses it; the label threshold stays **open** | not a threshold in code |
 | AS-05 | **Weights and clipping of the TRD §10.2 anomaly composite** ("kombinasi berbobot terdokumentasi dari kontribusi per feature yang dipotong", no values) | equal weights over the five baseline deviations fs_v2 has (z of count, value and distinct counterparties; JSD of channel mix and hour profile), \|z\| clipped at 5 and scaled to [0, 1]; no baseline, no score. Used only as the unsupervised comparator | **implemented** in `app/ml/comparators.py` |
 | AS-04 | **The category band in P10's ticket test** (FRD §8.10: "3× titik tengah pita kategori", no bands given) | the **median incoming ticket per MCC over the training dataset** (a peer-group baseline), stored as the versioned artefact `mcc_ticket_ref_v1` and used as it is at test, inference and live time, never recomputed from the data being scored. Not taken from the generator's configuration, which would let the feature read the recipe. Decided by Jevon, 30 Sep | **implemented** in feature set fs_v2 (`TICKET_MULTIPLE_R30D`, `app/reference/mcc_ticket_ref_v1.json`, `app/ml/reference.py`) |
+
+**AS-06 — reversible UI presentation choice (7 Oct):** Jevon's request
+"make over ui nya" is implemented as a redesign of the existing production
+pages, with a light workspace, sidebar and responsive tables. Alert and
+transaction pages show 25 rows; model scores and audit show 50. These are
+client presentation choices, **not FRD/TRD values or model parameters**.
+No new backend workflow or model-result assumption follows from this choice.
 
 ### TRD §1.5 — conflicts still open
 
@@ -865,7 +873,11 @@ results mockup for mentor review, as described in §13. This approval covers
 the mockup, not production implementation or activation of CF-05 (b). Jevon
 then authorised a separate clean demo database and a fresh Full dataset for
 manual upload through the existing website; its prepared state is recorded
-in §13 and `docs/DEMO_FRESH_DATA.md`.
+in §13 and `docs/DEMO_FRESH_DATA.md`. Jevon subsequently explicitly
+requested **"make over ui nya"**: the production UI refresh below is now
+authorised and implemented, using the existing endpoints and roles.
+Package upload, automatic scoring, live monitoring and CF-05 activation
+remain outside this UI stage.
 
 **Done in stage 4 (6 Oct):** the app's `transaction` table did not carry
 `device_id`, `counterparty_country`, `transaction_type` or `merchant_id` (the
@@ -919,7 +931,7 @@ exists, so resuming needs no migration. Decisions waiting for when it resumes:
 - **Never `git push`** — commits are local; Jevon pushes to GitHub himself
 - **Completion reporting (Jevon, 7 Oct):** always provide the precise
   `git add` and `git commit` commands for the completed changes. For this
-  session, including the mockup and fresh demo preparation, leave commit
+  session, including the mockup, fresh demo preparation and UI refresh, leave commit
   execution to Jevon; Codex does not execute the commit. Jevon continues to
   handle every push.
 - A requirement without a test is not done (FRD §6 convention)
@@ -942,8 +954,10 @@ automatic detection, live monitoring, model or threshold changes, or
 activation of `ML_SCORE`; CF-05 remains open and the rule remains DRAFT.
 Any real measured pipeline figures used in the mockup must identify their
 source and preserve the distinction between transactions, entity-weeks and
-scenario labels. The production work following mentor review still needs its
-own stage selection under the working conventions.
+scenario labels. Production work requires its own stage selection; Jevon
+later authorised
+the existing-page UI refresh recorded below, without approving the full
+package/live-monitoring concept.
 
 ### Fresh manual-upload demo (authorised 7 Oct)
 
@@ -985,8 +999,8 @@ model alert was raised with `ML_SCORE` DRAFT. Data Ops disposition was denied
 (403); Triage false-positive/escalate succeeded. All four live login requests
 passed; the live Overview remained at zero operational records, and browser
 checks of Data Ops/Triage controls passed without page errors. These are
-isolated technical verification results; the live demo is still ready for
-Jevon's upload.
+isolated technical verification results recorded before Jevon's manual
+upload; they do not describe the live database after later testing.
 
 **Fresh post-fit evaluation:** the original models were also evaluated on
 this seed's offline labels, without retraining or threshold changes. Owned
@@ -998,6 +1012,62 @@ ten model/reference checksums were preserved, and offline flags equal the
 application run. Same-generator synthetic testing does not establish
 real-world performance or replace the original holdout/robustness findings.
 See `docs/ml/evaluation_manual_s20261007.md` for provenance and limitations.
+
+### Production UI refresh (authorised and implemented 7 Oct)
+
+Jevon explicitly requested a makeover of the running UI. Login, workspace
+navigation, Overview, alert queue/detail, case detail, model flags and audit
+now share a light/navy design, SVG icons, readable cards and responsive
+scrollable tables. The mobile menu supports keyboard navigation, Escape,
+focus restoration and a skip link. No frontend dependency was added.
+
+Overview uses actual API counts, keeps AML entity-weeks separate from Fraud
+transactions, and shows the existing model versions and thresholds. Data Ops
+has CSV selection/drop, a 50 MiB client preflight matching the existing cap,
+metadata fields, real pending states and batch results; detection remains a
+separate manual action. Every part must be uploaded before detection.
+Transactions have debounced search and paging; recent batches link to audit
+and quarantine shows the retained validation reasons. No trend, estimated
+progress percentage or severity/domain inference is fabricated.
+
+The alert queue now pages through all results instead of stopping at 200.
+Alert review retains trimmed reasons of at least 20 characters, Triage-only
+disposition and existing case eligibility (FRD §4.1, FR-604/605/608/801).
+Model flags remain read-only, with contribution explanations and AML/Fraud
+unit tabs; audit uses applied filters for URL navigation and export. Permanent
+FR-406 and synthetic-data captions remain visible (TRD §10.6, FRD L-01).
+Generator, shared data, model artefacts/thresholds, backend contracts and
+`ML_SCORE` DRAFT are unchanged. This restyle does not increase the FR count
+or complete the package/live-monitoring concept. Direct PDF review confirms
+FR-406/BR-406.1–2 (FRD p.70), L-01 (p.163) and TRD §10.6 (p.68–69).
+The existing Overview/AlertList payloads and audit CSV do not yet carry the
+synthetic warning as a field: the permanent frontend caption does not
+complete that backend/export requirement, and it is not changed in this stage.
+
+**Verification:** frontend TypeScript/Vite build and whitespace checks pass.
+Playwright checks cover 64 empty-state role/route/width combinations (GET
+fixtures, real authentication), 24 populated combinations using the QA clone,
+320/390/768/1440 px, real alert pagination/status filters, keyboard model
+contributions, model tabs/search, pending states, login/filter deep links and
+audit paging. CSV preflight/multipart and upload/detection feedback use mocked
+responses. Real isolated Triage disposition, trimmed 19/20-character boundary,
+Investigator case creation and audit chain/export pass. The backend test and
+Full scoring results above remain the preceding unchanged baseline. Temporary
+QA servers are stopped after verification; the clone database is retained.
+
+**QA isolation incident:** while testing upload feedback, a failed browser
+interception allowed a dummy CSV to reach the live demo at **15:15:37 WIB
+(08:15:37 UTC), 7 Oct**. Batch `BAT-000002`, `qa-transactions.csv`, id
+`c207dfd5-9ccb-48df-8b76-fb23e0dd3ead`, completed with **3 rows read,
+0 accepted and 3 quarantined** (two unknown accounts, one non-positive
+amount); correlation `ce24ef64-401d-4dc7-8c47-33ae81a4a601`. It remains
+recorded rather than deleting audit/data. Jevon was informed. His prior
+`BAT-000001` had 306,718 accepted / 7,002 quarantined, and he had already run
+detection on part 1 (37 alerts). The demo was not reset during the UI stage;
+part-1 scoring is not the final full-dataset benchmark because scores are
+immutable. All subsequent mutation checks use native QA frontend :5174,
+API :8001 and clone database `fcip_ui_makeover_test`, with live :8000
+requests blocked by the harness. This clone does not overwrite the demo.
 
 ### Upload mode (built first)
 

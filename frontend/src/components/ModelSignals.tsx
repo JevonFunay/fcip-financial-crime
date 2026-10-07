@@ -1,96 +1,167 @@
 import { Fragment, useState } from "react";
 
+import { Icon } from "./Icon";
+import { SignalNotice } from "./Notices";
 import { formatDateTime } from "../format";
 import type { ModelScore } from "../types";
+import "../review.css";
+
+export { SignalNotice } from "./Notices";
 
 function formatValue(value: number | null): string {
-  if (value === null) return "unknown";
-  return Math.abs(value) >= 1000 ? value.toLocaleString("id-ID", { maximumFractionDigits: 0 }) : String(+value.toFixed(4));
+  if (value === null) return "belum diketahui";
+  return Math.abs(value) >= 1000
+    ? value.toLocaleString("id-ID", { maximumFractionDigits: 0 })
+    : String(+value.toFixed(4));
 }
 
-/** FR-406: the notice is part of the component, so no surface can drop or close it (BR-406.1). */
-export function SignalNotice({ text }: { text: string }) {
-  return <p className="notice">{text}</p>;
-}
-
-/** Scores with the named features behind them (BR-401.3), in descriptive words (BR-406.2). */
-export function ModelSignals({ scores, notice, showEntity = false }: { scores: ModelScore[]; notice: string; showEntity?: boolean }) {
+/** Named TreeSHAP features explain a score; they do not classify a P-pattern. */
+export function ModelSignals({
+  scores,
+  notice,
+  showEntity = false,
+}: {
+  scores: ModelScore[];
+  notice: string;
+  showEntity?: boolean;
+}) {
   const [open, setOpen] = useState<string | null>(null);
   return (
     <>
       <SignalNotice text={notice} />
       {scores.length === 0 ? (
-        <p className="muted">No model has scored this entity over this window.</p>
+        <div className="empty-state review-signal-empty">
+          <Icon name="activity" size={26} />
+          <h3>Belum ada sinyal model tersimpan</h3>
+          <p>Tidak ada sinyal model yang disimpan pada tampilan ini.</p>
+        </div>
       ) : (
-        <table className="table">
-          <thead>
-            <tr>
-              {showEntity && <th>Entity</th>}
-              <th>Model</th>
-              <th>Unit</th>
-              <th className="num">Score</th>
-              <th className="num">Threshold</th>
-              <th>Strongest features</th>
-            </tr>
-          </thead>
-          <tbody>
-            {scores.map((s) => (
-              <Fragment key={s.id}>
-                <tr onClick={() => setOpen(open === s.id ? null : s.id)} className="clickable-row">
-                  {showEntity && (
-                    <td>
-                      {s.customer_ref}
-                      <div className="muted">{s.customer_name}</div>
-                    </td>
-                  )}
-                  <td className="mono">{s.model_version}</td>
-                  <td>
-                    {s.unit === "AML" ? `Week ending ${formatDateTime(s.as_of)}` : `${s.transaction_ref} · ${formatDateTime(s.as_of)}`}
-                  </td>
-                  <td className={`num mono ${s.flagged ? "score-high" : ""}`}>{s.score.toFixed(3)}</td>
-                  <td className="num mono">{s.threshold.toFixed(3)}</td>
-                  <td>
-                    {s.contributions.slice(0, 3).map((c) => (
-                      <div key={c.feature}>
-                        <span className="mono">{c.feature}</span> = {formatValue(c.value)}
-                      </div>
-                    ))}
-                    <span className="muted">{open === s.id ? "hide detail" : "show detail"}</span>
-                  </td>
-                </tr>
-                {open === s.id && (
+        <div
+          className="table-scroll"
+          tabIndex={0}
+          role="region"
+          aria-label="Sinyal model dan kontribusi fitur"
+        >
+          <table className="table review-signals-table">
+            <thead>
+              <tr>
+                {showEntity && <th>Entity</th>}
+                <th>Model</th>
+                <th>Unit penilaian</th>
+                <th className="num">Skor</th>
+                <th className="num">Threshold</th>
+                <th>Fitur teratas</th>
+                <th>
+                  <span className="review-sr-only">Detail fitur</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {scores.map((s) => (
+                <Fragment key={s.id}>
                   <tr>
-                    <td colSpan={showEntity ? 6 : 5}>
-                      <table className="table compact">
-                        <thead>
-                          <tr>
-                            <th>Feature</th>
-                            <th>Meaning</th>
-                            <th className="num">Value</th>
-                            <th className="num">Contribution</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {s.contributions.map((c) => (
-                            <tr key={c.feature}>
-                              <td className="mono">{c.feature}</td>
-                              <td>{c.definition}</td>
-                              <td className="num mono">{formatValue(c.value)}</td>
-                              <td className={`num mono ${c.contribution > 0 ? "up" : "down"}`}>
-                                {c.contribution > 0 ? "+" : ""}
-                                {c.contribution.toFixed(2)}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                    {showEntity && (
+                      <td>
+                        <strong>{s.customer_ref}</strong>
+                        <div className="review-cell-sub">{s.customer_name}</div>
+                      </td>
+                    )}
+                    <td>
+                      <span className="review-pattern">
+                        {s.unit === "AML"
+                          ? "Model entity-week"
+                          : "Model transaksi"}
+                      </span>
+                      <div className="mono review-cell-sub">
+                        {s.model_version}
+                      </div>
+                    </td>
+                    <td>
+                      {s.unit === "AML" ? "Minggu berakhir" : s.transaction_ref}
+                      <div className="review-cell-sub">
+                        {formatDateTime(s.as_of)}
+                      </div>
+                    </td>
+                    <td className="num">
+                      <span
+                        className={`review-score ${s.flagged ? "score-high" : ""}`}
+                      >
+                        {s.score.toFixed(3)}
+                      </span>
+                    </td>
+                    <td className="num mono">{s.threshold.toFixed(3)}</td>
+                    <td className="review-feature-cell">
+                      {s.contributions.slice(0, 3).map((c) => (
+                        <div className="review-feature" key={c.feature}>
+                          <span>{c.definition}</span>
+                          <strong>{formatValue(c.value)}</strong>
+                        </div>
+                      ))}
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        className="button-secondary review-detail-toggle"
+                        aria-expanded={open === s.id}
+                        aria-controls={`signal-${s.id}`}
+                        onClick={() => setOpen(open === s.id ? null : s.id)}
+                      >
+                        <Icon
+                          name={open === s.id ? "close" : "layers"}
+                          size={15}
+                        />
+                        {open === s.id ? "Tutup detail" : "Lihat detail"}
+                      </button>
                     </td>
                   </tr>
-                )}
-              </Fragment>
-            ))}
-          </tbody>
-        </table>
+                  {open === s.id && (
+                    <tr
+                      id={`signal-${s.id}`}
+                      className="review-contribution-row"
+                    >
+                      <td colSpan={showEntity ? 7 : 6}>
+                        <div className="review-contribution-panel">
+                          <h3>Kontribusi fitur</h3>
+                          <p className="muted review-caption">
+                            Kontribusi memakai skala log-odds. Nilai positif
+                            menaikkan skor; nilainya bukan persentase.
+                          </p>
+                          <table className="table compact">
+                            <thead>
+                              <tr>
+                                <th>Feature</th>
+                                <th>Arti</th>
+                                <th className="num">Nilai teramati</th>
+                                <th className="num">Kontribusi</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {s.contributions.map((c) => (
+                                <tr key={c.feature}>
+                                  <td className="mono">{c.feature}</td>
+                                  <td>{c.definition}</td>
+                                  <td className="num mono">
+                                    {formatValue(c.value)}
+                                  </td>
+                                  <td
+                                    className={`num mono ${c.contribution > 0 ? "up" : "down"}`}
+                                  >
+                                    {c.contribution > 0 ? "+" : ""}
+                                    {c.contribution.toFixed(2)}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </>
   );

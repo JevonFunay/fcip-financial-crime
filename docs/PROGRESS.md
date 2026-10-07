@@ -1,6 +1,6 @@
 # FCIP — Progress Status
 
-**As of 7 October 2026 · Week 5 of 16 · ~17% of MVP scope** (percentage last recounted 29 Sep; table and endpoint counts updated 6 Oct; mockup adds no implemented FR)
+**As of 7 October 2026 · Week 5 of 16 · ~17% of MVP scope** (percentage last recounted 29 Sep; table and endpoint counts updated 6 Oct; UI refresh adds no implemented FR)
 
 Supersedes any earlier progress figure. Scope definitions, architecture and open
 questions are unchanged — see `PROJECT_CONTEXT.md`.
@@ -22,8 +22,8 @@ questions are unchanged — see `PROJECT_CONTEXT.md`.
 
 **411 regular backend tests pass** (410 in Docker plus its documentation check
 on the host). The 5 slow tests passed on the unchanged baseline earlier in
-this session. Frontend typecheck/build passed on that baseline; production
-login and empty-demo role controls were also verified in the browser.
+this session. These backend figures are the preceding unchanged baseline;
+the UI refresh has separate frontend/browser validation recorded below.
 
 Pure FR counting gives ~10%; ~17% weights the foundation work already done.
 Neither document assigns effort weights, so the percentage is an estimate — the
@@ -55,6 +55,60 @@ Partial: FR-306, FR-309, FR-310, FR-1103, FR-808, FR-612.
 ---
 
 ## Built since the last progress report
+
+### 7 October — production UI makeover
+
+Jevon authorised "make over ui nya". The existing login, sidebar workspace,
+Overview, alert/case review, model flags and audit are redesigned for desktop
+and mobile. CSV selection/drop/preflight, actual batch feedback, manual
+detection, paged alert results, searchable transactions, model explanations
+and audit filters/export use the existing APIs. AML entity-weeks and Fraud
+transactions stay separate; FR-406/synthetic notices and role guards remain.
+No backend, generator, shared dataset, model, threshold or CF-05 change.
+
+**Verification:** `npm run build` (TypeScript + Vite) and `git diff --check`
+passed. Scripted Playwright checks passed: 64 mocked-empty role/route/width
+combinations and 24 populated route/width combinations, at 320/390/768/1440
+px, with no whole-page overflow. Real alert pages 25/25/6, status reset,
+model tabs/search/keyboard contributions, CSV multipart/preflight and pending
+locks, filter/loading consistency, login deep links and audit offset clamping
+passed. On the isolated clone, trimmed 19/20-character reason checks, Triage
+escalate/false-positive, Investigator case creation, audit chain and CSV export
+passed. Upload/detection feedback checks use mocked responses; actual Full
+endpoint/scoring parity is the preceding stage's verification, not a new run.
+No permanent frontend test suite was added and backend tests were not rerun.
+
+**Decisions taken independently for Jevon to check:** light/navy design and
+sidebar; SVG icons without added dependencies; 25-row transaction/alert and
+50-row model/audit pages; keyboard focus and responsive scrolling; matching
+CSV preflight and applied-filter behaviour (AS-06, presentation choices,
+not specification/model values). Commit and push remain with Jevon.
+
+**QA incident:** a failed interception sent `qa-transactions.csv` to the live
+demo at 15:15:37 WIB, creating `BAT-000002` with **0 accepted / 3 quarantine**.
+It remains recorded, and Jevon was informed. His existing part-1 upload and
+37-alert detection run were retained; the demo was not reset. All subsequent
+mutation checks use isolated frontend :5174/API :8001 and a QA clone, with
+live API requests blocked. Exact batch/correlation IDs and the partial-history
+scoring limitation are recorded in `PROJECT_CONTEXT.md` §13 and
+`DEMO_FRESH_DATA.md`.
+
+Visual evidence: [login](screenshots/ui-makeover-login.png),
+[populated Overview](screenshots/ui-makeover-overview.png), and
+[mobile alert queue](screenshots/ui-makeover-alert-mobile.png). Populated
+screenshots show the isolated Full-dataset QA clone, not the live demo.
+
+**Capstone summary (Indonesian, ready to paste):**
+Pada 7 Oktober 2026, antarmuka FCIP diperbarui dengan workspace berbasis
+sidebar, dashboard menggunakan angka aktual, upload CSV dengan hasil
+validasi batch, serta halaman alert, case, sinyal model dan audit yang
+responsif. Unit entity-week AML dan transaksi Fraud tetap dipisahkan.
+Keputusan alert tetap oleh Triage, dan sinyal model tetap mendukung
+investigasi selama CF-05 belum disetujui. Generator, data bersama, model dan
+threshold tidak berubah. Insiden tes berupa tiga baris quarantine tanpa
+transaksi diterima dicatat; tes operasi selanjutnya memakai lingkungan QA
+terpisah. Perubahan tampilan tidak menambah jumlah kebutuhan fungsional
+atau menjadi bukti kinerja model pada data nyata.
 
 ### 7 October — clean demo and fresh Full files for manual upload
 
