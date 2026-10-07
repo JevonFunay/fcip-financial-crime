@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>FCIP — Upload-to-results mentor mockup</title>
+<style>
+html { color-scheme: light dark; background: light-dark(#f4f6f8, #101722); }
+body { margin: 0; }
+</style>
+</head>
+<body>
+<div id="fcip-mockup" lang="id">
+  <style>
+    #fcip-mockup {
+      color-scheme: light dark;
+      --fc-bg: light-dark(#f4f6f8, #101722);
+      --fc-panel: light-dark(#ffffff, #182231);
+      --fc-ink: light-dark(#17283d, #edf2f9);
+      --fc-muted: light-dark(#526379, #acbbcd);
+      --fc-line: light-dark(#dbe3ec, #354359);
+      --fc-blue: light-dark(#245bb8, #94bbff);
+      --fc-button: light-dark(#245bb8, #91b8ff);
+      --fc-button-ink: light-dark(#ffffff, #102340);
+      --fc-soft: light-dark(#eaf1fe, #243751);
+      --fc-green: light-dark(#136c58, #8ed9bb);
+      --fc-green-soft: light-dark(#edf8f3, #18362e);
+      --fc-amber: light-dark(#8c560d, #ffd091);
+      --fc-amber-soft: light-dark(#fff5e6, #3b2c19);
+      --fc-red: light-dark(#a6333b, #ffb6ba);
+      --fc-red-soft: light-dark(#fff0f1, #3f242c);
+      font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--fc-ink); background: var(--fc-bg); width: 100%;
+    }
+    #fcip-mockup * { box-sizing: border-box; }
+    #fcip-mockup [hidden] { display: none !important; }
+    #fcip-mockup button, #fcip-mockup select, #fcip-mockup textarea { font: inherit; }
+    #fcip-mockup button { min-height: 38px; }
+    #fcip-mockup button:disabled { opacity: .5; cursor: not-allowed; }
+    #fcip-mockup button:focus-visible, #fcip-mockup select:focus-visible, #fcip-mockup textarea:focus-visible {
+      outline: 3px solid var(--fc-blue); outline-offset: 3px;
+    }
+    #fcip-mockup .fc-shell { display: grid; grid-template-columns: 190px minmax(0, 1fr); }
+    #fcip-mockup .fc-sidebar { background: var(--fc-panel); border-right: 1px solid var(--fc-line); padding: 26px 16px; }
+    #fcip-mockup .fc-brand { display: flex; align-items: center; gap: 10px; margin-bottom: 30px; }
+    #fcip-mockup .fc-monogram { background: var(--fc-blue); color: var(--fc-button-ink); padding: 9px; border-radius: 10px; font-weight: 500; }
+    #fcip-mockup .fc-brand strong { display: block; font-size: 19px; font-weight: 500; letter-spacing: .03em; }
+    #fcip-mockup .fc-small { font-size: 12px; color: var(--fc-muted); }
+    #fcip-mockup .fc-nav-label { font-size: 11px; letter-spacing: .1em; color: var(--fc-muted); margin: 22px 8px 10px; }
+    #fcip-mockup .fc-sidebar nav { display: grid; gap: 6px; }
+    #fcip-mockup .fc-nav { background: transparent; color: var(--fc-muted); border: 0; border-radius: 7px; padding: 10px; text-align: left; display: flex; align-items: center; gap: 10px; }
+    #fcip-mockup .fc-nav[aria-current="page"] { background: var(--fc-soft); color: var(--fc-blue); font-weight: 500; }
+    #fcip-mockup .fc-nav i { display: inline-block; width: 17px; height: 17px; flex-shrink: 0; font-style: normal; text-align: center; }
+    #fcip-mockup .fc-side-foot { margin: 38px 8px 0; padding-top: 15px; border-top: 1px solid var(--fc-line); }
+    #fcip-mockup .fc-side-foot strong { color: var(--fc-green); display: block; font-weight: 500; }
+    #fcip-mockup .fc-main { min-width: 0; }
+    #fcip-mockup .fc-top { background: var(--fc-panel); border-bottom: 1px solid var(--fc-line); padding: 16px 22px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+    #fcip-mockup .fc-top-title { font-weight: 500; }
+    #fcip-mockup .fc-role { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+    #fcip-mockup select { background: var(--fc-panel); color: var(--fc-ink); border: 1px solid var(--fc-line); border-radius: 6px; padding: 8px; max-width: 100%; }
+    #fcip-mockup .fc-content { padding: 22px; }
+    #fcip-mockup .fc-banner { background: var(--fc-amber-soft); color: var(--fc-amber); border-radius: 7px; padding: 10px 13px; font-size: 12px; margin-bottom: 12px; }
+    #fcip-mockup .fc-signal-notice { border-left: 3px solid var(--fc-blue); padding: 3px 12px; color: var(--fc-muted); font-size: 12px; margin: 0 0 24px; }
+    #fcip-mockup h1 { font-size: 25px; line-height: 1.25; font-weight: 500; margin: 0 0 7px; }
+    #fcip-mockup h2 { font-size: 16px; font-weight: 500; margin: 0 0 12px; }
+    #fcip-mockup h3 { font-size: 14px; font-weight: 500; margin: 0 0 8px; }
+    #fcip-mockup p { margin: 0 0 12px; }
+    #fcip-mockup .fc-title-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 22px; }
+    #fcip-mockup .fc-subtitle { color: var(--fc-muted); margin: 0; }
+    #fcip-mockup .fc-card { background: var(--fc-panel); border: 1px solid var(--fc-line); border-radius: 10px; padding: 20px; min-width: 0; }
+    #fcip-mockup .fc-grid { display: grid; grid-template-columns: 1.5fr 1fr; gap: 16px; }
+    #fcip-mockup .fc-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+    #fcip-mockup .fc-button { background: var(--fc-panel); color: var(--fc-ink); border: 1px solid var(--fc-line); border-radius: 6px; padding: 8px 14px; font-weight: 500; }
+    #fcip-mockup .fc-button-primary { background: var(--fc-button); color: var(--fc-button-ink); border-color: transparent; }
+    #fcip-mockup .fc-button-quiet { color: var(--fc-blue); background: transparent; border: 0; padding: 7px 0; }
+    #fcip-mockup .fc-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+    #fcip-mockup .fc-drop { border: 1px dashed var(--fc-blue); background: var(--fc-soft); border-radius: 9px; padding: 34px 20px; text-align: center; margin: 14px 0; }
+    #fcip-mockup .fc-drop i { display: block; width: 32px; height: 32px; margin: 0 auto 14px; color: var(--fc-blue); font-style: normal; font-size: 26px; }
+    #fcip-mockup .fc-drop strong { display: block; font-size: 16px; font-weight: 500; margin-bottom: 7px; }
+    #fcip-mockup .fc-drop .fc-actions { justify-content: center; margin-top: 18px; }
+    #fcip-mockup .fc-chip { display: inline-flex; align-items: center; gap: 5px; background: var(--fc-soft); color: var(--fc-blue); border-radius: 5px; padding: 3px 7px; font-size: 11px; white-space: nowrap; }
+    #fcip-mockup .fc-chip-green { background: var(--fc-green-soft); color: var(--fc-green); }
+    #fcip-mockup .fc-chip-amber { background: var(--fc-amber-soft); color: var(--fc-amber); }
+    #fcip-mockup .fc-model { padding: 13px 0; border-bottom: 1px solid var(--fc-line); }
+    #fcip-mockup .fc-model:last-of-type { border: 0; }
+    #fcip-mockup .fc-model-heading { display: flex; justify-content: space-between; gap: 8px; align-items: center; margin-bottom: 5px; }
+    #fcip-mockup .fc-line-item { display: flex; justify-content: space-between; gap: 15px; margin: 9px 0; }
+    #fcip-mockup .fc-progress { background: var(--fc-bg); height: 6px; border-radius: 5px; overflow: hidden; margin: 14px 0; }
+    #fcip-mockup .fc-progress div { height: 100%; background: var(--fc-blue); transition: width .2s; }
+    #fcip-mockup .fc-steps { list-style: none; padding: 0; margin: 0; display: grid; gap: 7px; color: var(--fc-muted); }
+    #fcip-mockup .fc-steps li[data-done="true"] { color: var(--fc-green); }
+    #fcip-mockup .fc-error { padding: 12px; background: var(--fc-red-soft); color: var(--fc-red); border-radius: 6px; margin-top: 14px; }
+    #fcip-mockup .fc-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+    #fcip-mockup .fc-stat { padding: 16px; }
+    #fcip-mockup .fc-stat-value { font-size: 25px; font-weight: 500; font-variant-numeric: tabular-nums; margin: 6px 0 2px; }
+    #fcip-mockup .fc-legend { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 14px; }
+    #fcip-mockup .fc-legend span { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--fc-muted); }
+    #fcip-mockup .fc-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--fc-blue); }
+    #fcip-mockup .fc-bars { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 9px; height: 155px; margin-top: 20px; }
+    #fcip-mockup .fc-bar-col { display: flex; flex-direction: column; justify-content: flex-end; text-align: center; gap: 5px; font-size: 11px; color: var(--fc-muted); }
+    #fcip-mockup .fc-bar { width: 100%; background: var(--fc-blue); border-radius: 4px 4px 0 0; min-height: 5px; opacity: .8; }
+    #fcip-mockup .fc-hist { display: grid; gap: 8px; margin-top: 17px; }
+    #fcip-mockup .fc-hist-row { display: grid; grid-template-columns: 65px 1fr 25px; gap: 9px; align-items: center; font-size: 11px; color: var(--fc-muted); }
+    #fcip-mockup .fc-hist-track { height: 13px; background: var(--fc-bg); border-radius: 3px; overflow: hidden; }
+    #fcip-mockup .fc-hist-fill { height: 100%; background: var(--fc-green); }
+    #fcip-mockup .fc-domain { padding: 12px 0; display: flex; gap: 12px; align-items: center; border-bottom: 1px solid var(--fc-line); }
+    #fcip-mockup .fc-domain:last-child { border: 0; }
+    #fcip-mockup .fc-domain strong { font-weight: 500; flex: 1; }
+    #fcip-mockup .fc-filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin: 16px 0; }
+    #fcip-mockup .fc-filters label { display: grid; gap: 5px; font-size: 12px; color: var(--fc-muted); }
+    #fcip-mockup .fc-table-wrap { overflow-x: auto; }
+    #fcip-mockup table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    #fcip-mockup th { font-weight: 500; color: var(--fc-muted); text-align: left; padding: 10px 8px; background: var(--fc-bg); }
+    #fcip-mockup td { padding: 14px 8px; border-bottom: 1px solid var(--fc-line); vertical-align: top; }
+    #fcip-mockup td small { color: var(--fc-muted); display: block; font-size: 11px; margin-top: 4px; }
+    #fcip-mockup .fc-score { color: var(--fc-blue); font-variant-numeric: tabular-nums; font-weight: 500; }
+    #fcip-mockup .fc-empty { padding: 28px 0; text-align: center; color: var(--fc-muted); }
+    #fcip-mockup .fc-back { margin-bottom: 16px; }
+    #fcip-mockup .fc-detail-banner { background: var(--fc-soft); padding: 13px; border-radius: 7px; margin-bottom: 16px; }
+    #fcip-mockup .fc-factor { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--fc-line); }
+    #fcip-mockup .fc-factor span { color: var(--fc-muted); }
+    #fcip-mockup .fc-factor strong { font-weight: 500; font-variant-numeric: tabular-nums; }
+    #fcip-mockup textarea { width: 100%; border: 1px solid var(--fc-line); border-radius: 7px; background: var(--fc-panel); color: var(--fc-ink); padding: 10px; resize: vertical; min-height: 94px; margin: 8px 0; }
+    #fcip-mockup .fc-review-status { margin-top: 12px; color: var(--fc-green); }
+    #fcip-mockup .fc-timeline { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+    #fcip-mockup .fc-timeline li { border-left: 2px solid var(--fc-line); padding-left: 12px; }
+    #fcip-mockup .fc-wide { grid-column: 1 / -1; }
+    #fcip-mockup .fc-disclaimer { margin-top: 20px; font-size: 11px; color: var(--fc-muted); }
+    @media (max-width: 840px) {
+      #fcip-mockup .fc-shell { grid-template-columns: 156px minmax(0, 1fr); }
+      #fcip-mockup .fc-sidebar { padding: 22px 10px; }
+      #fcip-mockup .fc-content { padding: 18px; }
+      #fcip-mockup .fc-grid, #fcip-mockup .fc-pair { grid-template-columns: 1fr; }
+      #fcip-mockup .fc-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 570px) {
+      #fcip-mockup .fc-shell { grid-template-columns: 1fr; }
+      #fcip-mockup .fc-sidebar { border-right: 0; border-bottom: 1px solid var(--fc-line); padding: 14px; }
+      #fcip-mockup .fc-brand { margin-bottom: 12px; }
+      #fcip-mockup .fc-sidebar nav { grid-template-columns: 1fr 1fr; }
+      #fcip-mockup .fc-nav-label, #fcip-mockup .fc-side-foot { display: none; }
+      #fcip-mockup .fc-top, #fcip-mockup .fc-content { padding: 14px; }
+      #fcip-mockup .fc-role { flex-wrap: wrap; }
+      #fcip-mockup .fc-drop { padding: 24px 14px; }
+      #fcip-mockup .fc-card { padding: 15px; }
+      #fcip-mockup h1 { font-size: 22px; }
+      #fcip-mockup .fc-stat-value { font-size: 23px; }
+      #fcip-mockup .fc-factor { grid-template-columns: 1fr; gap: 4px; }
+      #fcip-mockup select, #fcip-mockup textarea { font-size: 16px; }
+    }
+    @media (pointer: coarse) { #fcip-mockup button { min-height: 44px; } }
+    @media (prefers-reduced-motion: reduce) { #fcip-mockup .fc-progress div { transition: none; } }
+  </style>
+  <div class="fc-shell">
+    <aside class="fc-sidebar">
+      <div class="fc-brand"><span class="fc-monogram">FC</span><div><strong>FCIP</strong><span class="fc-small">Nusantara Digital Payment</span></div></div>
+      <div class="fc-nav-label">MONITORING</div>
+      <nav aria-label="Navigasi utama">
+        <button type="button" class="fc-nav cursor-interaction" data-view="upload" aria-current="page"><i data-lucide="upload" aria-hidden="true"></i> Upload data</button>
+        <button type="button" class="fc-nav cursor-interaction" data-view="dashboard"><i data-lucide="layout-dashboard" aria-hidden="true"></i> Ringkasan</button>
+        <button type="button" class="fc-nav cursor-interaction" data-view="queue"><i data-lucide="list-filter" aria-hidden="true"></i> Antrean alert</button>
+        <button type="button" class="fc-nav cursor-interaction" data-view="signals"><i data-lucide="chart-no-axes-combined" aria-hidden="true"></i> Sinyal model</button>
+      </nav>
+      <div class="fc-side-foot fc-small"><strong>Keputusan oleh manusia</strong>Platform mendukung investigasi. Transaksi tidak diblokir.</div>
+    </aside>
+    <main class="fc-main">
+      <header class="fc-top">
+        <div><div class="fc-top-title">Financial Crime Intelligence</div><span class="fc-small">Pratinjau alur untuk mentor</span></div>
+        <label class="fc-role">Peran demo <select id="fc-role"><option value="DATA_OPS">Data Ops</option><option value="ANALYST">Analyst</option><option value="TRIAGE">Triage Analyst</option></select></label>
+      </header>
+      <div class="fc-content">
+        <div class="fc-banner">MOCKUP INTERAKTIF · Data sintetis · Semua skor, grafik, dan rincian investigasi adalah ilustrasi. Tidak terhubung ke aplikasi.</div>
+        <p class="fc-signal-notice">Sinyal ini merupakan observasi yang mendukung investigasi dan bukan bukti adanya perbuatan salah. This signal is an observation that supports an investigation; it is not evidence of wrongdoing.</p>
+        <div id="fc-screen"></div>
+        <p class="fc-disclaimer">Synthetic data only: these models were trained and evaluated on generated data; scores are not production detection performance (TRD §10.6, FRD L-01).</p>
+      </div>
+    </main>
+  </div>
+  <script>
+    (() => {
+      const root = document.getElementById('fcip-mockup');
+      const screen = root.querySelector('#fc-screen');
+      const rolePicker = root.querySelector('#fc-role');
+      const defaults = { view: 'upload', role: 'DATA_OPS', loaded: false, domain: 'all', pattern: 'all', status: 'OPEN', selected: 'AL-DEMO-001', model: 'FRAUD', decisions: {}, cases: {} };
+      const state = { ...defaults, decisions: {}, cases: {} };
+      let revision = 0;
+      let lastSnapshot = null;
+      let processing = false;
+      let progressStep = 0;
+      let packageError = false;
+      const alerts = [
+        { id: 'AL-DEMO-001', customer: 'CUST-DEMO-001', count: 4, total: 'Rp1.820.000.000', score: '0,98', signal: '4 transaksi pada pita Rp350–500 juta dalam 7 hari', transactions: [['24 Sep 2026', 'Rp450.000.000', 'CREDIT'], ['25 Sep 2026', 'Rp480.000.000', 'CREDIT'], ['27 Sep 2026', 'Rp420.000.000', 'CREDIT'], ['29 Sep 2026', 'Rp470.000.000', 'CREDIT']] },
+        { id: 'AL-DEMO-002', customer: 'CUST-DEMO-002', count: 3, total: 'Rp1.050.000.000', score: '0,95', signal: '3 transaksi pada batas bawah pita dalam 7 hari', transactions: [['26 Sep 2026', 'Rp350.000.000', 'CREDIT'], ['27 Sep 2026', 'Rp350.000.000', 'CREDIT'], ['29 Sep 2026', 'Rp350.000.000', 'CREDIT']] }
+      ];
+      const validViews = ['upload', 'dashboard', 'queue', 'detail', 'signals'];
+      function hydrate(saved) {
+        const s = saved && saved.privateContent;
+        if (!s || s.version !== 1) return false;
+        const incomingRevision = Number.isSafeInteger(s.revision) ? s.revision : 0;
+        // Ignore late save echoes so an earlier screen cannot overwrite a
+        // newer interaction, or re-render a reason while it is being typed.
+        if (incomingRevision < revision || (incomingRevision === revision && JSON.stringify(s) === lastSnapshot)) return false;
+        revision = incomingRevision;
+        state.view = validViews.includes(s.view) ? s.view : defaults.view;
+        state.role = ['DATA_OPS', 'ANALYST', 'TRIAGE'].includes(s.role) ? s.role : defaults.role;
+        state.loaded = s.loaded === true;
+        state.domain = ['all', 'AML', 'Fraud', 'Overlap'].includes(s.domain) ? s.domain : 'all';
+        state.pattern = ['all', 'P02'].includes(s.pattern) ? s.pattern : 'all';
+        state.status = ['all', 'OPEN', 'DISPOSED', 'ESCALATED'].includes(s.status) ? s.status : 'OPEN';
+        state.model = ['AML', 'FRAUD'].includes(s.model) ? s.model : 'FRAUD';
+        state.selected = alerts.some(a => a.id === s.selected) ? s.selected : defaults.selected;
+        state.cases = {};
+        for (const a of alerts) if (s.cases && s.cases[a.id] === true) state.cases[a.id] = true;
+        state.decisions = {};
+        for (const a of alerts) if (s.decisions && ['DISPOSED', 'ESCALATED'].includes(s.decisions[a.id])) state.decisions[a.id] = s.decisions[a.id];
+        lastSnapshot = JSON.stringify(s);
+        return true;
+      }
+      function remember() {
+        if (window.openai && typeof window.openai.setWidgetState === 'function') {
+          const snapshot = { ...state, version: 1, revision: ++revision };
+          lastSnapshot = JSON.stringify(snapshot);
+          window.openai.setWidgetState({ modelContent: { mockup: 'FCIP upload to results', screen: state.view, role: state.role, model: state.model }, privateContent: snapshot }).catch(() => {});
+        }
+      }
+      function icons() {
+        if (globalThis.lucide) lucide.createIcons({ attrs: { width: 16, height: 16 } });
+        else {
+          const fallback = { upload: '↑', 'layout-dashboard': '▦', 'list-filter': '≡', 'chart-no-axes-combined': '↗', 'cloud-upload': '↑' };
+          root.querySelectorAll('i[data-lucide]').forEach(el => { el.textContent = fallback[el.dataset.lucide] || ''; });
+        }
+      }
+      function navigate(view) { state.view = view; packageError = false; render(); remember(); }
+      function alertStatus(a) { return state.decisions[a.id] || 'OPEN'; }
+      function button(text, action, primary = false, disabled = false) { return `<button type="button" class="fc-button cursor-interaction ${primary ? 'fc-button-primary' : ''}" data-action="${action}" ${disabled ? 'disabled' : ''}>${text}</button>`; }
+      function empty(title) { return `<div class="fc-title-row"><div><h1>${title}</h1><p class="fc-subtitle">Belum ada dataset dalam sesi mockup ini.</p></div></div><div class="fc-card fc-empty">Mulai dengan contoh upload dataset Small.<div class="fc-actions" style="justify-content:center;margin-top:16px">${button('Ke upload data', 'upload', true)}</div></div>`; }
+      function upload() {
+        const steps = ['Validasi manifest dan kontrak', 'Masukkan data dan pisahkan karantina', 'Jalankan rule serta model aktif', 'Hasil siap ditinjau'];
+        return `<div class="fc-title-row"><div><h1>Dari data ke hasil investigasi</h1><p class="fc-subtitle">Unggah dataset, tinjau hasil, lalu serahkan keputusan ke analis.</p></div><span class="fc-chip">Usulan alur upload</span></div>
+          <div class="fc-grid"><section class="fc-card"><h2>Upload data transaksi</h2><p class="fc-small">Usulan: paket ZIP untuk muatan awal, CSV untuk transaksi berikutnya.</p>
+          <div class="fc-drop"><i data-lucide="cloud-upload" aria-hidden="true"></i><strong>${state.loaded ? 'Dataset Small siap ditinjau' : 'Mulai dari satu area upload'}</strong><span class="fc-small">Contoh paket Small · manifest + CSV sumber · 20.916 baris</span><div class="fc-actions">${button(processing ? 'Sedang memproses contoh…' : 'Simulasikan upload Small', 'process', true, processing || state.role !== 'DATA_OPS')}</div></div>
+          ${state.role !== 'DATA_OPS' ? '<p class="fc-small">Upload tersedia untuk Data Ops. Ganti peran demo di bagian atas.</p>' : ''}
+          <p class="fc-small">Upload menilai data memakai model aktif; tidak melatih ulang model.</p>
+          ${!processing ? button('Lihat contoh paket ditolak', 'bad-package', false, state.role !== 'DATA_OPS') : ''}
+          ${packageError ? '<div class="fc-error" role="alert">Contoh penolakan: paket memuat labels.csv, yaitu jawaban evaluasi. File ground truth tidak boleh masuk jalur penilaian.</div>' : ''}
+          ${processing ? `<div class="fc-progress" role="progressbar" aria-label="Progres simulasi" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progressStep * 25}"><div style="width:${progressStep * 25}%"></div></div><ol class="fc-steps" aria-live="polite">${steps.map((s, i) => `<li data-done="${i < progressStep}">${i < progressStep ? '✓' : '○'} ${s}</li>`).join('')}</ol>` : ''}
+          ${state.loaded && !processing ? `<div class="fc-actions" style="margin-top:14px">${button('Lihat ringkasan', 'dashboard', true)}</div>` : ''}</section>
+          <aside class="fc-card"><h2>Model yang digunakan</h2><div class="fc-model"><div class="fc-model-heading"><span>AML · v1</span><span class="fc-chip fc-chip-green">ACTIVE</span></div><span class="fc-small">Penilaian per entity per minggu</span></div><div class="fc-model"><div class="fc-model-heading"><span>Fraud · v1</span><span class="fc-chip fc-chip-green">ACTIVE</span></div><span class="fc-small">Penilaian per transaksi</span></div><div class="fc-model"><div class="fc-model-heading"><span>Alert dari skor model</span><span class="fc-chip fc-chip-amber">DRAFT</span></div><span class="fc-small">Sinyal model dapat ditinjau. Pembentukan alert masih menunggu CF-05.</span></div><h3 style="margin-top:20px">Ukuran data</h3><p class="fc-small">Batas CSV aplikasi saat ini: 50 MB. Dataset Full dimuat melalui script. Upload paket dan progres di sini adalah usulan.</p></aside></div>`;
+      }
+      function dashboard() {
+        if (!state.loaded) return empty('Ringkasan monitoring');
+        const volume = [3160, 3280, 3450, 3660, 3780, 3128];
+        const bins = [['0,18–0,35', 4], ['0,35–0,50', 8], ['0,50–0,65', 10], ['0,65–0,80', 16], ['0,80–0,90', 18], ['0,90–1,00', 20]];
+        return `<div class="fc-title-row"><div><h1>Ringkasan monitoring</h1><p class="fc-subtitle">Dataset Small · April–September 2026 · Skor dan grafik ilustratif</p></div>${button('Buka antrean alert', 'queue', true)}</div>
+          <div class="fc-stats">${[['Transaksi diproses', '20.458', 'Dari 20.916 baris sumber'], ['Baris karantina', '458', 'Perlu tinjauan kualitas data'], ['Alert rule', '2', 'P02 · Structuring'], ['Model aktif', '2', 'AML dan Fraud']].map(m => `<div class="fc-card fc-stat"><span class="fc-small">${m[0]}</span><div class="fc-stat-value">${m[1]}</div><span class="fc-small">${m[2]}</span></div>`).join('')}</div>
+          <div class="fc-pair"><section class="fc-card"><h2>Volume transaksi</h2><span class="fc-small">Transaksi valid per bulan · ilustrasi</span><div class="fc-bars" role="img" aria-label="Ilustrasi volume: April 3160, Mei 3280, Juni 3450, Juli 3660, Agustus 3780, September 3128 transaksi">${volume.map((v, i) => `<div class="fc-bar-col"><span>${v.toLocaleString('id-ID')}</span><div class="fc-bar" style="height:${v / 4000 * 112}px"></div><span>${['Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep'][i]}</span></div>`).join('')}</div></section>
+          <section class="fc-card"><h2>Distribusi skor model Fraud</h2><span class="fc-small">76 transaksi bersinyal tersimpan · ilustrasi</span><div class="fc-hist" role="img" aria-label="Ilustrasi distribusi 76 skor transaksi tersimpan, bukan seluruh populasi">${bins.map(([label, v]) => `<div class="fc-hist-row"><span>${label}</span><div class="fc-hist-track"><div class="fc-hist-fill" style="width:${v / 20 * 100}%"></div></div><span>${v}</span></div>`).join('')}</div><p class="fc-small" style="margin-top:12px">Distribusi sinyal tersimpan, bukan distribusi semua transaksi.</p></section></div>
+          <div class="fc-pair"><section class="fc-card"><h2>Alert rule menurut domain</h2><div class="fc-domain"><span class="fc-dot"></span><strong>AML</strong><span>2 · P02</span></div><div class="fc-domain"><strong>Fraud</strong><span>0</span></div><div class="fc-domain"><strong>Overlap</strong><span>0</span></div><p class="fc-small" style="margin-top:12px">Saat ini hanya rule P02 aktif. Sinyal model tidak dihitung sebagai alert.</p></section>
+          <section class="fc-card"><h2>Sinyal model untuk ditinjau</h2><div class="fc-line-item"><span>Model AML</span><span class="fc-score">58 entity-week</span></div><div class="fc-line-item"><span>Model Fraud</span><span class="fc-score">76 transaksi</span></div><p class="fc-small">Angka ilustratif; kedua model memiliki unit penilaian berbeda. Tidak dijumlahkan.</p>${button('Tinjau sinyal model', 'signals')}</section></div>`;
+      }
+      function queue() {
+        if (!state.loaded) return empty('Antrean alert');
+        const rows = alerts.filter(a => (state.domain === 'all' || state.domain === 'AML') && (state.pattern === 'all' || state.pattern === 'P02') && (state.status === 'all' || state.status === alertStatus(a)));
+        return `<div class="fc-title-row"><div><h1>Antrean alert</h1><p class="fc-subtitle">Rule menghasilkan alert; skor model menjadi sinyal pendukung.</p></div><span class="fc-chip">${rows.length} alert dalam filter</span></div><div class="fc-card"><div class="fc-filters"><label>Domain <select id="fc-domain"><option value="all">Semua domain</option><option>AML</option><option>Fraud</option><option>Overlap</option></select></label><label>Pattern <select id="fc-pattern"><option value="all">Semua pattern aktif</option><option>P02</option></select></label><label>Status <select id="fc-status"><option value="OPEN">Open</option><option value="ESCALATED">Escalated</option><option value="DISPOSED">Disposed</option><option value="all">Semua status</option></select></label></div>
+          ${rows.length ? `<div class="fc-table-wrap"><table><thead><tr><th>Entity / alert</th><th>Pattern / domain</th><th>Tingkat keparahan</th><th>Skor model</th><th>Indikator utama</th><th>Tinjauan</th></tr></thead><tbody>${rows.map(a => `<tr><td>${a.customer}<small>${a.id}</small></td><td>P02<small>AML · Rule</small></td><td><span class="fc-chip fc-chip-amber">HIGH</span><small>${alertStatus(a)}</small></td><td class="fc-score">${a.score}<small>AML v1 · ilustrasi</small></td><td>${a.signal}</td><td>${button('Investigasi', `detail:${a.id}`)}</td></tr>`).join('')}</tbody></table></div>` : '<div class="fc-empty">Tidak ada alert rule sesuai filter ini. Model-only flags tetap berada di Sinyal model.</div>'}
+          <p class="fc-small" style="margin-top:15px">ML_SCORE masih DRAFT. Tidak ada alert yang dibuat hanya dari skor model.</p></div>`;
+      }
+      function detail() {
+        if (!state.loaded) return empty('Detail alert');
+        const a = alerts.find(a => a.id === state.selected);
+        const status = alertStatus(a);
+        const canDecide = state.role === 'TRIAGE' && status === 'OPEN';
+        return `<div class="fc-back">${button('← Kembali ke antrean', 'queue')}</div><div class="fc-title-row"><div><h1>${a.id}</h1><p class="fc-subtitle">${a.customer} · P02 Structuring · AML</p></div><div class="fc-actions"><span class="fc-chip fc-chip-amber">HIGH</span><span class="fc-chip">${status}</span></div></div>
+          <div class="fc-detail-banner">${a.signal}. Skor model <strong>${a.score}</strong> adalah faktor pendukung, bukan kesimpulan.</div><div class="fc-grid"><section class="fc-card"><h2>Mengapa rule menandai?</h2><span class="fc-small">RUL-0001 · v1 · RC-STRUCT-01</span><div class="fc-factor"><span>Transaksi dalam pita, 7 hari</span><strong>${a.count} transaksi · minimal 3</strong></div><div class="fc-factor"><span>Jumlah dalam pita · ambang ≥Rp500 juta</span><strong>${a.total}</strong></div><div class="fc-factor"><span>Pita nominal P02</span><strong>Rp350 juta ≤ nilai &lt; Rp500 juta</strong></div><div class="fc-factor"><span>Model pendukung</span><strong>AML v1 · ${a.score} (ilustrasi)</strong></div><h3 style="margin-top:20px">Kontribusi fitur model</h3><p class="fc-small">Contoh nama fitur teratas; bukan diagnosis pattern dari model.</p><div class="fc-line-item"><span>Nilai maksimum dalam 7 hari</span><span class="fc-score">+4,2</span></div><div class="fc-line-item"><span>Akumulasi nilai dalam 7 hari</span><span class="fc-score">+2,1</span></div><p class="fc-small">Kontribusi ilustratif pada skala log-odds, bukan persentase.</p></section>
+          <section class="fc-card"><h2>Keputusan triage</h2><p class="fc-small">Keputusan wajib dibuat oleh manusia dengan alasan minimal 20 karakter.</p>${canDecide ? '<label for="fc-reason">Alasan keputusan</label><textarea id="fc-reason" placeholder="Tuliskan hasil tinjauan dan alasan keputusan…"></textarea><p id="fc-reason-count" class="fc-small" aria-live="polite">0 / minimal 20 karakter</p><div class="fc-actions">' + button('False positive', 'dispose', false, true) + button('Eskalasi ke investigasi', 'escalate', true, true) + '</div>' : `<p>${state.role !== 'TRIAGE' ? 'Ganti peran demo ke Triage Analyst untuk mencoba keputusan.' : 'Alert ini sudah memiliki keputusan.'}</p>`}
+          ${status === 'ESCALATED' && state.role === 'TRIAGE' ? button(state.cases[a.id] ? 'Case demo sudah dibuka' : 'Buka case demo', 'case', true, state.cases[a.id]) : ''}<div class="fc-review-status" aria-live="polite">${status !== 'OPEN' ? 'Keputusan hanya berlaku di sesi mockup; tidak disimpan ke aplikasi.' : ''}${state.cases[a.id] ? ` CASE-DEMO-${a.id.slice(-3)} dibuka.` : ''}</div></section>
+          <section class="fc-card fc-wide"><h2>Transaksi terkait</h2><div class="fc-table-wrap"><table><thead><tr><th>Waktu (WIB)</th><th>Nominal</th><th>Arah</th><th>Konteks</th></tr></thead><tbody>${a.transactions.map(t => `<tr><td>${t[0]}</td><td>${t[1]}</td><td>${t[2]}</td><td>Contoh transaksi sintetis</td></tr>`).join('')}</tbody></table></div></section><section class="fc-card fc-wide"><h2>Jejak tinjauan</h2><ol class="fc-timeline"><li>Rule P02 menghasilkan alert demo</li><li>Model AML memberi sinyal pendukung</li>${status !== 'OPEN' ? `<li>Triage Analyst · ${status === 'DISPOSED' ? 'False positive' : 'Eskalasi'} (simulasi)</li>` : ''}${state.cases[a.id] ? `<li>CASE-DEMO-${a.id.slice(-3)} dibuka (simulasi)</li>` : ''}</ol></section></div>`;
+      }
+      function signals() {
+        if (!state.loaded) return empty('Sinyal model');
+        const aml = state.model === 'AML';
+        return `<div class="fc-title-row"><div><h1>Sinyal model</h1><p class="fc-subtitle">Unit di atas threshold model untuk mendukung tinjauan manusia.</p></div><span class="fc-chip fc-chip-amber">Pembentukan alert: DRAFT</span></div><div class="fc-card"><div class="fc-filters"><label>Model / unit <select id="fc-model"><option value="FRAUD">Fraud · transaksi</option><option value="AML">AML · entity-week</option></select></label></div><div class="fc-table-wrap"><table><thead><tr><th>Unit penilaian</th><th>Model</th><th>Skor / threshold</th><th>Fitur pendukung</th><th>Hasil</th></tr></thead><tbody><tr><td>${aml ? 'CUST-DEMO-021 · minggu 28 Sep' : 'TXN-DEMO-0042'}<small>Contoh sintetis</small></td><td>${aml ? 'AML v1' : 'Fraud v1'}</td><td class="fc-score">${aml ? '0,91 / 0,50' : '0,92 / 0,18'}<small>Skor ilustratif</small></td><td>${aml ? '6 entity berbagi device dalam 30 hari' : 'Device pertama kali terlihat; 8 transaksi keluar dalam 24 jam'}</td><td><span class="fc-chip">Sinyal pendukung</span><small>Belum menjadi alert</small></td></tr><tr><td>${aml ? 'CUST-DEMO-035 · minggu 21 Sep' : 'TXN-DEMO-0059'}</td><td>${aml ? 'AML v1' : 'Fraud v1'}</td><td class="fc-score">${aml ? '0,83 / 0,50' : '0,71 / 0,18'}</td><td>${aml ? 'Nilai mingguan 3,1× baseline entity' : '4 penerima pertama kali terlihat dalam 24 jam'}</td><td><span class="fc-chip">Sinyal pendukung</span><small>Belum menjadi alert</small></td></tr></tbody></table></div><p class="fc-small" style="margin-top:16px">Nama model dan unit penilaiannya tidak menetapkan domain bisnis atau pattern P01–P12. Model memberi skor, bukan kesimpulan perbuatan salah.</p></div>`;
+      }
+      function render() {
+        rolePicker.value = state.role;
+        root.querySelectorAll('[data-view]').forEach(el => {
+          const active = el.dataset.view === (state.view === 'detail' ? 'queue' : state.view);
+          if (active) el.setAttribute('aria-current', 'page'); else el.removeAttribute('aria-current');
+        });
+        screen.innerHTML = ({ upload, dashboard, queue, detail, signals }[state.view])();
+        for (const [id, value] of [['fc-domain', state.domain], ['fc-pattern', state.pattern], ['fc-status', state.status], ['fc-model', state.model]]) { const select = screen.querySelector('#' + id); if (select) select.value = value; }
+        icons();
+      }
+      function processExample() {
+        if (processing || state.role !== 'DATA_OPS') return;
+        processing = true; progressStep = 0; packageError = false; state.view = 'upload'; render();
+        const next = () => {
+          progressStep++;
+          if (progressStep === 4) { processing = false; state.loaded = true; state.view = 'dashboard'; render(); remember(); return; }
+          render(); setTimeout(next, 400);
+        };
+        setTimeout(next, 400);
+      }
+      root.addEventListener('click', event => {
+        const nav = event.target.closest('[data-view]');
+        if (nav && !processing) { navigate(nav.dataset.view); return; }
+        const target = event.target.closest('[data-action]');
+        if (!target || target.disabled) return;
+        const action = target.dataset.action;
+        if (validViews.includes(action)) navigate(action);
+        else if (action === 'process') processExample();
+        else if (action === 'bad-package') { packageError = true; render(); }
+        else if (action.startsWith('detail:')) { state.selected = action.slice(7); navigate('detail'); }
+        else if (action === 'dispose' || action === 'escalate') {
+          const reason = root.querySelector('#fc-reason');
+          if (state.role !== 'TRIAGE' || alertStatus(alerts.find(a => a.id === state.selected)) !== 'OPEN' || !reason || reason.value.trim().length < 20) return;
+          state.decisions[state.selected] = action === 'dispose' ? 'DISPOSED' : 'ESCALATED'; render(); remember();
+        } else if (action === 'case' && state.role === 'TRIAGE' && state.decisions[state.selected] === 'ESCALATED') { state.cases[state.selected] = true; render(); remember(); }
+      });
+      root.addEventListener('change', event => {
+        const keys = { 'fc-role': 'role', 'fc-domain': 'domain', 'fc-pattern': 'pattern', 'fc-status': 'status', 'fc-model': 'model' };
+        if (keys[event.target.id]) { state[keys[event.target.id]] = event.target.value; render(); remember(); }
+      });
+      root.addEventListener('input', event => {
+        if (event.target.id !== 'fc-reason') return;
+        const length = event.target.value.trim().length;
+        root.querySelector('#fc-reason-count').textContent = `${length} / minimal 20 karakter`;
+        for (const action of ['dispose', 'escalate']) root.querySelector(`[data-action="${action}"]`).disabled = length < 20;
+      });
+      if (window.openai) hydrate(window.openai.widgetState);
+      window.addEventListener('openai:set_globals', event => { if (!processing && event.detail && event.detail.globals && event.detail.globals.widgetState && hydrate(event.detail.globals.widgetState)) render(); });
+      render();
+      if (globalThis.Tweak) {
+        const design = { density: 'Nyaman' };
+        const tweak = new Tweak({ container: root, onChange: () => { root.style.setProperty('--fc-density', design.density); root.querySelector('.fc-content').style.padding = design.density === 'Ringkas' ? '14px' : ''; } });
+        tweak.addSelect(design, 'density', { label: 'Kepadatan tampilan', options: ['Nyaman', 'Ringkas'] });
+      }
+    })();
+  </script>
+</div>
+
+</body>
+</html>

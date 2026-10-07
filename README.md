@@ -30,6 +30,10 @@ docker compose up --build
 The backend container runs `alembic upgrade head` before starting the API,
 so the schema is always up to date on boot.
 
+For the fresh Full dataset and manual browser upload demo (7 October), see
+[the demo guide](docs/DEMO_FRESH_DATA.md): prepared CSV parts, role logins,
+the clean demo database, detection/triage steps, and rollback.
+
 ## Running backend tests
 
 ```bash

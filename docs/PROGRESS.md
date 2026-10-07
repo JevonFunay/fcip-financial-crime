@@ -1,6 +1,6 @@
 # FCIP — Progress Status
 
-**As of 6 October 2026 · Week 5 of 16 · ~17% of MVP scope** (percentage last recounted 29 Sep; table and endpoint counts updated 6 Oct)
+**As of 7 October 2026 · Week 5 of 16 · ~17% of MVP scope** (percentage last recounted 29 Sep; table and endpoint counts updated 6 Oct; mockup adds no implemented FR)
 
 Supersedes any earlier progress figure. Scope definitions, architecture and open
 questions are unchanged — see `PROJECT_CONTEXT.md`.
@@ -20,7 +20,10 @@ questions are unchanged — see `PROJECT_CONTEXT.md`.
 | NFRs proven by measurement | 3 of 18 | 17% |
 | TRD components | ~6 full + ~5 partial of 30 | ~25% |
 
-**406 backend tests pass** (5 more marked `slow`, all passing). Frontend typechecks and builds.
+**411 regular backend tests pass** (410 in Docker plus its documentation check
+on the host). The 5 slow tests passed on the unchanged baseline earlier in
+this session. Frontend typecheck/build passed on that baseline; production
+login and empty-demo role controls were also verified in the browser.
 
 Pure FR counting gives ~10%; ~17% weights the foundation work already done.
 Neither document assigns effort weights, so the percentage is an estimate — the
@@ -52,6 +55,115 @@ Partial: FR-306, FR-309, FR-310, FR-1103, FR-808, FR-612.
 ---
 
 ## Built since the last progress report
+
+### 7 October — clean demo and fresh Full files for manual upload
+
+Jevon requested zero operational data and newly generated hundreds of
+thousands of rows using the existing tested template. The app now uses the
+separate `fcip_demo_s20261007` database; original `fcip` remains intact and
+has a private dump/config backup. Transactions, quarantine, batches, alerts,
+cases and ML scores start at zero. Master data is ready: 11,200 customers,
+13,455 accounts, 1,500 merchants and 11,932 devices. Existing users/passwords
+were preserved, and both trained models registered with unchanged thresholds
+and the already documented approval bypass. P02 ACTIVE; `ML_SCORE` DRAFT.
+
+Fresh Full seed 20261007 was generated on 7 October, after model fit, with
+unchanged generator 1.4.0 and reference date 2026-09-30: **421,746 rows**.
+`app.scripts.prepare_upload_csv` reuses the manifest check and bridge
+projection, preserving row order, defects and duplicates. It publishes two
+verified CSV parts (313,720 / 108,026 rows), each below the existing 50 MiB
+upload cap, plus a provenance/count/hash manifest. Ground truth is excluded.
+Upload both parts before detection: existing scores are immutable.
+
+**Verification:** on a separate database, both actual upload endpoints
+completed: 412,364 accepted, 9,382 quarantined (3,190 invalid, 4,182 duplicate,
+2,010 unknown-account rows). Every accepted transaction and all master
+attributes matched the offline dataset. Detection raised 58 P02 alerts;
+AML scored 147,931 entity-weeks / flagged 1,933, Fraud scored 412,364
+transactions / flagged 4,346. Triage false-positive/escalate passed;
+Data Ops disposition was denied (403). The full technical check took
+113.56 seconds, without populating the live demo. All four actual logins
+and browser checks passed. Five new adapter tests cover byte boundaries,
+Unicode/quoted newlines, cross-part duplicates, defects, safe refusal and
+complete Small ingestion parity; 411 regular tests pass. Existing dependency
+warnings remain. Practical steps and rollback: `docs/DEMO_FRESH_DATA.md`.
+
+**Post-fit quality evaluation:** the unchanged models were evaluated against
+the fresh seed's offline labels, without `--train` or threshold tuning.
+Owned scenario recall: AML 517/517 (100%), Fraud 153/155 (98.71%; P05 misses
+2/40). Unit precision/recall: AML 98.50%/98.42%, Fraud 98.79%/98.44%.
+Both fresh control cohorts have 0/830 entities flagged; look-alike errors
+remain, and AML flags 396/401 excluded P11 sender participants. All ten
+model/reference checksums stayed unchanged. Offline flags exactly match the
+upload run. Same-generator synthetic testing does not establish real-world
+performance or erase the older holdout's errors. Report:
+`docs/ml/evaluation_manual_s20261007.md`.
+
+**Decisions taken independently:** use a separate reversible demo database;
+preserve master data and existing logins; use a new seed with the same Full
+preset; split by complete CSV records under the current cap; verify on an
+isolated database. No generator, shared Tiny/Small, threshold or CF-05 change.
+Jevon receives the exact commit commands and executes commit/push himself.
+
+**Capstone summary (Indonesian, ready to paste):**
+Pada 7 Oktober 2026, dataset sintetis baru berisi 421.746 transaksi dibuat
+setelah training menggunakan generator 1.4.0 dan format yang telah diuji.
+Database demo dipisahkan agar pengujian manual dimulai dari nol tanpa
+menghapus data lama. Dua CSV siap unggah diverifikasi melalui endpoint:
+412.364 transaksi diterima, 9.382 dikarantina, dan input fitur sama dengan
+loader offline. Deteksi menghasilkan 58 alert P02 serta 1.933 sinyal
+entity-week AML dan 4.346 sinyal transaksi Fraud. Keputusan alert tetap oleh
+Triage; sinyal model belum menjadi alert sendiri selama CF-05 belum disetujui.
+Evaluasi label baru menghasilkan recall skenario AML 100% dan Fraud 98,71%
+pada threshold tetap, dengan kesalahan pada look-alike dan dua skenario P05.
+411 tes reguler lulus; hasil sintetis bukan bukti kinerja pada transaksi nyata.
+
+### 7 October — upload-to-results mockup for mentor review
+
+Jevon approved the mockup stage. `docs/mockups/fcip-upload-results.html`
+contains the interactive design; `fcip-upload-results-preview.html` is the
+self-contained browser preview. The journey covers simulated package upload,
+validation/scoring progress, dashboard, a rule-alert queue, model-only
+signals, alert explanation, triage decisions and case creation. Scores,
+charts and detail fixtures are labelled illustrative; the Small ingestion
+counts use the earlier measured run. See `docs/mockups/README.md` for sources
+and review steps. This is a design proposal, not production implementation.
+
+**Decisions taken independently:** keep rule alerts separate from DRAFT
+model-only signals; apply business-domain filters only to known rule patterns;
+show the distribution of stored signals rather than imply all scores were
+stored; preserve different AML/Fraud units; simulate the combined processing
+journey for review; retain role restrictions, permanent captions and human
+decisions. CF-05, model thresholds, generator and shared datasets are unchanged.
+
+**Verification:** browser interaction and responsive-layout checks passed;
+the standalone preview works offline and delayed saved-state echoes do not
+override current navigation. `docs/mockups/build_preview.py` rebuilds the
+preview from its source using only Python's standard library;
+the production baseline passed 406 regular backend tests, all 5 slow tests,
+and frontend typecheck/build before the mockup. Numerical comparator and
+dependency warnings were emitted. At mockup completion, direct browser
+verification of the production ML UI was still outstanding; the mockup check
+does not replace the later clean-demo and endpoint checks above.
+
+**ML volume rechecked against local artefacts:** training 421,282 source /
+412,015 accepted transactions; separate test holdout 421,456 / 412,160.
+Fraud fit uses 314,013 transactions; AML fit 113,340 entity-week units.
+Both datasets were generated before fit, with the test holdout evaluated
+afterwards; 20261001 is a seed, not a generation date. A requirement for a
+test dataset generated strictly after fit would need an additional run.
+No new training, evaluation or dataset generation was performed in this stage.
+
+**Capstone summary (Indonesian, ready to paste):**
+Pada 7 Oktober 2026, prototipe interaktif alur unggah data, dashboard,
+antrean alert, dan tinjauan analis disiapkan untuk pembahasan dengan mentor.
+Prototipe membedakan alert berbasis rule dari sinyal model, mempertahankan
+keputusan oleh manusia, serta memberi label data sintetis dan angka ilustratif.
+Artefak ML diverifikasi memakai 421.282 transaksi sumber untuk training dan
+421.456 transaksi untuk pengujian terpisah. Dataset pengujian dibuat sebelum
+fit tetapi baru dievaluasi setelah training; hasilnya belum membuktikan kinerja
+pada transaksi nyata. Prototipe belum menambah kebutuhan fungsional yang
+diimplementasikan. Jevon menerima perintah commit dan menjalankan commit/push.
 
 ### 6 October — ML stage 4: the models inside the app
 

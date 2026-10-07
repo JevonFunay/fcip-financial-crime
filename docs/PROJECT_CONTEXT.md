@@ -4,7 +4,8 @@
 Intelligence Platform capstone: what the project is, what the spec demands, what
 is actually built, what is deliberately not built, and what is still undecided.
 
-Last updated: **29 September 2026** · Week 4 of 16 · ~17% of MVP scope
+Last updated: **7 October 2026** · Week 5 of 16 · ~17% of MVP scope
+(scope percentage last recounted 29 September)
 
 ---
 
@@ -103,8 +104,10 @@ percentage is an estimate — the counts underneath it are not.
 | NFRs proven by measurement | 3 of 18 | 17% |
 | TRD components | ~6 full + ~5 partial of 30 | ~25% |
 
-**406 backend tests pass** (5 more marked `slow`). Frontend has no automated
-tests in the repo; it was verified with a scripted Playwright click-through.
+**411 regular backend tests pass** (410 in Docker plus one documentation
+check on the host; 5 slow tests passed on the earlier unchanged baseline).
+Frontend has no automated tests in the repo; it was verified with a scripted
+Playwright click-through, including the fresh empty-demo role controls.
 
 ### Per domain
 
@@ -355,6 +358,33 @@ No scorer flags a control-clean entity. Canary (ten shuffles): mean ROC-AUC
 0.41 (AML) and 0.43 (Fraud), every shuffle below the real model. Near-perfect
 validation on synthetic data is the warning the plan anticipated; stage 3's
 leave-one-pattern-out and ablation answer it.
+
+**Training and test volume verified 7 Oct from local artefacts.** Both use
+generator 1.4.0, Full profile; all figures below describe synthetic data.
+
+| Dataset | Generator seed | Raw transactions | Accepted transactions | AML feature rows | Fraud feature rows |
+|---|---|---|---|---|---|
+| Training | 20260923 | 421,282 | 412,015 | 149,115 | 412,015 |
+| Separate test holdout | 20261001 | 421,456 | 412,160 | 149,150 | 412,160 |
+
+After the documented label-group exclusions, the AML model fit uses 113,340
+entity-week units, with 27,920 units for internal validation; the Fraud model
+fit uses 314,013 transactions, with 76,309 for internal validation. This
+validation split belongs to the training seed; the separate test seed is not
+used to choose thresholds. Sources: each dataset's `manifest.json` and
+`features_fs_v2/build.json` under `backend/ml_data/`; each model's
+`model_card.json` under `backend/ml_models/`; `docs/ml/evaluation_v1.md`
+(test provenance and the AML/Fraud evaluation sections). CSV record counts and
+SHA-256 checksums were checked against the manifests, whose hashes match the
+build reports and model/evaluation artefacts.
+
+Both raw datasets were generated on **30 September 2026 before model fit**;
+the test holdout was evaluated in stage 3 after training. `20261001` is a
+generator seed, not the date the test dataset was generated. The volume
+exceeds 100,000 source transactions, but AML fit rows represent entity-weeks.
+Testing another output of the same synthetic generator does not establish
+performance on real transactions. Stage-3 label recall (AML 529/529; Fraud
+153/155) also differs from unit recall (98.4% and 99.3%, respectively).
 
 ### ML in the app (stage 4, 6 Oct)
 The models run inside the app. `POST /detection/run` (Overview's button, also
@@ -830,6 +860,13 @@ training (two models, **done 30 Sep**) · 3 evaluation per domain (**done 30 Sep
 the app, CF-05 (a) live and (b) built but DRAFT; still open: FR-405's approval flow, live mode,
 package upload).
 
+**Current authorised work (Jevon, 7 Oct):** prepare an upload → dashboard →
+results mockup for mentor review, as described in §13. This approval covers
+the mockup, not production implementation or activation of CF-05 (b). Jevon
+then authorised a separate clean demo database and a fresh Full dataset for
+manual upload through the existing website; its prepared state is recorded
+in §13 and `docs/DEMO_FRESH_DATA.md`.
+
 **Done in stage 4 (6 Oct):** the app's `transaction` table did not carry
 `device_id`, `counterparty_country`, `transaction_type` or `merchant_id` (the
 bridge dropped them), and the Fraud side cannot score without the device. The
@@ -880,6 +917,11 @@ exists, so resuming needs no migration. Decisions waiting for when it resumes:
 - Reference the FRD/TRD **by section number**. If a number isn't verified from the PDF, say so explicitly rather than defaulting silently — this has burned the project before
 - Staged review gates: each build stage is confirmed before the next begins
 - **Never `git push`** — commits are local; Jevon pushes to GitHub himself
+- **Completion reporting (Jevon, 7 Oct):** always provide the precise
+  `git add` and `git commit` commands for the completed changes. For this
+  session, including the mockup and fresh demo preparation, leave commit
+  execution to Jevon; Codex does not execute the commit. Jevon continues to
+  handle every push.
 - A requirement without a test is not done (FRD §6 convention)
 - Close each working session with a paste-ready Indonesian summary for the capstone report
 
@@ -888,7 +930,74 @@ exists, so resuming needs no migration. Decisions waiting for when it resumes:
 ## 13. Konsep produk — product concept (target for ML stage 4, not built)
 
 Recorded 30 Sep from the team and the mentor. It is the reference for the ML
-pipeline's integration stage. **Nothing in this section is built yet.**
+pipeline's integration stage. The complete upload-to-results journey remains
+a target; the initial scoring and explanation surfaces are built (§5).
+
+### Mentor-review mockup (approved 7 Oct)
+
+Jevon approved creating a mockup of upload → dashboard → results to show the
+mentor. It presents the proposed flow and uses clearly labelled synthetic
+illustrative data. Approval does not authorise production package ingestion,
+automatic detection, live monitoring, model or threshold changes, or
+activation of `ML_SCORE`; CF-05 remains open and the rule remains DRAFT.
+Any real measured pipeline figures used in the mockup must identify their
+source and preserve the distinction between transactions, entity-weeks and
+scenario labels. The production work following mentor review still needs its
+own stage selection under the working conventions.
+
+### Fresh manual-upload demo (authorised 7 Oct)
+
+Jevon approved zero operational data in the app and a newly generated Full
+dataset for manual website upload. A separate database `fcip_demo_s20261007`
+preserves the original `fcip` database; a private database/config backup is
+under the gitignored `backend/local_backups/` directory. The four existing
+users were copied with unchanged UUIDs and password hashes. Before upload,
+transactions, quarantine, batches, alerts, cases and ML scores are zero;
+master data is ready (11,200 customers, 13,455 accounts, 1,500 merchants,
+11,932 devices). The existing trained models are registered ACTIVE with the
+documented approval bypass, unchanged artefacts and thresholds, and no
+retraining. P02 remains ACTIVE; `ML_SCORE` remains DRAFT pending CF-05.
+
+The new dataset was generated **7 October, after model fit**, using unchanged
+generator 1.4.0, Full profile, seed 20261007 and the preset reference date
+2026-09-30: 421,746 raw transactions. This is separate from the original
+training/test datasets generated on 30 September (§5). The upload adapter
+`app.scripts.prepare_upload_csv` verifies the raw manifest and uses the
+existing bridge projection, publishing two ordered CSV parts under
+`backend/sample_data/raw/manual_full_s20261007_web/`: 313,720 and 108,026
+rows, both below the existing 50 MiB limit, with matching projection/reassembly
+SHA-256. All parts must be uploaded before detection because stored scores
+are immutable. Ground truth is excluded. The current website accepts CSV,
+not a ZIP package; model flags remain read-only for triage while CF-05 is open.
+The prepared-state figures are not ingestion or detection results. Practical
+steps, provenance, role logins and rollback: `docs/DEMO_FRESH_DATA.md`.
+
+**Verification on a separate database (7 Oct):** both prepared files passed
+the actual upload endpoints in 113.56 seconds for the full verification flow.
+Part 1 accepted 306,718 / quarantined 7,002; part 2 accepted 105,646 /
+quarantined 2,380, both COMPLETED. Total: 412,364 accepted, 9,382 quarantined
+(3,190 invalid, 4,182 duplicate, 2,010 unknown-account rows), exactly matching
+the offline loader. All accepted transactions and master attributes matched
+the offline dataset. Detection produced 58 P02 alerts; AML scored 147,931
+entity-weeks and flagged 1,933 (2,684 scores stored, including rule-alert
+support); Fraud scored 412,364 transactions and flagged/stored 4,346. No
+model alert was raised with `ML_SCORE` DRAFT. Data Ops disposition was denied
+(403); Triage false-positive/escalate succeeded. All four live login requests
+passed; the live Overview remained at zero operational records, and browser
+checks of Data Ops/Triage controls passed without page errors. These are
+isolated technical verification results; the live demo is still ready for
+Jevon's upload.
+
+**Fresh post-fit evaluation:** the original models were also evaluated on
+this seed's offline labels, without retraining or threshold changes. Owned
+scenario recall is AML 517/517 (100%) and Fraud 153/155 (98.71%; two P05
+misses); unit precision/recall is 98.50%/98.42% and 98.79%/98.44%. Both clean
+control cohorts have 0/830 flagged entities on this seed, but look-alike
+errors remain and AML flags 396/401 excluded P11 sender participants. All
+ten model/reference checksums were preserved, and offline flags equal the
+application run. Same-generator synthetic testing does not establish
+real-world performance or replace the original holdout/robustness findings.
+See `docs/ml/evaluation_manual_s20261007.md` for provenance and limitations.
 
 ### Upload mode (built first)
 
