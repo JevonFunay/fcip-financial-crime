@@ -3,6 +3,7 @@
 import csv
 import hashlib
 import io
+import math
 import re
 import uuid
 from collections.abc import Callable
@@ -43,7 +44,11 @@ REQUIRED_COLUMNS = (
 # The rest of TRD §6.1's transaction contract that detection reads (migration
 # 0007). Optional: a file without them still loads.
 CONTEXT_COLUMNS = ("transaction_type", "counterparty_country", "merchant_ref", "device_ref", "source_status")
-OPTIONAL_COLUMNS = ("counterparty_ref", "description", *CONTEXT_COLUMNS)
+BEHAVIORAL_COLUMNS = (
+    "location", "ip_address", "login_attempts", "transaction_duration", "account_balance",
+    "customer_age", "customer_occupation", "timestamp_precision", "source_timezone_known",
+)
+OPTIONAL_COLUMNS = ("counterparty_ref", "description", *CONTEXT_COLUMNS, *BEHAVIORAL_COLUMNS)
 
 QUARANTINE_PREVIEW_LIMIT = 20
 LOOKUP_CHUNK_SIZE = 1000
@@ -84,6 +89,33 @@ class ParsedTransaction:
     merchant_ref: str | None = None
     device_ref: str | None = None
     source_status: str | None = None
+    location: str | None = None
+    ip_address: str | None = None
+    login_attempts: int | None = None
+    transaction_duration: float | None = None
+    account_balance: float | None = None
+    customer_age: float | None = None
+    customer_occupation: str | None = None
+    timestamp_precision: str | None = None
+    source_timezone_known: bool | None = None
+
+
+def _from_canonical(row: dict[str, Any]) -> ParsedTransaction:
+    """An already validated canonical observation, shared with offline fit."""
+    def nullable(name: str) -> Any:
+        value = row.get(name)
+        return None if value is None or (isinstance(value, float) and math.isnan(value)) else value
+
+    timestamp = row["transaction_date"]
+    return ParsedTransaction(
+        transaction_ref=row["transaction_ref"], account_number=row["account_number"],
+        transaction_date=timestamp.to_pydatetime() if hasattr(timestamp, "to_pydatetime") else timestamp,
+        amount=Decimal(str(row["amount"])), currency=row["currency"],
+        direction=TransactionDirection(row["direction"]), channel=row["channel"],
+        counterparty_ref=nullable("counterparty_ref"), description=nullable("description"),
+        **{name: (int(nullable(name)) if name == "login_attempts" and nullable(name) is not None
+                  else nullable(name)) for name in CONTEXT_COLUMNS + BEHAVIORAL_COLUMNS},
+    )
 
 
 def _parse_amount(value: str) -> Decimal:
@@ -130,6 +162,14 @@ def _parse_country(value: str) -> str:
 
 
 def parse_transaction_row(raw: dict[str, Any]) -> ParsedTransaction:
+    if any(name in raw for name in BEHAVIORAL_COLUMNS):
+        import pandas as pd
+        from app.ml.behavioral.standardize import normalize_frame
+
+        result = normalize_frame(pd.DataFrame([raw]), profile="fcip_canonical_v1")
+        if not result.quarantine.empty:
+            raise RowValidationError([result.quarantine.error_reason.iloc[0]])
+        return _from_canonical(result.frame.iloc[0].to_dict())
     values = {name: (raw.get(name) or "").strip() for name in REQUIRED_COLUMNS + OPTIONAL_COLUMNS}
     errors = [f"{name} is required" for name in REQUIRED_COLUMNS if not values[name]]
 
@@ -166,6 +206,10 @@ def parse_transaction_row(raw: dict[str, Any]) -> ParsedTransaction:
         merchant_ref=values["merchant_ref"] or None,
         device_ref=values["device_ref"] or None,
         source_status=values["source_status"].upper() or None,
+        timestamp_precision=("second" if re.search(r"\d{2}:\d{2}:\d{2}", values["transaction_date"])
+                             else "minute" if "T" in values["transaction_date"] or " " in values["transaction_date"]
+                             else "day"),
+        source_timezone_known=datetime.fromisoformat(values["transaction_date"]).tzinfo is not None,
     )
 
 
@@ -342,12 +386,40 @@ def ingest_transactions_csv(
         if not reader.fieldnames:
             raise IngestionFileError("File is empty or has no header row")
         header = [name.strip().lower() for name in reader.fieldnames]
+        if len(header) != len(set(header)):
+            raise IngestionFileError("Duplicate CSV headers are ambiguous")
         missing = [column for column in REQUIRED_COLUMNS if column not in header]
         if missing:
             raise IngestionFileError(f"Missing required column(s): {', '.join(missing)}")
         reader.fieldnames = header
 
-        for row_number, raw in enumerate(reader, start=2):
+        observations = list(enumerate(reader, start=2))
+        canonical_rows: dict[int, ParsedTransaction] | None = None
+        canonical_errors: dict[int, str] = {}
+        if any(name in header for name in BEHAVIORAL_COLUMNS):
+            import pandas as pd
+            from app.ml.behavioral.standardize import NormalizationError, normalize_frame
+
+            clean_rows = [(number, raw) for number, raw in observations if None not in raw]
+            if clean_rows:
+                try:
+                    frame = pd.DataFrame([raw for _, raw in clean_rows]).drop(
+                        columns=["source_ordinal", "source_original", "schema_profile"], errors="ignore")
+                    result = normalize_frame(frame, "fcip_canonical_v1")
+                except NormalizationError as exc:
+                    raise IngestionFileError(str(exc)) from exc
+                canonical_rows = {
+                    clean_rows[int(row["source_ordinal"]) - 1][0]: _from_canonical(row)
+                    for row in result.frame.to_dict("records")
+                }
+                canonical_errors = {
+                    clean_rows[int(row["source_ordinal"]) - 1][0]: row["error_reason"]
+                    for row in result.quarantine.to_dict("records")
+                }
+            else:
+                canonical_rows = {}
+
+        for row_number, raw in observations:
             total_rows += 1
             stored = _raw_for_storage(raw)
 
@@ -356,7 +428,12 @@ def ingest_transactions_csv(
                 continue
 
             try:
-                parsed = parse_transaction_row(raw)
+                if canonical_rows is not None:
+                    if row_number in canonical_errors:
+                        raise RowValidationError([canonical_errors[row_number]])
+                    parsed = canonical_rows[row_number]
+                else:
+                    parsed = parse_transaction_row(raw)
             except RowValidationError as exc:
                 quarantined.append((row_number, stored, "; ".join(exc.errors)))
                 continue
@@ -409,6 +486,7 @@ def ingest_transactions_csv(
                     "merchant_ref": parsed.merchant_ref,
                     "device_ref": parsed.device_ref,
                     "source_status": parsed.source_status,
+                    **{name: getattr(parsed, name) for name in BEHAVIORAL_COLUMNS},
                     "ingestion_batch_id": batch.id if batch is not None else None,
                 }
                 for _, _, parsed, account_id in to_insert

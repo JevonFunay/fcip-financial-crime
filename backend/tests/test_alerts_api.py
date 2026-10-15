@@ -1,9 +1,11 @@
 import uuid
 
 import pytest
+from sqlalchemy import select
 
 from app.models.audit_log import AuditLog
 from app.models.enums import AlertStatus, UserRole
+from app.models.transaction import Transaction
 
 VALID_REASON = "Pattern matches known payroll batching, confirmed with branch."
 ALL_ROLES = list(UserRole)
@@ -75,8 +77,15 @@ def test_list_paginates(client, auth_headers, sample_alerts):
 # --- GET /alerts/{id} ------------------------------------------------------------------
 
 
-def test_detail_includes_evidence_transactions_and_factors(client, auth_headers, sample_alerts):
+@pytest.mark.parametrize(("precision", "timezone_known"), [("second", True), ("day", False)])
+def test_detail_includes_evidence_transactions_and_factors(client, db, auth_headers, sample_alerts, precision, timezone_known):
     alert = sample_alerts["CUST-001"]
+    observed = db.scalar(select(Transaction).where(Transaction.transaction_ref == "TXN-0001"))
+    observed.timestamp_precision = precision
+    observed.source_timezone_known = timezone_known
+    if precision == "day":
+        observed.transaction_date = observed.transaction_date.replace(hour=0, minute=0, second=0, microsecond=0)
+    db.commit()
 
     response = client.get(f"/alerts/{alert.id}", headers=auth_headers(UserRole.ROLE_INVESTIGATOR))
 
@@ -88,6 +97,8 @@ def test_detail_includes_evidence_transactions_and_factors(client, auth_headers,
     assert {t["account_number"] for t in body["transactions"]} == {"ACC-1001", "ACC-1002"}
     assert body["transactions"][0]["amount"] == "450000000.00"
     assert body["transactions"][0]["direction"] == "CREDIT"
+    assert body["transactions"][0]["timestamp_precision"] == precision
+    assert body["transactions"][0]["source_timezone_known"] is timezone_known
     assert body["transactions"][2]["counterparty_ref"] == "CP-7781"
     assert body["disposed_by"] is None and body["disposition_reason"] is None
 

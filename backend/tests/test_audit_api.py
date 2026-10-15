@@ -6,7 +6,6 @@ audit trail via a correlation ID or object ID, without database access.
 
 import csv
 import io
-from pathlib import Path
 
 import pytest
 
@@ -15,7 +14,7 @@ from app.models.audit_log import AuditLog
 from app.models.enums import UserRole
 from app.services.audit import OBJECT_ALERT, OBJECT_AUDIT_EXPORT, OBJECT_CASE, OBJECT_DETECTION_RUN
 
-SAMPLE_FILE = Path(__file__).resolve().parents[1] / "sample_data" / "transactions_sample.csv"
+from data_helpers import TRANSACTIONS_CONTRACT as SAMPLE_FILE
 REASON = "Multiple sub-threshold cash deposits across two accounts"
 
 

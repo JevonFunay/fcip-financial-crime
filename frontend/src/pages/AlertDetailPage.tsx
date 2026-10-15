@@ -14,6 +14,7 @@ import {
   formatDateTime,
   formatDetailValue,
   formatDuration,
+  formatObservedDateTime,
 } from "../format";
 import type { AlertDetail, DispositionDecision } from "../types";
 import "../review.css";
@@ -386,7 +387,11 @@ export function AlertDetailPage() {
                     </div>
                   </td>
                   <td className="review-date-cell">
-                    {formatDateTime(t.transaction_date)}
+                    {formatObservedDateTime(
+                      t.transaction_date,
+                      t.timestamp_precision ?? "day",
+                      t.source_timezone_known ?? false,
+                    )}
                   </td>
                   <td className="num">{formatAmount(t.amount, t.currency)}</td>
                   <td>

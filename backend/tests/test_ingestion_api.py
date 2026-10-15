@@ -1,4 +1,3 @@
-from pathlib import Path
 
 import pytest
 
@@ -9,7 +8,7 @@ from app.models.quarantine_item import QuarantineItem
 from app.models.transaction import Transaction
 from app.scripts.seed import seed_master_data
 
-SAMPLE_FILE = Path(__file__).resolve().parents[1] / "sample_data" / "transactions_sample.csv"
+from data_helpers import TRANSACTIONS_CONTRACT as SAMPLE_FILE
 HEADER = "transaction_ref,account_number,transaction_date,amount,currency,direction,channel,counterparty_ref,description"
 
 

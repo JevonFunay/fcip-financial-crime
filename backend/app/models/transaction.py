@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import DateTime, Enum as SAEnum, ForeignKey, Numeric, String, text
+from sqlalchemy import Boolean, DateTime, Enum as SAEnum, Float, ForeignKey, Integer, Numeric, String, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
@@ -43,6 +43,16 @@ class Transaction(Base):
     device_ref: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
     # status_from_source (e.g. REVERSED), for P10's refund rate.
     source_status: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Source observations, not inferred customer-master facts (behavioral_v1).
+    location: Mapped[str | None] = mapped_column(String, nullable=True)
+    ip_address: Mapped[str | None] = mapped_column(String, nullable=True)
+    login_attempts: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    transaction_duration: Mapped[float | None] = mapped_column(Float, nullable=True)
+    account_balance: Mapped[float | None] = mapped_column(Float, nullable=True)
+    customer_age: Mapped[float | None] = mapped_column(Float, nullable=True)
+    customer_occupation: Mapped[str | None] = mapped_column(String, nullable=True)
+    timestamp_precision: Mapped[str | None] = mapped_column(String(6), nullable=True)
+    source_timezone_known: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     # Which registered batch loaded this row (FR-101). Nullable because rows
     # created by the seed script and by direct service calls in tests have no
     # batch behind them.

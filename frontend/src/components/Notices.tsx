@@ -5,7 +5,7 @@ import { Icon } from "./Icon";
 export const SIGNAL_NOTICE =
   "Sinyal ini merupakan observasi yang mendukung investigasi dan bukan bukti adanya perbuatan salah. This signal is an observation that supports an investigation; it is not evidence of wrongdoing.";
 export const SYNTHETIC_NOTICE =
-  "Synthetic data only: these models were trained and evaluated on generated data; scores are not production detection performance (TRD §10.6, FRD L-01).";
+  "Synthetic scenarios and/or public-source observations are used for demonstration; model scores are not proof of fraud or production detection performance (TRD §10.6, FRD L-01).";
 
 export function SignalNotice({ text = SIGNAL_NOTICE }: { text?: string }) {
   return (
@@ -25,7 +25,7 @@ export function SyntheticNotice({
     <div className="synthetic-notice">
       <Icon name="layers" size={17} />
       <p>
-        <strong>Data sintetis</strong>
+        <strong>Data demonstrasi</strong>
         <span>{text || SYNTHETIC_NOTICE}</span>
       </p>
     </div>

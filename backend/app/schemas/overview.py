@@ -15,3 +15,5 @@ class OverviewSummary(BaseModel):
     alerts_disposed: int
     cases: int
     latest_transaction_date: datetime | None
+    latest_transaction_timestamp_precision: str | None = None
+    latest_transaction_source_timezone_known: bool | None = None

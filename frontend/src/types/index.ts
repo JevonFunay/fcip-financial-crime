@@ -1,4 +1,8 @@
-export type UserRole = "ROLE_DATA_OPS" | "ROLE_ANALYST" | "ROLE_TRIAGE" | "ROLE_INVESTIGATOR";
+export type UserRole =
+  | "ROLE_DATA_OPS"
+  | "ROLE_ANALYST"
+  | "ROLE_TRIAGE"
+  | "ROLE_INVESTIGATOR";
 export type AlertStatus = "OPEN" | "DISPOSED" | "ESCALATED";
 export type CaseStatus = "OPEN" | "IN_PROGRESS" | "CLOSED";
 export type DispositionDecision = "false_positive" | "escalate";
@@ -45,6 +49,8 @@ export interface TransactionOut {
   transaction_ref: string;
   account_number: string;
   transaction_date: string;
+  timestamp_precision?: string | null;
+  source_timezone_known?: boolean | null;
   amount: string;
   currency: string;
   direction: Direction;
@@ -92,10 +98,22 @@ export interface OverviewSummary {
   alerts_disposed: number;
   cases: number;
   latest_transaction_date: string | null;
+  latest_transaction_timestamp_precision?: string | null;
+  latest_transaction_source_timezone_known?: boolean | null;
 }
 
-export type IngestionBatchStatus = "REGISTERED" | "COMPLETED" | "NEEDS_REVIEW" | "FAILED";
-export type AuditObjectType = "ALERT" | "CASE" | "BATCH" | "DETECTION_RUN" | "AUDIT_EXPORT" | "RULE_VERSION";
+export type IngestionBatchStatus =
+  | "REGISTERED"
+  | "COMPLETED"
+  | "NEEDS_REVIEW"
+  | "FAILED";
+export type AuditObjectType =
+  | "ALERT"
+  | "CASE"
+  | "BATCH"
+  | "DETECTION_RUN"
+  | "AUDIT_EXPORT"
+  | "RULE_VERSION";
 
 export interface IngestionSummary {
   file_name: string;
@@ -208,7 +226,7 @@ export interface AlertDetail extends AlertSummary {
   signal_notice: string;
 }
 
-/** One named feature behind a score (TreeSHAP, log-odds). */
+/** One named feature behind a score; explanation_method determines its scale. */
 export interface Contribution {
   feature: string;
   definition: string;
@@ -232,6 +250,12 @@ export interface ModelScore {
   threshold: number;
   flagged: boolean;
   contributions: Contribution[];
+  feature_set_version?: string;
+  explanation_method?: string;
+  score_kind?: string;
+  currency?: string | null;
+  timestamp_precision?: string | null;
+  source_timezone_known?: boolean | null;
 }
 
 export interface ScoreListResponse {
@@ -252,10 +276,27 @@ export interface ModelVersionOut {
   definition_hash: string;
   feature_set_version: string;
   threshold: number;
-  trained_on: { generator_version?: string; profile?: string; seed?: number };
-  validation: { average_precision?: number; precision?: number; recall?: number; f1?: number };
+  trained_on: {
+    generator_version?: string | null;
+    profile?: string | null;
+    seed?: number | null;
+    [key: string]: unknown;
+  };
+  validation: {
+    average_precision?: number | null;
+    precision?: number | null;
+    recall?: number | null;
+    f1?: number | null;
+    unlabelled?: Record<string, unknown>;
+    synthetic_stress?: Record<string, unknown>;
+    [key: string]: unknown;
+  };
   created_at: string;
   synthetic_notice: string;
+  explanation_method?: string;
+  score_kind?: string;
+  training_kind?: string;
+  currency?: string | null;
 }
 
 export interface MlRunSummary {
@@ -267,6 +308,7 @@ export interface MlRunSummary {
     units_scored: number;
     units_flagged: number;
     scores_stored: number;
+    observations_skipped_currency?: number;
   }[];
   ml_rule_versions_evaluated: string[];
   alerts_created: number;

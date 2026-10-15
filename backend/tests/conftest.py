@@ -10,6 +10,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.engine import make_url
 
 from app.config import Settings, get_settings
+from data_helpers import TRANSACTIONS_CONTRACT as SAMPLE_FILE, generate_legacy_dataset
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 
@@ -42,8 +43,6 @@ from app.services.detection.active_rules import active_rule_versions  # noqa: E4
 from app.services.detection.p02_structuring import PATTERN_CODE, P02Parameters, run_p02_structuring  # noqa: E402
 from app.services.ingestion import ingest_transactions_csv  # noqa: E402
 
-SAMPLE_FILE = BACKEND_DIR / "sample_data" / "transactions_sample.csv"
-
 # Reference data that a migration seeds and the app needs in order to work: the
 # ACTIVE P02 rule (migration 0006). The per-test TRUNCATE wipes it with
 # everything else, so it is copied aside once, right after the migrations run,
@@ -58,6 +57,17 @@ def _alembic_config() -> Config:
     config = Config(str(BACKEND_DIR / "alembic.ini"))
     config.set_main_option("script_location", str(BACKEND_DIR / "alembic"))
     return config
+
+
+@pytest.fixture(scope="session")
+def legacy_small_raw(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Read-only source for regression tests; derived models use private copies."""
+    return generate_legacy_dataset(tmp_path_factory.mktemp("legacy_small") / "raw")
+
+
+@pytest.fixture(scope="session")
+def legacy_tiny_raw(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    return generate_legacy_dataset(tmp_path_factory.mktemp("legacy_tiny") / "raw", profile="tiny")
 
 
 @pytest.fixture(scope="session", autouse=True)

@@ -13,18 +13,28 @@ import "../analysis.css";
 const PAGE_SIZE = 50;
 const MODEL_TABS: { value: ModelUnit | ""; label: string }[] = [
   { value: "", label: "All signals" },
-  { value: "AML", label: "AML · Entity-week" },
+  { value: "AML", label: "AML · Mingguan" },
   { value: "FRAUD", label: "Fraud · Transaction" },
 ];
 
-function validationValue(value: number | undefined): string {
+function validationValue(value: unknown): string {
   return typeof value === "number" && Number.isFinite(value)
     ? value.toFixed(3)
     : "—";
 }
 
+function validationPercent(value: unknown): string {
+  return typeof value === "number" && Number.isFinite(value)
+    ? `${(100 * value).toLocaleString("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`
+    : "—";
+}
+
 function ModelCard({ model }: { model: ModelVersionOut }) {
   const isWeekly = model.unit === "AML";
+  const unsupervised =
+    model.training_kind === "unsupervised" ||
+    model.score_kind === "anomaly_score";
+  const stress = model.validation.synthetic_stress;
   return (
     <article className="card analysis-model-card">
       <div className="analysis-model-heading">
@@ -33,7 +43,13 @@ function ModelCard({ model }: { model: ModelVersionOut }) {
         </span>
         <div>
           <p className="eyebrow">{isWeekly ? "AML model" : "Fraud model"}</p>
-          <h3>{isWeekly ? "Weekly entity signals" : "Transaction signals"}</h3>
+          <h3>
+            {isWeekly
+              ? unsupervised
+                ? "Weekly account signals"
+                : "Weekly entity signals"
+              : "Transaction signals"}
+          </h3>
         </div>
         <span
           className={`badge analysis-version-state ${model.state === "ACTIVE" ? "analysis-version-active" : ""}`}
@@ -43,9 +59,18 @@ function ModelCard({ model }: { model: ModelVersionOut }) {
       </div>
       <p className="analysis-model-description">
         {isWeekly
-          ? "Satu skor per entitas dan minggu kalender."
+          ? unsupervised
+            ? "Satu skor per rekening-proxy dan minggu kalender sumber."
+            : "Satu skor per entitas dan minggu kalender."
           : "Satu skor per transaksi, menggunakan riwayat yang tersedia."}
+        {unsupervised &&
+          " Isolation Forest tanpa label; skor mengukur keterisolasian, bukan probabilitas fraud."}
       </p>
+      {model.state === "DRAFT" && (
+        <p className="analysis-model-description">
+          Kandidat untuk ditinjau; belum digunakan untuk menilai upload.
+        </p>
+      )}
       <div className="analysis-model-values">
         <div>
           <span>Model version</span>
@@ -58,28 +83,85 @@ function ModelCard({ model }: { model: ModelVersionOut }) {
           </strong>
         </div>
       </div>
-      <div className="analysis-validation">
-        <p>
-          Internal validation <span>· synthetic data</span>
-        </p>
-        <dl>
-          <div>
-            <dt>Average precision</dt>
-            <dd>{validationValue(model.validation.average_precision)}</dd>
-          </div>
-          <div>
-            <dt>Precision</dt>
-            <dd>{validationValue(model.validation.precision)}</dd>
-          </div>
-          <div>
-            <dt>Recall</dt>
-            <dd>{validationValue(model.validation.recall)}</dd>
-          </div>
-        </dl>
-      </div>
+      {unsupervised ? (
+        <div className="analysis-validation">
+          <p>
+            Evaluasi tanpa label{" "}
+            <span>· {model.currency ?? "mata uang belum diketahui"}</span>
+          </p>
+          <p>
+            Precision, recall, dan akurasi fraud belum dapat diukur pada data
+            sumber tanpa label. Stress test sintetis menilai skenario yang
+            dibuat, bukan kinerja fraud produksi.
+          </p>
+          {stress && (
+            <>
+              <p>Validasi stress sintetis · sebelum tes final</p>
+              <dl>
+                <div>
+                  <dt>Precision</dt>
+                  <dd>{validationPercent(stress.precision)}</dd>
+                </div>
+                <div>
+                  <dt>Recall</dt>
+                  <dd>{validationPercent(stress.recall)}</dd>
+                </div>
+                <div>
+                  <dt>Average precision</dt>
+                  <dd>{validationValue(stress.average_precision)}</dd>
+                </div>
+              </dl>
+            </>
+          )}
+        </div>
+      ) : (
+        <div className="analysis-validation">
+          <p>
+            {model.state === "RETIRED"
+              ? "Historical validation"
+              : "Internal validation"}{" "}
+            <span>· synthetic data</span>
+          </p>
+          <dl>
+            <div>
+              <dt>Average precision</dt>
+              <dd>{validationValue(model.validation.average_precision)}</dd>
+            </div>
+            <div>
+              <dt>Precision</dt>
+              <dd>{validationValue(model.validation.precision)}</dd>
+            </div>
+            <div>
+              <dt>Recall</dt>
+              <dd>{validationValue(model.validation.recall)}</dd>
+            </div>
+          </dl>
+        </div>
+      )}
       <details className="analysis-model-reference">
         <summary>Training reference</summary>
         <dl>
+          {unsupervised && (
+            <>
+              <div>
+                <dt>Learning</dt>
+                <dd>Unsupervised; label tidak digunakan untuk fit</dd>
+              </div>
+              <div>
+                <dt>Mata uang</dt>
+                <dd>
+                  {model.currency ?? "Belum diketahui"} · tanpa konversi FX
+                </dd>
+              </div>
+              <div>
+                <dt>Penjelasan</dt>
+                <dd>
+                  Selisih skor dengan penggantian median training; bukan
+                  TreeSHAP
+                </dd>
+              </div>
+            </>
+          )}
           <div>
             <dt>Dataset</dt>
             <dd>
@@ -151,7 +233,7 @@ export function ModelFlagsPage() {
   const shownOffset = scores.data?.offset ?? offset;
   const unitLabel =
     unit === "AML"
-      ? "entity-week units"
+      ? "observasi mingguan"
       : unit === "FRAUD"
         ? "transactions"
         : "model units";

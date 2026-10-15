@@ -65,6 +65,8 @@ def _evidence(db: Session, alert_id: uuid.UUID) -> list[TransactionOut]:
             transaction_ref=t.transaction_ref,
             account_number=account_number,
             transaction_date=t.transaction_date,
+            timestamp_precision=t.timestamp_precision,
+            source_timezone_known=t.source_timezone_known,
             amount=t.amount,
             currency=t.currency,
             direction=t.direction,

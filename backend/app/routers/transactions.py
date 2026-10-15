@@ -60,6 +60,8 @@ def list_transactions(
                 transaction_ref=transaction.transaction_ref,
                 account_number=account_number,
                 transaction_date=transaction.transaction_date,
+                timestamp_precision=transaction.timestamp_precision,
+                source_timezone_known=transaction.source_timezone_known,
                 amount=transaction.amount,
                 currency=transaction.currency,
                 direction=transaction.direction,

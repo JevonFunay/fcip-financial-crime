@@ -1,0 +1,712 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-15",
+  "quality_status": "DRAFT; high-precision detection quality not achieved; not promoted",
+  "metric_scope": "Synthetic 0/1 intervention assumptions only; source precision/recall/FPR/accuracy unknown",
+  "source": {
+    "file": "bank_transactions_data_2_augmented_clean_2.csv",
+    "sha256": "c4c44ae11496e31f6dea5126322463af719c0f175c6c2f7f0abbc15f96575b2a",
+    "rows": 50000,
+    "accounts": 495,
+    "accepted": 50000,
+    "quarantined": 0,
+    "currency": "USD",
+    "currency_confirmed_by_user_on": "2026-10-14",
+    "source_timezone": null,
+    "timestamp_precision_counts": {
+      "day": 43750,
+      "minute": 6250
+    },
+    "profile_sha256": "4dd0c7e836e7c37d5d807d18fd209db2bf5811809daec2df1cb0ca679471a561",
+    "publisher_verified": false,
+    "augmentation_recipe_verified": false,
+    "verified_target_labels": false,
+    "source_timezone_unknown_count": 50000
+  },
+  "data": {
+    "generator_version": "behavioral_source_conditioned_v1.0.0",
+    "source_partition_seed": 20261014,
+    "source_account_partition_counts": {
+      "train": 346,
+      "validation": 74,
+      "test": 75
+    },
+    "source_rows": {
+      "train": 35662,
+      "validation": 6809,
+      "test": 7529
+    },
+    "splits": {
+      "train": {
+        "rows": 1000000,
+        "accounts": 4000,
+        "stress_rows": 10250,
+        "lookalike_rows": 19827,
+        "window": {
+          "days": 180,
+          "end_exclusive": "2025-10-21T00:00:00+00:00",
+          "start_inclusive": "2025-04-24T00:00:00+00:00"
+        },
+        "seed": 20261015,
+        "transactions_sha256": "14305ccc57fa0876afc008ecd930ffc840f409c8e33a451b09961e84ec1f6b9f"
+      },
+      "validation": {
+        "rows": 200000,
+        "accounts": 800,
+        "stress_rows": 1963,
+        "lookalike_rows": 4014,
+        "window": {
+          "days": 180,
+          "end_exclusive": "2026-04-19T00:00:00+00:00",
+          "start_inclusive": "2025-10-21T00:00:00+00:00"
+        },
+        "seed": 20261016,
+        "transactions_sha256": "f2a282982152c20b41f428112d9fdb60bf0fa1f9efb841ed3d43810e7fa8f471"
+      },
+      "test": {
+        "rows": 200000,
+        "accounts": 800,
+        "stress_rows": 1974,
+        "lookalike_rows": 4045,
+        "window": {
+          "days": 180,
+          "end_exclusive": "2026-10-16T00:00:00+00:00",
+          "start_inclusive": "2026-04-19T00:00:00+00:00"
+        },
+        "seed": 20261017,
+        "transactions_sha256": "852625719bec3a9050418d4e219b9c617cd865435e08774e92071c70202e971a"
+      }
+    },
+    "fit_input_rows": 1035662,
+    "training_fit_profile_sha256": "caf4c627b957edeee197172a5e128b1691dd52c5544a48df2b6509b679719a43"
+  },
+  "frozen_baseline": {
+    "feature_set": "behavioral_v1",
+    "algorithm": "IsolationForest",
+    "hyperparameters": {
+      "n_estimators": 100,
+      "max_samples": 256,
+      "contamination": "auto",
+      "seed": 20261015
+    },
+    "threshold": 0.5,
+    "threshold_comparison": ">=",
+    "threshold_scope": "FCIP inclusive isolation review cutoff; not fraud prevalence or sklearn binary predict parity",
+    "fit_targets_used": false,
+    "threshold_tuned_on_labels": false,
+    "fit_units": {
+      "AML": 134067,
+      "FRAUD": 1035662
+    },
+    "models_frozen_at": "2026-10-15T12:54:27.284238+00:00",
+    "test_generation_started_at": "2026-10-15T12:54:27.284259+00:00",
+    "completed_at": "2026-10-15T12:54:43.516679+00:00",
+    "test_generated_after_fit": true,
+    "test_manifest_sha256": "94816e04cfc4430eb224452b296fee57ae1330cb92d83883f6bab3f7635c3269",
+    "checksums": {
+      "aml_if_v1": {
+        "model.txt": "7c43fa14f5b49c588a1dbb6336554f82867fc5687c85a87f98cff72814019a39",
+        "model_card.json": "1e07036a58d67ba36ed5832634c94c19ae55bd50245221458ea86677da12d8b1"
+      },
+      "fraud_if_v1": {
+        "model.txt": "fc18bc5511a701bf5c1d1553f8e2731435d2cb8c84c369fe66614ac4ff475d6a",
+        "model_card.json": "836c280a4bb0912275bb045c0e8bc2f18d2e75d46a0c080ca4d6e3258ac422b5"
+      }
+    },
+    "validation": {
+      "AML": {
+        "units": 20417,
+        "units_flagged": 2127,
+        "flag_rate": 0.1041778909732086,
+        "threshold": 0.5,
+        "stress": {
+          "tp": 66,
+          "fp": 2061,
+          "fn": 56,
+          "tn": 18234,
+          "precision": 0.031029619181946404,
+          "recall": 0.5409836065573771,
+          "average_precision": 0.09574214539474178,
+          "roc_auc": 0.8403628447610856
+        },
+        "small_amount": {
+          "tp": 2,
+          "fp": 291,
+          "fn": 2,
+          "tn": 606,
+          "precision": 0.006825938566552901,
+          "recall": 0.5,
+          "average_precision": 0.1457157130468973,
+          "roc_auc": 0.7536231884057971,
+          "cutoff_usd": 83.44,
+          "unit_amount": "weekly mean"
+        },
+        "scenarios": {
+          "card_testing_burst": {
+            "detected": 20,
+            "total": 20,
+            "recall": 1.0
+          },
+          "dormant_reactivation": {
+            "detected": 13,
+            "total": 19,
+            "recall": 0.6842105263157895
+          },
+          "micro_splitting": {
+            "detected": 4,
+            "total": 19,
+            "recall": 0.21052631578947367
+          },
+          "pass_through_proxy": {
+            "detected": 6,
+            "total": 19,
+            "recall": 0.3157894736842105
+          },
+          "session_change": {
+            "detected": 19,
+            "total": 19,
+            "recall": 1.0
+          }
+        }
+      },
+      "FRAUD": {
+        "units": 200000,
+        "units_flagged": 13338,
+        "flag_rate": 0.06669,
+        "threshold": 0.5,
+        "stress": {
+          "tp": 308,
+          "fp": 13030,
+          "fn": 1655,
+          "tn": 185007,
+          "precision": 0.023091917828759936,
+          "recall": 0.15690269994905756,
+          "average_precision": 0.01903074937097799,
+          "roc_auc": 0.7010029470840611
+        },
+        "small_amount": {
+          "tp": 163,
+          "fp": 5001,
+          "fn": 443,
+          "tn": 42437,
+          "precision": 0.031564678543764525,
+          "recall": 0.26897689768976896,
+          "average_precision": 0.02465189798603671,
+          "roc_auc": 0.696700588310022,
+          "cutoff_usd": 83.44,
+          "unit_amount": "transaction amount"
+        },
+        "scenarios": {
+          "card_testing_burst": {
+            "detected": 16,
+            "total": 20,
+            "recall": 0.8
+          },
+          "dormant_reactivation": {
+            "detected": 19,
+            "total": 19,
+            "recall": 1.0
+          },
+          "micro_splitting": {
+            "detected": 10,
+            "total": 19,
+            "recall": 0.5263157894736842
+          },
+          "pass_through_proxy": {
+            "detected": 7,
+            "total": 19,
+            "recall": 0.3684210526315789
+          },
+          "session_change": {
+            "detected": 18,
+            "total": 19,
+            "recall": 0.9473684210526315
+          }
+        }
+      }
+    },
+    "test": {
+      "AML": {
+        "units": 20840,
+        "units_flagged": 2270,
+        "flag_rate": 0.10892514395393474,
+        "threshold": 0.5,
+        "stress": {
+          "tp": 71,
+          "fp": 2199,
+          "fn": 43,
+          "tn": 18527,
+          "precision": 0.03127753303964758,
+          "recall": 0.6228070175438597,
+          "average_precision": 0.1297095498807556,
+          "roc_auc": 0.8655464532217352
+        },
+        "small_amount": {
+          "tp": 12,
+          "fp": 816,
+          "fn": 6,
+          "tn": 1086,
+          "precision": 0.014492753623188406,
+          "recall": 0.6666666666666666,
+          "average_precision": 0.07588098928764347,
+          "roc_auc": 0.6695291506017058,
+          "cutoff_usd": 83.44,
+          "unit_amount": "weekly mean"
+        },
+        "scenarios": {
+          "card_testing_burst": {
+            "detected": 20,
+            "total": 20,
+            "recall": 1.0
+          },
+          "dormant_reactivation": {
+            "detected": 14,
+            "total": 19,
+            "recall": 0.7368421052631579
+          },
+          "micro_splitting": {
+            "detected": 6,
+            "total": 19,
+            "recall": 0.3157894736842105
+          },
+          "pass_through_proxy": {
+            "detected": 5,
+            "total": 19,
+            "recall": 0.2631578947368421
+          },
+          "session_change": {
+            "detected": 19,
+            "total": 19,
+            "recall": 1.0
+          }
+        }
+      },
+      "FRAUD": {
+        "units": 200000,
+        "units_flagged": 16336,
+        "flag_rate": 0.08168,
+        "threshold": 0.5,
+        "stress": {
+          "tp": 368,
+          "fp": 15968,
+          "fn": 1606,
+          "tn": 182058,
+          "precision": 0.022526934378060724,
+          "recall": 0.18642350557244175,
+          "average_precision": 0.01796761139426064,
+          "roc_auc": 0.6884056990009121
+        },
+        "small_amount": {
+          "tp": 210,
+          "fp": 8251,
+          "fn": 431,
+          "tn": 47048,
+          "precision": 0.02481976125753457,
+          "recall": 0.32761310452418096,
+          "average_precision": 0.01947158957061062,
+          "roc_auc": 0.6738781784765667,
+          "cutoff_usd": 83.44,
+          "unit_amount": "transaction amount"
+        },
+        "scenarios": {
+          "card_testing_burst": {
+            "detected": 16,
+            "total": 20,
+            "recall": 0.8
+          },
+          "dormant_reactivation": {
+            "detected": 19,
+            "total": 19,
+            "recall": 1.0
+          },
+          "micro_splitting": {
+            "detected": 7,
+            "total": 19,
+            "recall": 0.3684210526315789
+          },
+          "pass_through_proxy": {
+            "detected": 8,
+            "total": 19,
+            "recall": 0.42105263157894735
+          },
+          "session_change": {
+            "detected": 18,
+            "total": 19,
+            "recall": 0.9473684210526315
+          }
+        }
+      }
+    },
+    "source_unlabelled": {
+      "validation": {
+        "AML": {
+          "units": 5764,
+          "units_flagged": 2549,
+          "flag_rate": 0.44222761970853575,
+          "threshold": 0.5,
+          "precision": null,
+          "recall": null,
+          "false_positive_rate": null
+        },
+        "FRAUD": {
+          "units": 6809,
+          "units_flagged": 6383,
+          "flag_rate": 0.9374357468056983,
+          "threshold": 0.5,
+          "precision": null,
+          "recall": null,
+          "false_positive_rate": null
+        }
+      },
+      "test": {
+        "AML": {
+          "units": 6187,
+          "units_flagged": 2612,
+          "flag_rate": 0.4221755293357039,
+          "threshold": 0.5,
+          "precision": null,
+          "recall": null,
+          "false_positive_rate": null
+        },
+        "FRAUD": {
+          "units": 7529,
+          "units_flagged": 6939,
+          "flag_rate": 0.9216363394873157,
+          "threshold": 0.5,
+          "precision": null,
+          "recall": null,
+          "false_positive_rate": null
+        }
+      }
+    },
+    "reporting_corrections": [
+      {
+        "corrected_at": "2026-10-15T13:16:17.721958+00:00",
+        "reason": "Inclusive small-amount evaluation uses matching numeric representations at USD83.44. Decimal/binary-float comparison previously excluded exact-boundary rows. No model/card/data/score changes, refit or threshold selection."
+      }
+    ]
+  },
+  "validation_only_prototypes": {
+    "status": "DRAFT research prototype; not promoted",
+    "candidate_count": 3,
+    "fit_targets_used": false,
+    "final_test_opened_by_prototype_work": false,
+    "cutoff_policy": "A uses 0.5; B and C use train-only quantile0.995 review-load reference chosen before validation metrics",
+    "models": {
+      "AML": {
+        "source_shift_medians": {
+          "HISTORY_DAYS": {
+            "train": 108.4209837962963,
+            "source_validation": 1100.0
+          },
+          "PRIOR_HISTORY_COUNT": {
+            "train": 77.0,
+            "source_validation": 46.0
+          },
+          "PRIOR_COUNT_R30D": {
+            "train": 23.0,
+            "source_validation": 1.0
+          }
+        },
+        "candidates": {
+          "context_if_256_auto": {
+            "threshold": 0.5,
+            "training_review_load": {
+              "units": 134067,
+              "units_flagged": 18553,
+              "flag_rate": 0.13838603086516443,
+              "threshold": 0.5
+            },
+            "source_validation_review_load": {
+              "units": 5764,
+              "units_flagged": 1830,
+              "flag_rate": 0.31748785565579457,
+              "threshold": 0.5
+            },
+            "validation_review_load": {
+              "units": 20417,
+              "units_flagged": 3019,
+              "flag_rate": 0.14786697360043102,
+              "threshold": 0.5
+            },
+            "stress": {
+              "tp": 65,
+              "fp": 2954,
+              "fn": 57,
+              "tn": 17341,
+              "precision": 0.021530308049022857,
+              "recall": 0.5327868852459017,
+              "average_precision": 0.06346888794086235,
+              "roc_auc": 0.739820637401605
+            },
+            "small_stress_descriptive_counts": {
+              "tp": 3,
+              "positive_count": 4,
+              "amount_cutoff_usd": 83.44,
+              "caveat": "Validation descriptive counts only; prototype small-slice boundary metrics not recomputed, so FP/TN/AP/AUC/precision/recall omitted."
+            }
+          },
+          "context_if_2048_train995": {
+            "threshold": 0.6556504794548638,
+            "training_review_load": {
+              "units": 134067,
+              "units_flagged": 671,
+              "flag_rate": 0.005004960206463932,
+              "threshold": 0.6556504794548638
+            },
+            "source_validation_review_load": {
+              "units": 5764,
+              "units_flagged": 134,
+              "flag_rate": 0.023247744621790422,
+              "threshold": 0.6556504794548638
+            },
+            "validation_review_load": {
+              "units": 20417,
+              "units_flagged": 24,
+              "flag_rate": 0.0011754910123916345,
+              "threshold": 0.6556504794548638
+            },
+            "stress": {
+              "tp": 5,
+              "fp": 19,
+              "fn": 117,
+              "tn": 20276,
+              "precision": 0.20833333333333334,
+              "recall": 0.040983606557377046,
+              "average_precision": 0.0666308836594353,
+              "roc_auc": 0.7549378228506577
+            },
+            "small_stress_descriptive_counts": {
+              "tp": 1,
+              "positive_count": 4,
+              "amount_cutoff_usd": 83.44,
+              "caveat": "Validation descriptive counts only; prototype small-slice boundary metrics not recomputed, so FP/TN/AP/AUC/precision/recall omitted."
+            }
+          },
+          "multiview_train995": {
+            "threshold": 0.9862216144538373,
+            "training_review_load": {
+              "units": 134067,
+              "units_flagged": 672,
+              "flag_rate": 0.005012419163552552,
+              "threshold": 0.9862216144538373
+            },
+            "source_validation_review_load": {
+              "units": 5764,
+              "units_flagged": 122,
+              "flag_rate": 0.02116585704371964,
+              "threshold": 0.9862216144538373
+            },
+            "validation_review_load": {
+              "units": 20417,
+              "units_flagged": 39,
+              "flag_rate": 0.0019101728951364059,
+              "threshold": 0.9862216144538373
+            },
+            "stress": {
+              "tp": 9,
+              "fp": 30,
+              "fn": 113,
+              "tn": 20265,
+              "precision": 0.23076923076923078,
+              "recall": 0.07377049180327869,
+              "average_precision": 0.11338934418946443,
+              "roc_auc": 0.7721836517918086
+            },
+            "small_stress_descriptive_counts": {
+              "tp": 1,
+              "positive_count": 4,
+              "amount_cutoff_usd": 83.44,
+              "caveat": "Validation descriptive counts only; prototype small-slice boundary metrics not recomputed, so FP/TN/AP/AUC/precision/recall omitted."
+            }
+          }
+        }
+      },
+      "FRAUD": {
+        "source_shift_medians": {
+          "HISTORY_DAYS": {
+            "train": 93.36973958333334,
+            "source_validation": 1119.0
+          },
+          "PRIOR_HISTORY_COUNT": {
+            "train": 126.0,
+            "source_validation": 48.0
+          },
+          "PRIOR_COUNT_R30D": {
+            "train": 44.0,
+            "source_validation": 1.0
+          }
+        },
+        "candidates": {
+          "context_if_256_auto": {
+            "threshold": 0.5,
+            "training_review_load": {
+              "units": 1035662,
+              "units_flagged": 142799,
+              "flag_rate": 0.13788185720823976,
+              "threshold": 0.5
+            },
+            "source_validation_review_load": {
+              "units": 6809,
+              "units_flagged": 255,
+              "flag_rate": 0.037450433250110146,
+              "threshold": 0.5
+            },
+            "validation_review_load": {
+              "units": 200000,
+              "units_flagged": 30965,
+              "flag_rate": 0.154825,
+              "threshold": 0.5
+            },
+            "stress": {
+              "tp": 1314,
+              "fp": 29651,
+              "fn": 649,
+              "tn": 168386,
+              "precision": 0.042435007266268365,
+              "recall": 0.6693835965359144,
+              "average_precision": 0.07211327676672455,
+              "roc_auc": 0.8401639884565328
+            },
+            "small_stress_descriptive_counts": {
+              "tp": 427,
+              "positive_count": 606,
+              "amount_cutoff_usd": 83.44,
+              "caveat": "Validation descriptive counts only; prototype small-slice boundary metrics not recomputed, so FP/TN/AP/AUC/precision/recall omitted."
+            }
+          },
+          "context_if_2048_train995": {
+            "threshold": 0.6225935441722482,
+            "training_review_load": {
+              "units": 1035662,
+              "units_flagged": 5179,
+              "flag_rate": 0.005000666240530211,
+              "threshold": 0.6225935441722482
+            },
+            "source_validation_review_load": {
+              "units": 6809,
+              "units_flagged": 0,
+              "flag_rate": 0.0,
+              "threshold": 0.6225935441722482
+            },
+            "validation_review_load": {
+              "units": 200000,
+              "units_flagged": 1360,
+              "flag_rate": 0.0068,
+              "threshold": 0.6225935441722482
+            },
+            "stress": {
+              "tp": 210,
+              "fp": 1150,
+              "fn": 1753,
+              "tn": 196887,
+              "precision": 0.15441176470588236,
+              "recall": 0.10697911360163016,
+              "average_precision": 0.0727031263949823,
+              "roc_auc": 0.848210972663066
+            },
+            "small_stress_descriptive_counts": {
+              "tp": 72,
+              "positive_count": 606,
+              "amount_cutoff_usd": 83.44,
+              "caveat": "Validation descriptive counts only; prototype small-slice boundary metrics not recomputed, so FP/TN/AP/AUC/precision/recall omitted."
+            }
+          },
+          "multiview_train995": {
+            "threshold": 0.9740775132920971,
+            "training_review_load": {
+              "units": 1035662,
+              "units_flagged": 5179,
+              "flag_rate": 0.005000666240530211,
+              "threshold": 0.9740775132920971
+            },
+            "source_validation_review_load": {
+              "units": 6809,
+              "units_flagged": 2,
+              "flag_rate": 0.000293728888236158,
+              "threshold": 0.9740775132920971
+            },
+            "validation_review_load": {
+              "units": 200000,
+              "units_flagged": 977,
+              "flag_rate": 0.004885,
+              "threshold": 0.9740775132920971
+            },
+            "stress": {
+              "tp": 147,
+              "fp": 830,
+              "fn": 1816,
+              "tn": 197207,
+              "precision": 0.150460593654043,
+              "recall": 0.0748853795211411,
+              "average_precision": 0.05349323352785665,
+              "roc_auc": 0.7440569600717644
+            },
+            "small_stress_descriptive_counts": {
+              "tp": 45,
+              "positive_count": 606,
+              "amount_cutoff_usd": 83.44,
+              "caveat": "Validation descriptive counts only; prototype small-slice boundary metrics not recomputed, so FP/TN/AP/AUC/precision/recall omitted."
+            }
+          }
+        }
+      }
+    }
+  },
+  "isolated_runtime_verification": {
+    "live_database_touched": false,
+    "accepted": 200000,
+    "quarantined": 0,
+    "master_account_proxies": 800,
+    "all_observed_metadata_equal": true,
+    "seconds": 62.48,
+    "ml_seconds": 9.5,
+    "models": [
+      {
+        "model_version": "aml_if_v1",
+        "unit": "AML",
+        "units_scored": 20840,
+        "units_flagged": 2270,
+        "scores_stored": 2270,
+        "observations_skipped_currency": 0
+      },
+      {
+        "model_version": "fraud_if_v1",
+        "unit": "FRAUD",
+        "units_scored": 200000,
+        "units_flagged": 16336,
+        "scores_stored": 16336,
+        "observations_skipped_currency": 0
+      }
+    ],
+    "rule_alerts_created": 0,
+    "model_alerts_created": 0,
+    "quality_approval": false
+  },
+  "evidence_sha256": {
+    "full_evaluation": "d280076e73d039b58626cbf422aee22c03980db840c19b3ee3d5b19e9af8a18e",
+    "source_profile": "2db91d72dc940645d6189aac70d305dc1451bafb3ad5134a8b6bc3d32dc6676b",
+    "runtime_verification": "02092036894039a1bbee3cc4bb952e7de00cc56893aa4b179a2b27d60072b43c",
+    "validation_prototypes": "7de8667d8852c4e34a993605bddd6ff773529ede971a0532df5eebd5b707364c"
+  },
+  "limitations": [
+    "No independently verified source fraud/AML labels or publisher/augmentation ancestry.",
+    "Synthetic account clones are dependent within splits; increasing row count does not add independent source observations.",
+    "Original source timestamps are 87.5% day-only and all have unknown timezone; generated exact UTC times are simulations.",
+    "Source-shift and high review loads prevent a high-precision quality claim.",
+    "Small-amount AML uses weekly mean amount; only four positive validation weeks and eighteen positive test weeks fall in this slice.",
+    "Validation prototypes are exploratory, unpromoted, and have no final-test evaluation; source flag reduction does not establish correct detection.",
+    "No counterparty graph, ownership, MCC, country or running ledger is inferred."
+  ],
+  "references": {
+    "isolation_forest": "https://scikit-learn.org/1.5/modules/generated/sklearn.ensemble.IsolationForest.html",
+    "data_leakage": "https://scikit-learn.org/1.5/common_pitfalls.html#data-leakage"
+  },
+  "operational_state_reported_20261015": {
+    "transactions": 0,
+    "fresh_account_proxies": 800,
+    "old_model_versions": "RETIRED",
+    "new_model_versions": "DRAFT",
+    "quality_promotion": false
+  }
+}

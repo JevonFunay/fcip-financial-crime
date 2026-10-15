@@ -1,0 +1,28 @@
+{
+  "version": "kaggle_bank_v1",
+  "source": "bank_transactions_data_2_augmented_clean_2.csv",
+  "source_timezone": null,
+  "timestamp_policy": "UTC is a storage carrier for source wall-clock values when the offset is unknown; day-only precision remains explicit.",
+  "default_currency": "USD",
+  "currency_provenance": "USD confirmed by Jevon on 14 October 2026; no FX conversion or IDR valuation.",
+  "label_policy": "Unlabelled observations; missing labels never mean legitimate transactions.",
+  "date_format": "month_first",
+  "columns": {
+    "transaction_ref": {"aliases": ["TransactionID"], "required": true},
+    "account_number": {"aliases": ["AccountID"], "required": true},
+    "amount": {"aliases": ["TransactionAmount"], "required": true},
+    "transaction_date": {"aliases": ["TransactionDate"], "required": true},
+    "direction": {"aliases": ["TransactionType"], "required": true},
+    "channel": {"aliases": ["Channel"], "required": true},
+    "location": {"aliases": ["Location"]},
+    "device_ref": {"aliases": ["DeviceID"]},
+    "ip_address": {"aliases": ["IP Address"]},
+    "merchant_ref": {"aliases": ["MerchantID"]},
+    "customer_age": {"aliases": ["CustomerAge"]},
+    "customer_occupation": {"aliases": ["CustomerOccupation"]},
+    "transaction_duration": {"aliases": ["TransactionDuration"]},
+    "login_attempts": {"aliases": ["LoginAttempts"]},
+    "account_balance": {"aliases": ["AccountBalance"]}
+  },
+  "excluded_targets": ["label", "target", "fraud", "is_fraud", "anomaly", "is_anomaly", "scenario_id", "pattern", "ground_truth"]
+}

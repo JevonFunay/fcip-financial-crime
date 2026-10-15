@@ -1,6 +1,6 @@
 # FCIP — Progress Status
 
-**As of 7 October 2026 · Week 5 of 16 · ~17% of MVP scope** (percentage last recounted 29 Sep; table and endpoint counts updated 6 Oct; UI refresh adds no implemented FR)
+**As of 15 October 2026 · Week 6 of 16 · ~17% of MVP scope** (scope percentage last recounted 29 Sep; not a new scope estimate or model-quality claim)
 
 Supersedes any earlier progress figure. Scope definitions, architecture and open
 questions are unchanged — see `PROJECT_CONTEXT.md`.
@@ -20,10 +20,11 @@ questions are unchanged — see `PROJECT_CONTEXT.md`.
 | NFRs proven by measurement | 3 of 18 | 17% |
 | TRD components | ~6 full + ~5 partial of 30 | ~25% |
 
-**411 regular backend tests pass** (410 in Docker plus its documentation check
-on the host). The 5 slow tests passed on the unchanged baseline earlier in
-this session. These backend figures are the preceding unchanged baseline;
-the UI refresh has separate frontend/browser validation recorded below.
+**492 regular backend tests pass:** 485 in the full Docker run, three added
+reset checks, one amount-boundary check and two source-clock cases in focused runs, plus the
+container-excluded documentation check on the host. The five slow checks and
+frontend TypeScript/Vite build pass. Technical correctness does not establish
+useful detection quality; the current candidate quality gate remains unmet.
 
 Pure FR counting gives ~10%; ~17% weights the foundation work already done.
 Neither document assigns effort weights, so the percentage is an estimate — the
@@ -55,6 +56,80 @@ Partial: FR-306, FR-309, FR-310, FR-1103, FR-808, FR-612.
 ---
 
 ## Built since the last progress report
+
+### 14–15 October — source-based data replacement and reusable unsupervised flow
+
+Jevon authorised replacing all old dummy corpora with varied source-conditioned
+simulation and a reusable structure/normalization engine, then confirmed USD
+and unsupervised learning. This supersedes the old supervised/data-freeze
+instruction for this work; CF-05 remains open. Details, specification references
+and assumptions AS-07/08 are in `PROJECT_CONTEXT.md` §14. The supplied source
+has 50,000 unlabeled observations; publisher/augmentation lineage is unverified,
+87.5% are date-only, and the source timezone is unknown.
+
+Implemented canonical profiles, validation/quarantine/provenance, available-history
+features, source-account partitions before augmentation, label-free Isolation
+Forest fitting, immutable JSON models/cards and matching app scoring. Generated
+**1,000,000 train + 200,000 validation + 200,000 final-test transactions**; final
+test is created after both model/card hashes freeze. Fit also includes 35,662
+original source-training observations. Evaluation-only stress sidecars and raw
+identifiers never become fitting targets/features. Complete-record web CSV
+splitting stays below the existing 50 MiB cap. Observed context survives upload;
+USD is never converted to IDR. This is reusable configured infrastructure,
+not automatic understanding of arbitrary source semantics or full AutoML.
+
+**Quality result:** final synthetic precision/recall is AML **3.13% / 62.28%**,
+Fraud **2.25% / 18.64%**, small-amount Fraud **2.48% / 32.76%**. Source holdout
+flag loads are AML 42.22% and Fraud 92.16%; no source fraud precision is
+measurable without verified labels. Three further validation-only prototypes
+also failed to establish an adequate precision/recall tradeoff and were not
+promoted or tested on the final holdout. The exact USD83.44 small-slice boundary
+reporting fix is documented; it changes no model, data, scores or thresholds.
+[Evaluation and evidence](ml/behavioral_evaluation_20261015.md).
+
+Removed 154 old generated files (780,744,721 bytes) and cleared dataset tables
+in ten explicitly named local demo/test DBs, preserving users/sessions, previous
+audit, rules, models and simulation evidence, with appended reset audit events.
+Source CSV/archive, private backups and Git history remain. Regression corpora
+are generated temporarily by tests; the 29-row legacy contract fixture is
+test-only. The live demo now has **0 transactions / 0 quarantine / 0 alerts**,
+800 new account proxies and four existing users. Old supervised models are
+audited **RETIRED**; new `aml_if_v1`/`fraud_if_v1` remain **DRAFT**. No model is
+ACTIVE. `ML_SCORE` remains DRAFT and P02 remains IDR-only. The UI states these
+lifecycle/currency limits and shows separate synthetic validation diagnostics.
+
+**Verification:** a real isolated endpoint upload accepted 200,000 rows,
+quarantined 0, preserved observed metadata and matched offline flags exactly
+(2,270 AML / 16,336 Fraud) in 62.48 seconds locally. Its new-data QA database is
+retained; it did not upload into the live demo. Full/focused/host regular checks,
+all five slow checks, production frontend build and whitespace checks pass.
+Guarded browser checks pass eight Data Ops/Triage × Overview/Model signals ×
+1440/390 px combinations: lifecycle, validation values, role controls and no
+overflow; no operational mutations or browser exceptions.
+An additional 63 focused API checks pass after propagating observed timestamp
+precision/timezone knowledge to transaction/evidence lists and the latest
+summary; date-only data no longer appears with an invented midnight/local offset.
+[Manual upload guide](DEMO_FRESH_DATA.md) and [engine guide](ML_DATA_ENGINE.md)
+identify the ready 38,293,500-byte CSV and the DRAFT scoring limitation.
+
+**Decisions taken independently for Jevon to check:** explicit canonical
+profiles; anonymous account proxies; validated JSON forest storage;
+median-replacement score explanations; bounded complete-record upload files;
+portable regression fixtures and preservation-checked cleanup; keep poor models
+DRAFT and retire withdrawn legacy scoring. Recipe/default numbers are recorded
+experimental assumptions, not specification thresholds or approved prevalence.
+No new approval, external crime label, FX assumption, CF-05 decision or automatic
+commit/push was inferred. Engineering/data replacement is complete; reliable
+high-precision financial-crime detection is **not achieved**.
+
+**Ringkasan capstone (Indonesia):** Pengembangan menambahkan engine standardisasi
+data yang dapat digunakan ulang, fitur perilaku berdasarkan riwayat yang tersedia,
+dan training Isolation Forest tanpa label. Sebanyak 1,4 juta transaksi simulasi
+dibagi untuk training, validasi, dan pengujian baru setelah model dibekukan.
+Pengujian upload 200 ribu transaksi berhasil serta konsisten dengan skor offline.
+Namun presisi skenario sintetis masih rendah dan dataset sumber tidak memiliki
+label fraud terverifikasi. Model baru dipertahankan sebagai DRAFT; hasil ini belum
+membuktikan kemampuan deteksi fraud atau pencucian uang pada data nyata.
 
 ### 7 October — production UI makeover
 
@@ -535,7 +610,7 @@ AI, maker-checker, dashboards.
 
 **Safe to build now** — independent of the unanswered MQ-01…MQ-10:
 
-0. **ML pipeline** — stages 1–4 done (first version of 4); next for it: FR-405's approval flow, live mode, and activating `ML_SCORE` once CF-05 is confirmed
+0. **ML quality gate** — replacement engineering is implemented, but current candidates remain DRAFT because measured quality is inadequate. Diagnose source shift and obtain independently reviewed evaluation evidence before claiming detection precision or proposing activation. FR-405 approval, live mode and any `ML_SCORE` activation remain separate future work; CF-05 is unconfirmed
 1. **Rule as data, stages 3–4** (rule endpoints FR-301/302, simulation FR-303) — deferred for the ML pipeline; schema already in place
 2. **Case lifecycle** (FR-804) and case queue (FR-808) — columns exist, endpoints don't
 3. **Alert assignment** (FR-603) and SLA tracking (FR-607)

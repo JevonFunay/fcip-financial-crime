@@ -2,7 +2,7 @@ import { Fragment, useState } from "react";
 
 import { Icon } from "./Icon";
 import { SignalNotice } from "./Notices";
-import { formatDateTime } from "../format";
+import { formatObservedDateTime } from "../format";
 import type { ModelScore } from "../types";
 import "../review.css";
 
@@ -10,12 +10,10 @@ export { SignalNotice } from "./Notices";
 
 function formatValue(value: number | null): string {
   if (value === null) return "belum diketahui";
-  return Math.abs(value) >= 1000
-    ? value.toLocaleString("id-ID", { maximumFractionDigits: 0 })
-    : String(+value.toFixed(4));
+  return value.toLocaleString("id-ID", { maximumFractionDigits: 4 });
 }
 
-/** Named TreeSHAP features explain a score; they do not classify a P-pattern. */
+/** Explanation scale belongs to its immutable model version, not its table. */
 export function ModelSignals({
   scores,
   notice,
@@ -69,17 +67,29 @@ export function ModelSignals({
                     <td>
                       <span className="review-pattern">
                         {s.unit === "AML"
-                          ? "Model entity-week"
+                          ? s.score_kind === "anomaly_score"
+                            ? "Model rekening-week"
+                            : "Model entity-week"
                           : "Model transaksi"}
                       </span>
                       <div className="mono review-cell-sub">
                         {s.model_version}
+                        {s.score_kind === "anomaly_score" && (
+                          <div>
+                            Unsupervised ·{" "}
+                            {s.currency ?? "mata uang belum diketahui"}
+                          </div>
+                        )}
                       </div>
                     </td>
                     <td>
                       {s.unit === "AML" ? "Minggu berakhir" : s.transaction_ref}
                       <div className="review-cell-sub">
-                        {formatDateTime(s.as_of)}
+                        {formatObservedDateTime(
+                          s.as_of,
+                          s.timestamp_precision,
+                          s.source_timezone_known,
+                        )}
                       </div>
                     </td>
                     <td className="num">
@@ -123,8 +133,10 @@ export function ModelSignals({
                         <div className="review-contribution-panel">
                           <h3>Kontribusi fitur</h3>
                           <p className="muted review-caption">
-                            Kontribusi memakai skala log-odds. Nilai positif
-                            menaikkan skor; nilainya bukan persentase.
+                            {s.explanation_method ===
+                            "median_replacement_score_difference"
+                              ? "Selisih skor saat satu fitur diganti median training. Nilai positif berarti skor asli lebih tinggi. Ini bukan TreeSHAP, bukan log-odds, tidak aditif, dan bukan bukti sebab-akibat. Skor anomali bukan probabilitas fraud."
+                              : "Kontribusi memakai skala log-odds (TreeSHAP). Nilai positif menaikkan skor; nilainya bukan persentase."}
                           </p>
                           <table className="table compact">
                             <thead>
@@ -147,7 +159,12 @@ export function ModelSignals({
                                     className={`num mono ${c.contribution > 0 ? "up" : "down"}`}
                                   >
                                     {c.contribution > 0 ? "+" : ""}
-                                    {c.contribution.toFixed(2)}
+                                    {c.contribution.toFixed(
+                                      s.explanation_method ===
+                                        "median_replacement_score_difference"
+                                        ? 4
+                                        : 2,
+                                    )}
                                   </td>
                                 </tr>
                               ))}

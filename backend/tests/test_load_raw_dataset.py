@@ -1,37 +1,35 @@
-"""The bridge's TRD §6.1 manifest checks, and the shared datasets committed to
-the repository.
+"""The bridge's TRD §6.1 manifest checks on generated test-only source drops.
 
-The shared datasets under sample_data/<Tiny|Small>/ are data anyone with
-repository access can edit by hand, so the checks that guard a source drop —
-declared synthetic, every file matching its checksum — are what keep them
-trustworthy. They must also be exactly what the current generator produces:
-teammates load them instead of running the generator, so a stale copy quietly
-puts the whole team on old data.
+No persisted demo/training data is required. Temporary fixtures preserve the
+legacy source contract, checksums and deterministic regeneration coverage.
 """
 
 import csv
 import json
-from datetime import date
+import shutil
 from pathlib import Path
 
 import pytest
 
-from app.scripts.generate_raw_dataset import RawDatasetGenerator
 from app.scripts.load_raw_dataset import (
-    SHARED_DATASETS,
-    SHARED_ROOT,
     DatasetRejected,
     check_manifest,
     project_transactions,
 )
 from app.scripts.raw_contract import FILE_SPECS, GENERATOR_VERSION
+from data_helpers import (
+    LEGACY_GENERATOR_VERSION,
+    LEGACY_PROFILES,
+    LEGACY_REFERENCE_DATE,
+    LEGACY_SEED,
+    generate_legacy_dataset,
+)
 
 
 @pytest.fixture()
-def dataset(tmp_path: Path) -> Path:
-    generator = RawDatasetGenerator(profile="tiny", seed=20260923, reference_date=date(2026, 9, 30))
-    generator.generate()
-    generator.write(tmp_path / "raw")
+def dataset(tmp_path: Path, legacy_tiny_raw: Path) -> Path:
+    # Every manifest rejection test mutates a private copy.
+    shutil.copytree(legacy_tiny_raw, tmp_path / "raw")
     return tmp_path / "raw"
 
 
@@ -109,60 +107,51 @@ def test_malformed_currency_codes_reach_quarantine_rather_than_being_dropped(dat
     assert currencies - {"IDR"}, "the invalid-currency defect rows should still be present"
 
 
-# --- the datasets committed to the repository ---------------------------------
-
-def _shared(name: str) -> Path:
-    folder = SHARED_ROOT / SHARED_DATASETS[name]
-    if not (folder / "manifest.json").exists():
-        pytest.skip(f"shared dataset {folder.name} is not present in this checkout")
-    return folder
+# --- generated fixture contracts ---------------------------------------------
 
 
-@pytest.mark.parametrize("name", sorted(SHARED_DATASETS))
-def test_shared_dataset_passes_the_manifest_checks_without_warnings(name):
-    folder = _shared(name)
+@pytest.fixture(params=LEGACY_PROFILES)
+def generated_profile(request) -> tuple[str, Path]:
+    name = request.param
+    return name, request.getfixturevalue(f"legacy_{name}_raw")
 
+
+def test_generated_fixture_passes_the_manifest_checks_without_warnings(generated_profile):
+    name, folder = generated_profile
     manifest, warnings = check_manifest(folder)
 
     assert manifest["profile"] == name
-    assert warnings == [], "shared dataset was produced by another generator version"
+    assert manifest["generator_version"] == LEGACY_GENERATOR_VERSION
+    assert manifest["seed"] == LEGACY_SEED
+    assert manifest["business_date"] == LEGACY_REFERENCE_DATE.isoformat()
+    assert manifest["synthetic_declaration"] is True
+    assert warnings == []
 
 
-@pytest.mark.parametrize("name", sorted(SHARED_DATASETS))
-def test_shared_dataset_is_exactly_what_the_current_generator_produces(name, tmp_path):
-    """Regenerated from its own manifest (profile, seed, business date), the
-    shared dataset must come back byte-for-byte. This fails whenever the
-    generator's output changes and the shared copy is not refreshed in the same
-    commit — including a change that forgot to bump GENERATOR_VERSION."""
-    folder = _shared(name)
-    manifest = json.loads((folder / "manifest.json").read_text())
-    generator = RawDatasetGenerator(
-        profile=manifest["profile"], seed=manifest["seed"],
-        reference_date=date.fromisoformat(manifest["business_date"]),
-    )
-    generator.generate()
-    fresh = tmp_path / "fresh"
-    generator.write(fresh)
+def test_generated_fixture_is_reproducible_byte_for_byte(generated_profile, tmp_path):
+    """The fixed profile, seed and date reproduce source and ground-truth bytes.
 
-    stale = [
+    Manifest/report wall-clock metadata is deliberately excluded, as before.
+    """
+    name, folder = generated_profile
+    fresh = generate_legacy_dataset(tmp_path / "fresh", profile=name)
+
+    changed = [
         name_ for name_ in (*(spec.name for spec in FILE_SPECS), "labels.csv", "label_transactions.csv",
                             "seeds.json", "data_dictionary.md", "scenario_catalogue.md")
         if (fresh / name_).read_bytes() != (folder / name_).read_bytes()
     ]
-    assert stale == [], (
-        f"sample_data/{folder.name} is out of date ({', '.join(stale)}). Regenerate it in the same commit: "
-        f"python -m app.scripts.generate_raw_dataset --profile {name} --out sample_data/{folder.name}"
-    )
+    assert changed == [], f"non-deterministic {name} fixture files: {', '.join(changed)}"
 
 
-def test_the_full_profile_is_not_shared_through_the_repository():
-    """~85 MB per change in the history; reproducible from the seed instead."""
-    assert "full" not in SHARED_DATASETS
+def test_the_full_profile_is_not_a_persisted_regression_fixture(tmp_path):
+    with pytest.raises(ValueError, match="test fixture profile"):
+        generate_legacy_dataset(tmp_path / "full", profile="full")
+    assert not (tmp_path / "full").exists()
 
 
-@pytest.mark.parametrize("name", sorted(SHARED_DATASETS))
-def test_shared_dataset_matches_the_source_contract(name):
-    folder = _shared(name)
+def test_generated_fixture_matches_the_source_contract(generated_profile):
+    name, folder = generated_profile
     for spec in FILE_SPECS:
         with (folder / spec.name).open(encoding="utf-8") as handle:
-            assert next(csv.reader(handle)) == spec.header, f"{folder.name}/{spec.name}"
+            assert next(csv.reader(handle)) == spec.header, f"{name}/{spec.name}"

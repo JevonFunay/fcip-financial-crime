@@ -13,7 +13,6 @@ What must hold for the trained models to mean anything:
 import json
 import shutil
 from datetime import date, datetime
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -36,16 +35,15 @@ from app.ml.models import (
 )
 from app.ml.train import load_model, prepare, train_model
 
-SMALL = Path(__file__).resolve().parents[1] / "sample_data" / "Small"
 ENVELOPE = ("artefact_type", "version", "definition_hash", "state", "created_by", "submitted_by", "approved_by",
             "approved_at", "simulation_reference", "effective_from", "superseded_by")
 
 
 @pytest.fixture(scope="module")
-def small(tmp_path_factory):
-    """A copy of Small with its features built (never written into the shared folder)."""
+def small(tmp_path_factory, legacy_small_raw):
+    """Private generated regression data with its features built in a temp folder."""
     folder = tmp_path_factory.mktemp("training") / "Small"
-    shutil.copytree(SMALL, folder)
+    shutil.copytree(legacy_small_raw, folder)
     build(folder)
     frames, labels, truth, located, build_report = prepare(folder)
     return {"folder": folder, "frames": frames, "labels": labels, "truth": truth, "located": located,

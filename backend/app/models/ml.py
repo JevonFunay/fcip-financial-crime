@@ -49,7 +49,7 @@ class ModelVersion(Base):
     unit: Mapped[str] = mapped_column(String, nullable=False)
     feature_set_version: Mapped[str] = mapped_column(String, nullable=False)
     threshold: Mapped[float] = mapped_column(Float, nullable=False)
-    # The LightGBM model in its text format: the artefact itself, not a path to it.
+    # LightGBM text or validated Isolation Forest JSON: the artefact, never a path.
     model_text: Mapped[str] = mapped_column(Text, nullable=False)
     # model_card.json as written by training: provenance, parameters, metrics, caveat.
     model_card: Mapped[dict] = mapped_column(JSONB, nullable=False)
@@ -92,7 +92,7 @@ class MlScore(Base):
     score: Mapped[float] = mapped_column(Float, nullable=False)
     threshold: Mapped[float] = mapped_column(Float, nullable=False)
     flagged: Mapped[bool] = mapped_column(Boolean, nullable=False, index=True)
-    # The strongest named features (BR-401.3): [{feature, value, contribution}], log-odds.
+    # Named features (BR-401.3); model_card.explanation_method defines the scale.
     contributions: Mapped[list] = mapped_column(JSONB, nullable=False)
     detection_run_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
     computed_at: Mapped[datetime] = mapped_column(

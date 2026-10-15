@@ -46,21 +46,20 @@ from app.ml.features import (
 from app.ml.loader import ALLOWED, Account, Txn, load_dataset
 from app.models.transaction import Transaction
 from app.scripts.generate_raw_dataset import HIGH_RISK_COUNTRIES
-from app.scripts.load_raw_dataset import SHARED_ROOT, load_master_data, project_transactions
+from app.scripts.load_raw_dataset import load_master_data, project_transactions
 from app.services.ingestion import ingest_transactions_csv
 
-SMALL = SHARED_ROOT / "Small"
 GROUND_TRUTH = ("labels.csv", "label_transactions.csv", "generation_report.json", "scenario_catalogue.md",
                 "seeds.json", "data_dictionary.md")
 DOCS = Path(__file__).resolve().parents[2] / "docs" / "ml" / f"feature_set_{FEATURE_SET_VERSION}.md"
 
 
 @pytest.fixture(scope="module")
-def small():
-    dataset = load_dataset(SMALL)
+def small(legacy_small_raw):
+    dataset = load_dataset(legacy_small_raw)
     context = InMemoryContext(dataset)
     aml, fraud = build_matrices(dataset)
-    return {"dataset": dataset, "context": context, "aml": aml, "fraud": fraud,
+    return {"folder": legacy_small_raw, "dataset": dataset, "context": context, "aml": aml, "fraud": fraud,
             "histories": histories(dataset, context)}
 
 
@@ -82,7 +81,7 @@ def _write(folder: Path, name: str, rows: list[dict[str, str]]) -> None:
 def test_ground_truth_files_are_never_read(small, tmp_path):
     """Delete every file that knows the answer: the features come out identical."""
     copy = tmp_path / "blind"
-    shutil.copytree(SMALL, copy)
+    shutil.copytree(small["folder"], copy)
     for name in GROUND_TRUTH:
         (copy / name).unlink()
 
@@ -100,8 +99,9 @@ def test_the_loader_allow_list_contains_no_answer():
 def test_a_column_smuggled_into_the_transactions_is_ignored(small, tmp_path):
     """Even if a column named after the answer appeared, it would not be read."""
     copy = tmp_path / "smuggled"
-    shutil.copytree(SMALL, copy)
-    scenario_of = {r["source_transaction_reference"]: r["scenario_id"] for r in _rows(SMALL, "label_transactions.csv")}
+    shutil.copytree(small["folder"], copy)
+    scenario_of = {r["source_transaction_reference"]: r["scenario_id"]
+                   for r in _rows(small["folder"], "label_transactions.csv")}
     rows = _rows(copy, "transactions.csv")
     for row in rows:
         row["scenario_id"] = scenario_of.get(row["source_transaction_reference"], "")
@@ -125,7 +125,7 @@ def test_identifiers_carry_no_value(small, tmp_path):
     """Rename every entity, account, device, merchant and counterparty: every
     feature value stays the same, so no feature reads an identifier."""
     copy = tmp_path / "renamed"
-    shutil.copytree(SMALL, copy)
+    shutil.copytree(small["folder"], copy)
     rng = random.Random(3)
     names: dict[str, str] = {}
 
@@ -225,9 +225,9 @@ def test_one_entity_scored_alone_gets_exactly_its_batch_features(small):
 def test_features_describe_exactly_the_rows_ingestion_accepts(small, db, tmp_path):
     """Training/serving parity: the feature library's rows are the rows the
     upload endpoint stores, no more, no fewer."""
-    load_master_data(db, SMALL)
+    load_master_data(db, small["folder"])
     projected = tmp_path / "app_format.csv"
-    project_transactions(SMALL, projected)
+    project_transactions(small["folder"], projected)
     ingest_transactions_csv(db, file_name=projected.name, content=projected.read_text())
     stored = set(db.execute(select(Transaction.transaction_ref)).scalars())
 
@@ -284,12 +284,12 @@ def test_enough_history_opens_the_gates():
 
 
 def _positive_weeks(small) -> dict[tuple[str, float], str]:
-    labels = {l["scenario_id"]: l for l in _rows(SMALL, "labels.csv")}
+    labels = {l["scenario_id"]: l for l in _rows(small["folder"], "labels.csv")}
     positive = {(l["scenario_id"], l["entity_source_id"]) for l in labels.values() if l["label_type"] == "INJECTED_POSITIVE"}
     ts = dict(zip(small["fraud"].transaction_ref, small["fraud"].ts))
     entity = dict(zip(small["fraud"].transaction_ref, small["fraud"].entity_id))
     weeks = {}
-    for row in _rows(SMALL, "label_transactions.csv"):
+    for row in _rows(small["folder"], "label_transactions.csv"):
         ref, sid = row["source_transaction_reference"], row["scenario_id"]
         if ref in ts and (sid, entity[ref]) in positive:
             weeks[(entity[ref], week_end(ts[ref]))] = labels[sid]["pattern_code"]
@@ -318,7 +318,8 @@ def test_each_positive_shows_its_defining_feature(small, pattern, feature, thres
 
 
 def test_ato_rows_show_a_new_device_and_new_recipients(small):
-    scenario = {r["source_transaction_reference"]: r["scenario_id"] for r in _rows(SMALL, "label_transactions.csv")}
+    scenario = {r["source_transaction_reference"]: r["scenario_id"]
+                for r in _rows(small["folder"], "label_transactions.csv")}
     fraud = small["fraud"].assign(scenario=small["fraud"].transaction_ref.map(scenario))
     ato = fraud[fraud.scenario.fillna("").str.startswith("ATO-POS-")]
 
@@ -383,12 +384,12 @@ def test_the_mcc_reference_comes_from_the_training_dataset_only():
     assert artefact["artefact_type"] == "FEATURE_SET" and artefact["assumption"] == "AS-04"
 
 
-def test_scoring_uses_the_stored_reference_not_the_scored_datas_own_medians():
+def test_scoring_uses_the_stored_reference_not_the_scored_datas_own_medians(legacy_small_raw):
     """A merchant's anomaly must not move its own yardstick: the context
     serves the stored training medians whatever dataset is being scored."""
     from app.ml.reference import compute, load
 
-    dataset = load_dataset(SMALL)
+    dataset = load_dataset(legacy_small_raw)
     stored, own = load(), compute(dataset)
     context = InMemoryContext(dataset)
 

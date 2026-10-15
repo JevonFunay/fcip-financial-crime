@@ -17,9 +17,6 @@ from app.services.ingestion import ingest_transactions_csv
 from app.services.ml_scoring import dataset_from_db
 from sqlalchemy import select
 
-SMALL = Path(__file__).resolve().parents[1] / "sample_data" / "Small"
-
-
 def _raw_dataset(tmp_path: Path, transactions: list[dict]) -> Path:
     """Source-shaped fixtures without generating or changing shared data."""
     raw = tmp_path / "raw"
@@ -132,13 +129,13 @@ def test_parts_use_the_actual_api_cap_and_bridge_currency_semantics(tmp_path):
     assert [r[4] for r in _rows(tmp_path / "upload" / report["parts"][0]["name"])] == ["IDR", "1DR"]
 
 
-def test_split_small_ingestion_keeps_offline_accepted_transactions(db, tmp_path):
+def test_split_small_ingestion_keeps_offline_accepted_transactions(db, tmp_path, legacy_small_raw):
     """Multiple uploads keep first-wins duplicates and deliberately bad rows."""
     output = tmp_path / "upload"
-    report = prepare_upload_csv(SMALL, output, max_bytes=100_000)
+    report = prepare_upload_csv(legacy_small_raw, output, max_bytes=100_000)
     assert len(report["parts"]) > 1
-    load_master_data(db, SMALL)
-    load_merchants_and_devices(db, SMALL)
+    load_master_data(db, legacy_small_raw)
+    load_merchants_and_devices(db, legacy_small_raw)
     total = accepted = quarantined = 0
     for part in report["parts"]:
         path = output / part["name"]
@@ -146,7 +143,7 @@ def test_split_small_ingestion_keeps_offline_accepted_transactions(db, tmp_path)
         total += summary.total_rows
         accepted += summary.accepted
         quarantined += summary.quarantined
-    offline = load_dataset(SMALL)
+    offline = load_dataset(legacy_small_raw)
     assert total == report["projected_transaction_count"] == 20_916
     assert accepted == len(offline.transactions) == 20_458
     assert quarantined == 458

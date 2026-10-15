@@ -1,8 +1,10 @@
 """Creates dev users (one per role) and synthetic customers/accounts. Idempotent — skips rows that already exist.
 
 Run via: docker compose exec backend python -m app.scripts.seed
+Users only: docker compose exec backend python -m app.scripts.seed --users-only
 """
 
+import argparse
 from datetime import date
 
 from sqlalchemy.orm import Session
@@ -100,4 +102,11 @@ def run() -> None:
 
 
 if __name__ == "__main__":
-    run()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--users-only", action="store_true", help="Create dev logins without legacy customers/accounts")
+    args = parser.parse_args()
+    if args.users_only:
+        with SessionLocal() as db:
+            seed_users(db)
+    else:
+        run()

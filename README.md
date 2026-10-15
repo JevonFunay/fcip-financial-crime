@@ -7,6 +7,29 @@ stage: entity resolution, risk scoring, watchlist/PEP screening, graph
 investigation, AI narrative, maker-checker approval, dashboards, and
 additional detection patterns — these come in later iterations.
 
+## Current data and ML workflow — 15 October 2026
+
+Start with **[the current USD data-engine guide](docs/ML_DATA_ENGINE.md)** and
+[manual upload instructions](docs/DEMO_FRESH_DATA.md). The 50,000-row public
+source has **no verified fraud labels**. The replacement workflow fits
+unsupervised Isolation Forest models without targets, using original source
+training accounts plus 1,000,000 generated training observations; validation
+and the post-freeze final evaluation each use 200,000 separate observations.
+
+The new `aml_if_v1` / `fraud_if_v1` models remain **DRAFT** because measured
+synthetic stress precision is inadequate. Legacy supervised models are
+RETIRED. DRAFT models are visible for review and do not score uploads or
+detection runs. A score is an anomaly observation, never a fraud probability.
+USD stays USD, P02 remains IDR-only, and `ML_SCORE` stays DRAFT pending CF-05.
+
+The prepared manual-upload state has **800 account observation proxies and
+zero transactions**. Upload only
+`backend/ml_data/behavioral_s20261015/test_web/transactions_001.csv`
+(200,000 rows; 38,293,500 bytes), after checking the current guide. Original
+AccountID values are observation proxies, not resolved customer identities.
+The removed Tiny/Small/sample datasets and the high legacy model benchmarks
+below are historical regression evidence; they do not describe this workflow.
+
 ## Stack
 
 - Backend: FastAPI, Pydantic v2, SQLAlchemy 2.0, Alembic, Python 3.11
@@ -30,9 +53,9 @@ docker compose up --build
 The backend container runs `alembic upgrade head` before starting the API,
 so the schema is always up to date on boot.
 
-For the fresh Full dataset and manual browser upload demo (7 October), see
-[the demo guide](docs/DEMO_FRESH_DATA.md): prepared CSV parts, role logins,
-the clean demo database, detection/triage steps, and rollback.
+For the current dataset, role logins and manual browser upload, see
+[the demo guide](docs/DEMO_FRESH_DATA.md). Its 7 October material is retained
+as historical evidence and is not the current demo setup.
 
 ## Running backend tests
 
@@ -67,16 +90,20 @@ Login/refresh/logout follows TRD §12.2:
   on `http://localhost`; Safari doesn't, so for Safari on plain-http local dev
   set `COOKIE_SECURE=false` in `.env`.
 
-Seed dev data (idempotent, safe to re-run):
+Create development logins without restoring legacy dummy customers/accounts
+(idempotent; existing passwords are not changed):
 
 ```bash
-docker compose exec backend python -m app.scripts.seed
+docker compose exec backend python -m app.scripts.seed --users-only
 ```
 
 This creates one user per role — `dataops@fcip.internal`,
 `analyst@fcip.internal`, `triage@fcip.internal`, `investigator@fcip.internal`,
-all with password `DevPassword123!` (dev-only, never use in production) — plus
-6 synthetic customers (`CUST-001`..`CUST-006`) and their 8 accounts.
+newly created accounts use password `DevPassword123!` (dev-only, never use in
+production). The default seed command without `--users-only` still creates
+the six legacy synthetic customers and eight accounts for isolated regression
+work. The current USD demo uses `load_behavioral_dataset --master-data-only`
+instead; see the current data-engine guide.
 
 ```bash
 # Login: access token in the body, refresh token in a Set-Cookie header (-c stores it)
@@ -149,44 +176,50 @@ in one transaction share a timestamp and could not otherwise be ordered.
 ```bash
 curl -s -X POST http://localhost:8000/ingestion/transactions \
   -H "Authorization: Bearer <access_token>" \
-  -F "file=@backend/sample_data/transactions_sample.csv" \
-  -F "source_system=CORE_BANKING" -F "business_date=2026-09-23" -F "expected_records=29"
-# -> {"batch_ref": "BAT-000001", "batch_status": "COMPLETED", "total_rows": 29, "accepted": 22, "quarantined": 7, ...}
+  -F "file=@backend/ml_data/behavioral_s20261015/test_web/transactions_001.csv" \
+  -F "source_system=BEHAVIORAL_SIMULATION" -F "business_date=2026-10-15" -F "expected_records=200000"
+# Inspect the actual batch counts returned; this command uploads to the configured demo.
 ```
 
 Both are on the Overview page too, so none of this needs Swagger.
 
 Required columns: `transaction_ref`, `account_number`, `transaction_date`,
 `amount`, `currency`, `direction`, `channel`. Optional: `counterparty_ref`,
-`description`. Header names are matched case-insensitively.
+`description`, transaction type/country/merchant/device/status, and observed
+behavioral metadata. The canonical USD file also carries location, IP, login
+attempts, duration, balance, age/occupation observations, timestamp precision
+and source-timezone knowledge. Unknown observations remain null; age and
+occupation are not inferred customer identity facts. See the current guide
+for schema profiles. Header names are matched case-insensitively.
 
 | Field | Rule |
 |---|---|
 | `amount` | plain positive number, max 2 decimals (`1500000.00`); no thousands separators |
-| `transaction_date` | ISO 8601 date or datetime; no offset means UTC |
+| `transaction_date` | ISO 8601 date or datetime; an unknown source timezone uses UTC as a storage carrier and keeps its separate unknown flag |
 | `currency` | 3 letters (normalized to upper case) |
 | `direction` | `CREDIT` or `DEBIT` (case-insensitive) |
 | `transaction_ref` | must be unique — already-ingested or repeated refs are quarantined |
-| `account_number` | must already exist (accounts are seeded, not ingested) |
+| `account_number` | must already exist; the current demo prepares observation proxies before upload |
 
 A file that can't be interpreted at all (missing required column, not UTF-8,
 malformed CSV, over 50 MB) is rejected with `422`/`413` and nothing is stored.
 `row_number` in quarantine is spreadsheet-style: the header is row 1, the first
 data row is row 2.
 
-The easiest way to try it is the **Upload CSV** control on the Overview page,
-signed in as `dataops@fcip.internal`. From the command line, with the bundled
-synthetic file (22 valid rows + 7 intentionally invalid ones):
+Use **Upload CSV** on Overview as `dataops@fcip.internal`, following the
+[current demo guide](docs/DEMO_FRESH_DATA.md). A separate legacy CSV contract
+fixture remains at
+[`backend/tests/fixtures/transactions_contract.csv`](backend/tests/fixtures/transactions_contract.csv)
+(29 rows: 22 valid, 7 intentionally invalid against legacy test masters).
+It is regression input, not the current demo dataset. Test its behavior only
+on the suite's isolated `_test` database:
 
 ```bash
-curl -s -X POST http://localhost:8000/ingestion/transactions \
-  -H "Authorization: Bearer <access_token>" \
-  -F "file=@backend/sample_data/transactions_sample.csv"
-# expect: total_rows 29, accepted 22, quarantined 7
+docker compose exec backend pytest -q tests/test_ingestion_api.py
 ```
 
-Uploading the same file again quarantines all 22 valid rows as "already exists",
-so re-uploads are visible instead of silently ignored. Inspect quarantine with:
+Re-uploading references already stored sends those rows to quarantine as
+"already exists". Inspect quarantine with:
 
 ```bash
 docker compose exec db psql -U fcip -d fcip \
@@ -196,26 +229,18 @@ docker compose exec db psql -U fcip -d fcip \
 The interactive API docs at http://localhost:8000/docs work too (click
 "Authorize" and paste the access token).
 
-### NFR-05: 100k-row volume (FRD §14.1)
+### Historical NFR-05: 100k-row contract regression (FRD §14.1)
 
 FRD §14.1 requires ingesting 100,000 transactions, including validation, in
-under 10 minutes. Generate a synthetic 100k-row file (~95% valid rows against
-the seeded accounts, ~5% invalid with the same error variety as
-`transactions_sample.csv`):
-
-```bash
-docker compose exec backend python -m app.scripts.generate_bulk_transactions
-# writes backend/sample_data/transactions_bulk.csv (~10.5 MB)
-```
-
-Upload it like any other file, or run the dedicated (slow, not part of the
-default suite) test:
+under 10 minutes. The retained slow test generates private legacy contract
+input (~95% valid, ~5% intentionally invalid) against isolated test masters.
+It does not require the removed sample datasets or populate the current demo:
 
 ```bash
 docker compose exec backend pytest -m slow -v -s tests/test_ingestion_bulk_nfr.py
 ```
 
-**Measured on this machine:** 100,000 rows (95,000 accepted, 5,000
+**Historical measurement, legacy contract:** 100,000 rows (95,000 accepted, 5,000
 quarantined) in **4.4s** end-to-end through the real `POST
 /ingestion/transactions` endpoint (~5s calling the ingestion service directly
 in the pytest run) — about 130x inside the 10-minute budget. No optimization
@@ -227,7 +252,19 @@ through the same ORM bulk-insert batching. The only real fix this NFR
 surfaced: the upload cap was 10 MB while a realistic 100k-row file is ~10.5
 MB, which would have rejected a legitimate NFR-05-sized file — raised to 50 MB.
 
-## Synthetic raw source dataset (TRD §6.1, §11)
+<details>
+<summary>Historical generator 1.4.0, fs_v2 and supervised-model evidence (regression only)</summary>
+
+## Historical synthetic raw source dataset (TRD §6.1, §11)
+
+This section preserves the September/7 October design, benchmark evidence
+and original reproduction commands. These are **not current demo setup or
+current model-quality claims**. Tiny/Small, legacy training/test datasets,
+manual-upload parts and local supervised artifacts have been removed from
+the active data workflow. The legacy generator/code remains for regressions;
+tests generate private temporary datasets. Reproduction belongs in an isolated
+test workspace/database, never the prepared USD demo. Use
+[the 15 October guide](docs/ML_DATA_ENGINE.md) for current work.
 
 `app/scripts/generate_raw_dataset.py` generates the **full banking source
 schema** — eight CSV files plus a manifest, matching the source file contract
@@ -235,7 +272,7 @@ in TRD §6.1 — rather than the narrow transaction CSV the skeleton ingests. Th
 is DEP-01 from the FRD's 16-week backlog.
 
 ```bash
-docker compose exec backend python -m app.scripts.generate_raw_dataset --profile small
+docker compose exec backend python -m app.scripts.generate_raw_dataset --profile small --out /tmp/fcip_legacy_small
 ```
 
 | Profile | Scale | Use | Transactions |
@@ -283,7 +320,8 @@ of the 12 patterns). Through the real API: 97,691 accepted, 2,309 quarantined;
 P02 raises 16 alerts — 11/11 injected positives, 0/11 look-alikes, 0/198
 control entities, plus 5 cross-pattern hits on P07/P08 positives.
 
-Output lands in `backend/sample_data/raw/<profile>/` (or `raw/custom-<target>/`):
+The legacy default output was `backend/sample_data/raw/<profile>/` (or
+`raw/custom-<target>/`); isolated regressions use private temporary paths:
 
 | File | Contents |
 |---|---|
@@ -366,7 +404,7 @@ group with background using total variation distance, and flags a column that
 differs beyond sampling noise without being part of that pattern's definition.
 
 ```bash
-python -m app.scripts.audit_scenario_artefacts sample_data/Small          # exit 1 if anything is flagged
+python -m app.scripts.audit_scenario_artefacts /tmp/fcip_legacy_small     # isolated regenerated fixture
 python -m app.scripts.audit_scenario_artefacts <dir> --markdown audit.md --json audit.json
 ```
 
@@ -616,30 +654,12 @@ The trained models run in the app itself: `POST /detection/run` (the Overview
 page's **Jalankan deteksi** button) runs every ACTIVE rule and then every
 ACTIVE model version, and the scores show in the app.
 
-**Try it** (Docker; from the repository root):
-
-```bash
-docker compose build backend && docker compose up -d          # new dependencies; migrations run on start
-docker compose exec backend python -m app.scripts.seed        # users (password DevPassword123!) and demo rows
-
-# the unseen test seed, and the models (skip what you already have)
-docker compose exec backend python -m app.scripts.generate_raw_dataset --profile full --seed 20261001 --out ml_data/test_full_s20261001
-docker compose exec backend python -m app.scripts.generate_raw_dataset --profile full --out ml_data/train_full_s20260923
-docker compose exec backend python -m app.ml.build_features ml_data/train_full_s20260923
-docker compose exec backend python -m app.ml.train ml_data/train_full_s20260923
-
-# into the app: master data, then the transactions through the ingestion service
-docker compose exec backend python -m app.scripts.load_raw_dataset --raw-dir ml_data/test_full_s20261001 --ingest
-docker compose exec backend python -m app.scripts.register_models
-```
-
-Then open http://localhost:5173, log in as `analyst@fcip.internal`, press
-**Jalankan deteksi** on the Overview page (about a minute at full size), and
-look at the **Alert queue** (a *Model score* column, and on each alert a
-*Model signals* section) and the new **Model flags** page. The full dataset is
-above the 50 MB upload limit, so it goes in through `--ingest`, which runs the
-upload's own path: a registered batch, the same validation and quarantine.
-Scoring the full dataset needs about 3 GB of memory in the backend container.
+The historical setup generated the old full-profile training/test datasets,
+loaded their master data and transactions into a throwaway database, and
+registered the supervised models ACTIVE with the documented approval bypass.
+That setup is retired. `tests/test_ml_app.py` now reproduces the compatibility
+checks using private temporary data and models; the active setup belongs to
+[the current data-engine guide](docs/ML_DATA_ENGINE.md).
 
 What is in place:
 
@@ -688,12 +708,10 @@ The skeleton models customers, accounts and transactions, and its ingestion
 endpoint takes a narrower CSV, so a bridge script loads the master data and
 projects the transactions onto that shape:
 
-```bash
-docker compose exec backend python -m app.scripts.load_raw_dataset --profile small            # generated locally
-docker compose exec backend python -m app.scripts.load_raw_dataset --profile custom-100000
-docker compose exec backend python -m app.scripts.load_raw_dataset --shared small             # committed to the repo
-docker compose exec backend python -m app.scripts.load_raw_dataset --raw-dir <dir> --ingest   # ingest it here too
-```
+Historical bridge behavior is retained in `app.scripts.load_raw_dataset` and
+tested against privately generated fixtures. The removed shared paths are no
+longer setup inputs. Any deliberate legacy reproduction must target an
+isolated regression database and an explicitly generated private raw directory.
 
 Master data now includes merchants and devices, and the projected CSV carries
 the transaction type, counterparty country, merchant, device and source status
@@ -707,15 +725,9 @@ it.
 
 It prints exactly which columns it could not carry across (business date, IP
 address, counterparty name) — that gap **is** the distance between the
-skeleton and the full pipeline, so it is reported rather than hidden. Then
-upload the projected file from the Overview page (or pass `--ingest`), or:
-
-```bash
-curl -s -X POST http://localhost:8000/ingestion/transactions \
-  -H "Authorization: Bearer <token>" \
-  -F "file=@backend/sample_data/raw/small/transactions_app_format.csv" \
-  -F "source_system=NDP_WALLET_CORE" -F "business_date=2026-09-30"
-```
+skeleton and the full pipeline, so it is reported rather than hidden. The
+historical projected upload is superseded by the canonical USD upload file
+listed in the current guide.
 
 **Measured on the shared `Small` (generator 1.4.0, through the real API in a
 throwaway database):** 20,916 rows read, 20,458 accepted, 458 quarantined across
@@ -733,38 +745,26 @@ into the band) and P08 (remittances inside the band), 14 on the training seed
 and 18 on the test seed (1.3.0: 15 and 18). Those are cross-pattern hits on genuinely suspicious
 entities, not false positives on clean ones; no unlabelled entity fires.
 
-### Shared datasets in the repository
+### Removed shared datasets: regression history
 
-`backend/sample_data/Tiny` and `Small` are committed so the whole team loads
-the same data without running the generator:
+`backend/sample_data/Tiny`, `Small` and the old
+`backend/sample_data/transactions_sample.csv` belonged to the legacy demo and
+were removed in the authorised 15 October replacement. They are not bundled
+inputs now; `--shared small` is not the current setup path. Legacy regression
+tests generate their own Tiny/Small data under temporary directories using
+unchanged generator 1.4.0. The small CSV contract is retained only as
+[`backend/tests/fixtures/transactions_contract.csv`](backend/tests/fixtures/transactions_contract.csv).
 
-```bash
-docker compose exec backend python -m app.scripts.load_raw_dataset --shared small
-```
-
-They must always be exactly what the current generator produces, and
-`tests/test_load_raw_dataset.py` enforces it byte for byte. **If you change the
-generator, regenerate them in the same commit** — the failing test prints the
-command:
-
-```bash
-docker compose exec backend python -m app.scripts.generate_raw_dataset --profile tiny  --out sample_data/Tiny
-docker compose exec backend python -m app.scripts.generate_raw_dataset --profile small --out sample_data/Small
-```
-
-The full profile is **not** committed: at ~85 MB it would add that much to the
-history on every change, and it is reproducible byte for byte from the seed in
-~6 s. Generate it on demand and load it with `--profile full`.
-
-(History: the first copies, committed in PR #1, were generator 1.0.0 output
-made from a checkout that did not yet have the §11.2 population fix. They were
-replaced with 1.1.0 output, and the byte-for-byte test was added so a stale
-shared copy cannot slip in again.)
+History: the original shared copies were generator 1.0.0 output, replaced with
+1.1.0 and later 1.4.0 output. The historical measurements above describe those
+datasets; they are not measurements of the public-source USD pipeline.
 
 > **Spec inconsistency, flagged not resolved:** TRD §11.1 describes "~600
 > duplicate source records" for entity resolution, but the §11.5 table sums to
 > 820. The generator follows §11.5 as the more specific of the two. Worth a
 > mentor ruling.
+
+</details>
 
 ## Browsing the data
 
@@ -823,8 +823,8 @@ curl -s -X POST http://localhost:8000/detection/p02/run -H "Authorization: Beare
 Re-running on the same data is idempotent: alerts already raised for the same
 evidence are reported with `created: false`, never duplicated.
 
-**Expected result on the sample file** (after seeding and uploading
-`transactions_sample.csv`): exactly 2 alerts. Each seeded customer is a
+**Legacy contract regression result** (isolated test masters and
+`backend/tests/fixtures/transactions_contract.csv`): exactly 2 alerts. Each seeded customer is a
 hand-checkable scenario:
 
 | Customer | Scenario | Result |
@@ -979,7 +979,7 @@ which is UAT-12 in one click.
 ## Frontend
 
 http://localhost:5173 — React + TypeScript + Vite, TanStack Query for data,
-react-router for pages. Functional, not polished.
+react-router for pages, with a responsive sidebar and review tables.
 
 | Route | Page | What it does |
 |---|---|---|
@@ -988,12 +988,13 @@ react-router for pages. Functional, not polished.
 | `/alerts` | Alert queue | table with status filter (Open / Escalated / Disposed / All), click a row for detail |
 | `/alerts/:id` | Alert detail | reason, correlation id, evidence transactions, detection factors; triage form and "open case" button depending on role and status |
 | `/cases/:id` | Case detail | case header (number, status, opened by) and the linked alerts |
+| `/model-flags` | Model signals | registered model cards and stored flags; DRAFT candidates are visible but do not score |
 | `/audit` | Audit trail | filter by correlation ID / object type / object ID / actor, and export the result as CSV |
 
 The whole workflow runs from the UI — **no Swagger needed**. Overview carries the
 two data operations, role-gated like everything else: **Upload CSV** (ROLE_DATA_OPS)
 and **Run detection** (ROLE_DATA_OPS, ROLE_ANALYST). Both report what happened
-(`22 accepted, 7 quarantined`, `2 alerts created`) and refresh the tiles in place.
+and refresh the tiles with actual accepted/quarantined and detection counts.
 Other roles see the same data read-only.
 
 Role-aware UI: the disposition form only renders for ROLE_TRIAGE on `OPEN`
@@ -1012,12 +1013,11 @@ concurrent requests) and retries, and if that fails the session is cleared and
 the user lands on `/login`. Reloading the page keeps you signed in without
 re-entering credentials.
 
-Try it end to end without leaving the browser: seed the users and master data
-(`python -m app.scripts.seed`), sign in as `dataops@fcip.internal` → upload
-`backend/sample_data/transactions_sample.csv` from Overview → **Run detection**
-→ switch to `triage@fcip.internal` → open the CUST-006 alert → escalate with a
-reason → "Open case from this alert". Sign in as `analyst@fcip.internal` to see
-the read-only view. Screenshots of that flow are in `docs/screenshots/`.
+For the current manual-upload steps, use [the demo guide](docs/DEMO_FRESH_DATA.md).
+With the new models DRAFT and USD outside P02's IDR scope, a completed upload
+does not imply AML/Fraud flags or triage alerts. Historical screenshots in
+`docs/screenshots/` show the legacy fixture flow; the isolated regression suite
+still covers disposition/escalation/case creation on rule alerts.
 
 ## Known simplifications (skeleton stage)
 
@@ -1037,20 +1037,24 @@ here so they're easy to explain and are tracked for follow-up:
   cannot change them: each is a small change in `evaluate` / `find_clusters`
   plus a `TEMPLATE_VERSION` bump if the FRD says otherwise.
 - **No scheduler.** Detection is triggered manually (script or endpoint).
-- **Model scoring rescans the whole database on every run** (about 45 s and
-  3 GB at full size). Scoring only what a new batch touches is the live-mode
-  work; the feature functions already take one entity at a time.
-- **Model versions are registered ACTIVE without maker-checker**, a documented
-  bypass like RUL-0001's, until FR-405's approval flow and ROLE_MLRO exist.
+- **ACTIVE model scoring rebuilds features from the stored history.** The
+  roughly 45 s / 3 GB figure above is a historical fs_v2 benchmark, not a
+  performance promise for the new DRAFT models. Scoring only what a new batch
+  touches remains live-mode work.
+- **Model registration supports DRAFT and ACTIVE.** The new quality-gated
+  candidates use explicit `--state DRAFT` and remain excluded from scoring.
+  ACTIVE registration retains the documented maker-checker bypass until
+  FR-405/ROLE_MLRO exist; it is not the current candidate-promotion workflow.
 - **No CSRF token on `/auth/*`.** `SameSite=Strict` on the refresh cookie
   already blocks cross-site requests from carrying it; a dedicated CSRF token
   isn't added on top for the skeleton.
 - **Frontend has no automated tests in the repo.** It was verified with a
   scripted Playwright click-through (login, queue, disposition, case, role
   restrictions, token refresh); wiring that into CI is a follow-up.
-- **CSV ingestion covers transactions only.** Customer and account records
-  are pre-seeded reference data (see `backend/app/scripts/seed.py`), not part
-  of the ingestion pipeline.
+- **CSV ingestion covers transactions only.** The current workflow prepares
+  one account observation proxy per account through
+  `app.scripts.load_behavioral_dataset --master-data-only` before upload;
+  customer identity is not inferred. The default legacy seed is for regressions.
 - **A batch and an alert are separate audit chains.** FRD UAT-12 asks for "the
   whole chain from batch to report" under one correlation ID, but an alert's
   evidence window can span several batches, so a single chain from batch to
@@ -1058,8 +1062,9 @@ here so they're easy to explain and are tracked for follow-up:
   alert chains detection → disposition → case; the batch link is reachable
   through `transaction.ingestion_batch_id` on the alert's evidence rows. **This
   needs a mentor/design decision, not a silent default.**
-- **Naive timestamps are read as UTC.** A CSV `transaction_date` without a UTC
-  offset is treated as UTC; source-system timezones aren't modelled yet.
+- **Unknown source timezone is explicit.** A naive timestamp uses UTC as its
+  storage carrier while retaining its unknown source-timezone flag and actual
+  day/minute/second precision; it does not acquire an inferred source timezone.
 - **Session security is simplified.** TRD §12.2's idle timeout (30 min) and
   absolute timeout (8h) are enforced using the `sessions` table's
   `last_used_at`/`expires_at` columns, but login lockout and refresh

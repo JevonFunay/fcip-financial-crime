@@ -12,6 +12,8 @@ class TransactionOut(BaseModel):
     transaction_ref: str
     account_number: str
     transaction_date: datetime
+    timestamp_precision: str | None = None
+    source_timezone_known: bool | None = None
     amount: Decimal
     currency: str
     direction: TransactionDirection

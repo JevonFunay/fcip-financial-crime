@@ -86,7 +86,7 @@ export function LoginPage() {
         <p className="login-story-foot">
           PT Nusantara Digital Payment
           <br />
-          Capstone UKDW × V-TEKI · Data sintetis
+          Capstone UKDW × V-TEKI · Data demonstrasi
         </p>
       </section>
       <section className="login-form-panel">
@@ -147,8 +147,8 @@ export function LoginPage() {
           <div className="login-note">
             <Icon name="info" size={17} />
             <p>
-              Lingkungan data sintetis. Sinyal model mendukung investigasi;
-              keputusan tetap oleh manusia.
+              Data demonstrasi dari sumber publik dan simulasi. Sinyal model
+              mendukung investigasi; keputusan tetap oleh manusia.
             </p>
           </div>
         </form>

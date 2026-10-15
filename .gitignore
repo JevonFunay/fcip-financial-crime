@@ -30,14 +30,12 @@ frontend/.vite/
 # Generated (reproducible via app/scripts/generate_bulk_transactions.py)
 backend/sample_data/transactions_bulk.csv
 
-# Generated raw source dataset. Byte-for-byte reproducible from the seed
-# (TRD §11.0.1), so it is regenerated rather than committed:
-#   python -m app.scripts.generate_raw_dataset --profile small
+# Local source files, including the user-supplied public CSV/archive. Keep
+# provenance/checksums in docs; do not publish the source through this repo.
 backend/sample_data/raw/
 
 # The bridge writes its projection next to the dataset it read, including the
-# shared datasets committed under backend/sample_data/<Tiny|Small>/. It is
-# derived, so it is never committed.
+# historical shared dataset locations. Projections are never committed.
 backend/sample_data/*/transactions_app_format.csv
 
 # The full profile is not shared through git: at ~85 MB it would add that much
@@ -45,8 +43,8 @@ backend/sample_data/*/transactions_app_format.csv
 # seed in ~6 s (python -m app.scripts.generate_raw_dataset --profile full).
 backend/sample_data/Full/
 
-# ML pipeline datasets and model files: reproducible from their seeds (README,
-# "Datasets for the ML pipeline"), so regenerated rather than committed.
+# ML datasets/model files remain local. Reproduction requires the matching
+# source checksum, code, profiles and seeds (docs/ML_DATA_ENGINE.md).
 backend/ml_data/
 backend/ml_models/
 

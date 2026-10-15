@@ -56,8 +56,8 @@ SIGNAL_NOTICE = (
 )
 # TRD §10.6 / FRD L-01: every metric and score surface carries it as a field.
 SYNTHETIC_NOTICE = (
-    "Synthetic data only: these models were trained and evaluated on generated data; scores are not "
-    "production detection performance (TRD §10.6, FRD L-01)."
+    "Synthetic scenarios and/or public-source observations are used for demonstration; model scores "
+    "are not proof of fraud or production detection performance (TRD §10.6, FRD L-01)."
 )
 TOP_CONTRIBUTIONS = 8
 UNIT_FEATURES = {UNIT_AML: "AML", UNIT_FRAUD: "FRAUD"}
@@ -84,10 +84,55 @@ def _reference_hash() -> str:
 
 
 def verify(version: ModelVersion) -> list[str]:
+    try:
+        return _verify(version)
+    except ModelIntegrityError:
+        raise
+    except (KeyError, TypeError, ValueError, AttributeError) as exc:
+        raise ModelIntegrityError(f"{version.version}: malformed model artefact or card: {exc}") from exc
+
+
+def _verify(version: ModelVersion) -> list[str]:
     """The definition hash recomputed from what is stored, and the feature set
     and MCC reference it needs, compared with this checkout's."""
     card = version.model_card
     features = card["feature_set"]["features"]
+    if version.artefact_type == "ISOLATION_FOREST_JSON":
+        from app.ml.behavioral.features import FEATURE_SET_VERSION as BEHAVIORAL_VERSION
+        from app.ml.behavioral.features import FEATURE_DEFINITIONS as DEFINITIONS, feature_names
+        from app.ml.behavioral.model import EXPLANATION_METHOD, load_model
+
+        context = card["feature_set"]
+        vocabulary = context["vocabulary"]
+        expected = definition_hash(version.model_text, canonical(features), version.feature_set_version,
+                                   canonical(vocabulary), canonical(version.threshold))
+        if expected != version.definition_hash or card.get("definition_hash") != version.definition_hash:
+            raise ModelIntegrityError(f"{version.version}: stored content does not match its definition_hash")
+        if (version.feature_set_version != BEHAVIORAL_VERSION or context.get("version") != BEHAVIORAL_VERSION
+                or features != feature_names(version.unit)
+                or context.get("normalization_profile") != "fcip_canonical_v1"
+                or vocabulary.get("feature_set_version") != BEHAVIORAL_VERSION):
+            raise ModelIntegrityError(f"{version.version}: incompatible behavioral feature registry or profile")
+        if (card.get("version") != version.version
+                or card.get("artefact_type") != version.artefact_type
+                or (card.get("unit") or card.get("model", {}).get("unit")) != version.unit
+                or card["model"].get("threshold") != version.threshold
+                or card["model"].get("explanation_method") != EXPLANATION_METHOD
+                or card["model"].get("score_kind") != "anomaly_score"
+                or not 0 <= version.threshold <= 1):
+            raise ModelIntegrityError(f"{version.version}: inconsistent model-card semantics")
+        definitions = context.get("definitions", {})
+        if any(definitions.get(f) != DEFINITIONS[(version.unit, f)] for f in features):
+            raise ModelIntegrityError(f"{version.version}: incompatible stored feature definitions")
+        try:
+            predictor = load_model(version.model_text)
+        except (ValueError, TypeError, KeyError) as exc:
+            raise ModelIntegrityError(f"{version.version}: invalid JSON model: {exc}") from exc
+        if predictor.features != features:
+            raise ModelIntegrityError(f"{version.version}: model feature order differs from its card")
+        return features
+    if version.artefact_type != "ANOMALY_MODEL":
+        raise ModelIntegrityError(f"{version.version}: unsupported artefact_type {version.artefact_type}")
     reference = card["feature_set"]["mcc_ticket_reference"]
     recomputed = definition_hash(version.model_text, canonical(features), version.feature_set_version, reference,
                                  canonical(version.threshold))
@@ -102,12 +147,18 @@ def verify(version: ModelVersion) -> list[str]:
 
 
 def active_models(db: Session) -> dict[str, LoadedModel]:
-    import lightgbm as lgb
-
     loaded = {}
     for version in db.scalars(select(ModelVersion).where(ModelVersion.state == RuleState.ACTIVE)):
         features = verify(version)
-        loaded[version.unit] = LoadedModel(version, lgb.Booster(model_str=version.model_text), features)
+        if version.unit in loaded:
+            raise ModelIntegrityError(f"More than one model version is ACTIVE for {version.unit}")
+        if version.artefact_type == "ISOLATION_FOREST_JSON":
+            from app.ml.behavioral.model import load_model
+            predictor = load_model(version.model_text)
+        else:
+            import lightgbm as lgb
+            predictor = lgb.Booster(model_str=version.model_text)
+        loaded[version.unit] = LoadedModel(version, predictor, features)
     return loaded
 
 
@@ -169,6 +220,7 @@ class UnitRun:
     units_scored: int
     units_flagged: int
     scores_stored: int
+    observations_skipped_currency: int = 0
 
 
 def _top(features: list[str], values: np.ndarray, contributions: np.ndarray) -> list[dict]:
@@ -182,7 +234,7 @@ def _entities_with_rule_alerts(db: Session) -> set[uuid.UUID]:
     return set(db.scalars(select(Alert.customer_id).where(Alert.pattern_code != ML_PATTERN_CODE)))
 
 
-def score_all(db: Session, run_id: uuid.UUID, models: dict[str, LoadedModel]) -> list[UnitRun]:
+def _score_legacy(db: Session, run_id: uuid.UUID, models: dict[str, LoadedModel]) -> list[UnitRun]:
     dataset, customer_ids, transaction_ids = dataset_from_db(db)
     if not dataset.transactions:
         return [UnitRun(m.version.version, unit, m.version.threshold, 0, 0, 0) for unit, m in models.items()]
@@ -228,13 +280,92 @@ def score_all(db: Session, run_id: uuid.UUID, models: dict[str, LoadedModel]) ->
     return runs
 
 
+def behavioral_frame_from_db(db: Session, currency: str):
+    """Canonical observed fields, never customer attributes inferred from IDs.
+
+    The UTC timestamp is a storage carrier; its separate precision/timezone
+    flags determine which temporal features can honestly be computed.
+    """
+    import pandas as pd
+    from app.ml.behavioral.standardize import CANONICAL_COLUMNS
+
+    fields = [c for c in CANONICAL_COLUMNS if c != "account_number"]
+    rows = db.execute(select(
+        *[getattr(Transaction, name) for name in fields],
+        Transaction.id.label("transaction_id"), Account.account_number, Account.customer_id,
+    ).join(Account, Transaction.account_id == Account.id).where(Transaction.currency == currency)).mappings()
+    observations, customer_ids, transaction_ids = [], {}, {}
+    for row in rows:
+        record = {name: row[name] for name in fields}
+        record.update(account_number=row["account_number"], amount=float(row["amount"]),
+                      direction=row["direction"].value,
+                      timestamp_precision=row["timestamp_precision"] or "day",
+                      source_timezone_known=row["source_timezone_known"] is True)
+        observations.append(record)
+        customer_ids[row["account_number"]] = row["customer_id"]
+        transaction_ids[row["transaction_ref"]] = row["transaction_id"]
+    return pd.DataFrame(observations, columns=CANONICAL_COLUMNS), customer_ids, transaction_ids
+
+
+def score_all(db: Session, run_id: uuid.UUID, models: dict[str, LoadedModel]) -> list[UnitRun]:
+    from app.ml.behavioral.features import build_features
+    from app.ml.behavioral.model import explain_model
+
+    legacy = {unit: model for unit, model in models.items()
+              if model.version.artefact_type != "ISOLATION_FOREST_JSON"}
+    runs = _score_legacy(db, run_id, legacy) if legacy else []
+    frames = {}
+    alerted = _entities_with_rule_alerts(db)
+    for unit, model in sorted(models.items()):
+        if model.version.artefact_type != "ISOLATION_FOREST_JSON":
+            continue
+        vocabulary = model.version.model_card["feature_set"]["vocabulary"]
+        currency = vocabulary["currency"]
+        if currency not in frames:
+            frames[currency] = behavioral_frame_from_db(db, currency)
+        source, customer_ids, transaction_ids = frames[currency]
+        skipped = db.query(Transaction).filter(Transaction.currency != currency).count()
+        if source.empty:
+            runs.append(UnitRun(model.version.version, unit, model.version.threshold, 0, 0, 0, skipped))
+            continue
+        if unit == UNIT_AML and len(set(customer_ids.values())) != len(customer_ids):
+            raise ModelIntegrityError("behavioral_v1 account-week storage requires one observation proxy per account")
+        frame = build_features(source, unit, vocabulary)
+        scores = model.booster.scores(frame)
+        flagged = scores >= model.version.threshold
+        keep = flagged.copy()
+        if unit == UNIT_AML:
+            keep |= frame.account_number.map(lambda account: customer_ids[account] in alerted).to_numpy(dtype=bool)
+        positions = np.flatnonzero(keep)
+        explanations = explain_model(model.version.model_text, frame.iloc[positions], TOP_CONTRIBUTIONS)
+        records = []
+        for i, contributions in zip(positions, explanations):
+            records.append({
+                "model_version_id": model.version.id, "unit": unit,
+                "customer_id": customer_ids[frame.account_number.iat[i]],
+                "transaction_id": transaction_ids[frame.transaction_ref.iat[i]] if unit == UNIT_FRAUD else None,
+                "as_of": frame.as_of.iat[i].to_pydatetime(), "score": float(scores[i]),
+                "threshold": model.version.threshold, "flagged": bool(flagged[i]),
+                "contributions": contributions, "detection_run_id": run_id,
+            })
+        stored = 0
+        for start in range(0, len(records), 2000):
+            result = db.execute(pg_insert(MlScore.__table__).on_conflict_do_nothing()
+                                .returning(MlScore.__table__.c.id), records[start:start + 2000])
+            stored += len(result.scalars().all())
+        runs.append(UnitRun(model.version.version, unit, model.version.threshold,
+                            len(frame), int(flagged.sum()), stored, skipped))
+    return sorted(runs, key=lambda run: run.unit)
+
+
 # --- ML_SCORE alerts (CF-05 option b), only through an ACTIVE rule version -----------------------
 
 
-def _describe(unit: str, contributions: list[dict], n: int = 3) -> str:
+def _describe(unit: str, contributions: list[dict], n: int = 3, definitions: dict | None = None) -> str:
     parts = []
     for c in contributions[:n]:
-        definition = FEATURE_DEFINITIONS.get((UNIT_FEATURES[unit], c["feature"]), c["feature"])
+        definition = (definitions.get(c["feature"], c["feature"]) if definitions is not None else
+                      FEATURE_DEFINITIONS.get((UNIT_FEATURES[unit], c["feature"]), c["feature"]))
         value = "unknown" if c["value"] is None else f"{c['value']:,.4g}"
         parts.append(f"{c['feature']} = {value} ({definition.lower()})")
     return "; ".join(parts)
@@ -250,18 +381,23 @@ def raise_ml_alerts(db: Session, run_id: uuid.UUID, actor: User | None) -> tuple
     existing = {a.detection_details.get("ML_UNIT_KEY") for a in
                 db.scalars(select(Alert).where(Alert.pattern_code == ML_PATTERN_CODE))}
     flagged = db.execute(
-        select(MlScore, ModelVersion.version, Transaction.transaction_date)
+        select(MlScore, ModelVersion, Transaction.transaction_date)
         .join(ModelVersion, MlScore.model_version_id == ModelVersion.id)
         .outerjoin(Transaction, MlScore.transaction_id == Transaction.id)
         .where(MlScore.flagged.is_(True))
         .order_by(MlScore.as_of)
     ).all()
     groups: dict[tuple, list] = defaultdict(list)
-    for score, model_version, _ in flagged:
+    model_cards = {}
+    for score, version, _ in flagged:
+        model_version = version.version
+        model_cards[model_version] = version
         if score.unit == UNIT_AML:
             key = (model_version, score.unit, score.customer_id, score.as_of.isoformat())
         else:
-            key = (model_version, score.unit, score.customer_id, score.as_of.astimezone(JAKARTA).date().isoformat())
+            day = (score.as_of.date() if version.artefact_type == "ISOLATION_FOREST_JSON"
+                   else score.as_of.astimezone(JAKARTA).date())
+            key = (model_version, score.unit, score.customer_id, day.isoformat())
         groups[key].append(score)
     created = already = 0
     evaluated = [f"{rule.rule_ref} v{version.version}" for rule, version in versions]
@@ -285,8 +421,12 @@ def raise_ml_alerts(db: Session, run_id: uuid.UUID, actor: User | None) -> tuple
                 window_start = min(s.as_of for s in scores)
                 window_end = max(s.as_of for s in scores)
                 what = f"{len(scores)} transaction(s) on {period}"
+            model = model_cards[model_version]
+            definitions = (model.model_card["feature_set"]["definitions"]
+                           if model.artefact_type == "ISOLATION_FOREST_JSON" else None)
             reason = (f"{UNIT_LABEL[unit].capitalize()} {model_version} scored {what} at {best.score:.2f} "
-                      f"(threshold {best.threshold:.2f}). Strongest features: {_describe(unit, best.contributions)}")
+                      f"(threshold {best.threshold:.2f}). Strongest features: "
+                      f"{_describe(unit, best.contributions, definitions=definitions)}")
             alert = Alert(
                 pattern_code=ML_PATTERN_CODE,
                 rule_version_id=version.id,

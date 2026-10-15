@@ -35,6 +35,8 @@ def test_transaction_rows_carry_account_and_customer(client, auth_headers, sampl
     assert row["amount"] == "450000000.00"
     assert row["direction"] == "CREDIT"
     assert row["channel"] == "CASH"
+    assert row["timestamp_precision"] == "second"
+    assert row["source_timezone_known"] is True
 
 
 def test_transactions_sorted_newest_first(client, auth_headers, sample_alerts):
@@ -145,6 +147,10 @@ def test_overview_counts_reflect_loaded_data(client, auth_headers, sample_alerts
     assert body["alerts_disposed"] == 0
     assert body["cases"] == 0
     assert body["latest_transaction_date"].startswith("2026-08-")
+    latest = client.get("/transactions", params={"limit": 1}, headers=auth_headers(UserRole.ROLE_ANALYST)).json()["items"][0]
+    assert body["latest_transaction_date"] == latest["transaction_date"]
+    assert body["latest_transaction_timestamp_precision"] == latest["timestamp_precision"]
+    assert body["latest_transaction_source_timezone_known"] == latest["source_timezone_known"]
 
 
 def test_overview_tracks_alert_status_changes(client, auth_headers, sample_alerts):
@@ -165,3 +171,5 @@ def test_overview_on_empty_database(client, auth_headers):
 
     assert body["transactions"] == 0
     assert body["latest_transaction_date"] is None
+    assert body["latest_transaction_timestamp_precision"] is None
+    assert body["latest_transaction_source_timezone_known"] is None

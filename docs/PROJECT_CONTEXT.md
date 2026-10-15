@@ -4,8 +4,15 @@
 Intelligence Platform capstone: what the project is, what the spec demands, what
 is actually built, what is deliberately not built, and what is still undecided.
 
-Last updated: **7 October 2026** · Week 5 of 16 · ~17% of MVP scope
+Last updated: **15 October 2026** · Week 6 of 16 · ~17% of MVP scope
 (scope percentage last recounted 29 September)
+
+**Current handoff:** §14 and [ML_DATA_ENGINE.md](ML_DATA_ENGINE.md) supersede
+the old dataset/training instructions below. The new USD pipeline is
+unsupervised; 1,400,000 generated rows and a real 200,000-row upload are
+verified. Model quality is inadequate: both new versions remain **DRAFT**,
+both old supervised versions are **RETIRED**, and no model is ACTIVE in the
+live demo. Do not read the historical supervised results as current quality.
 
 ---
 
@@ -13,9 +20,12 @@ Last updated: **7 October 2026** · Week 5 of 16 · ~17% of MVP scope
 
 A **Financial Crime Intelligence Platform (FCIP)** — an AML/transaction-monitoring
 system built as a university capstone (UKDW × V-TEKI). The fictional client is
-"PT Nusantara Digital Payment", an Indonesian digital wallet. **All data is
-synthetic.** Nothing in this project touches real people, real lists or real
-money.
+"PT Nusantara Digital Payment", an Indonesian digital wallet. New generated
+data is synthetic. Since Jevon's 14 October directive, a downloaded public
+transaction dataset also supplies reference observations; its publisher,
+licence and claimed simulation/augmentation ancestry have not been independently
+verified. It is not evidence of real fraud. The platform takes no action on
+real money and has no regulator transmission path.
 
 The platform is **advisory only**. Four hard stop-lines run through the entire
 spec and must never be crossed:
@@ -104,11 +114,13 @@ percentage is an estimate — the counts underneath it are not.
 | NFRs proven by measurement | 3 of 18 | 17% |
 | TRD components | ~6 full + ~5 partial of 30 | ~25% |
 
-**411 regular backend tests pass** (410 in Docker plus one documentation
-check on the host; 5 slow tests passed on the earlier unchanged baseline).
-Frontend has no committed automated test suite; the production UI refresh
-was verified with a scripted Playwright click-through (see §13). Backend
-test figures are the preceding unchanged baseline, not a new UI-stage run.
+**492 regular backend tests pass** (485 in the full Docker run, three new
+dataset-reset checks, one new amount-boundary check and two added source-clock
+cases in focused runs, plus the container-excluded documentation
+check on the host). The five slow checks also pass. Frontend TypeScript/Vite
+build passes; historical browser evidence for the UI refresh is in §13.
+The new actual 200,000-row ingestion/scoring parity check is isolated from
+the live demo and is technical evidence, not approval of model quality (§14).
 
 ### Per domain
 
@@ -424,11 +436,12 @@ business date, transaction type) — that gap is the distance to the full pipeli
 It checks the manifest first (TRD §6.1): refused unless declared synthetic
 (FR-501) and every file matches its SHA-256.
 
-**Shared datasets:** `backend/sample_data/Tiny` and `Small` are committed so
-the team loads the same data without running the generator (`--shared small`).
-A test requires them to match the current generator byte for byte — **change
-the generator, regenerate them in the same commit**. `Full` is not committed
-(~85 MB of history per change); generate it on demand with `--profile full`.
+**Historical shared datasets (withdrawn 15 October):** `Tiny`, `Small` and
+the old generated ML/demo corpora have been removed under Jevon's explicit
+replacement instruction. Generator 1.4.0 source and old model evidence remain
+for regression/history; tests generate their own temporary fixtures. They are
+not training data for `behavioral_v1`. The old freeze/regenerate rule does not
+override the authorised replacement. Use §14 for the current data path.
 
 ### Frontend
 `/login`, `/` (Overview: tiles, transaction table with search/filter/paging,
@@ -516,6 +529,27 @@ transaction pages show 25 rows; model scores and audit show 50. These are
 client presentation choices, **not FRD/TRD values or model parameters**.
 No new backend workflow or model-result assumption follows from this choice.
 
+**AS-07 — source contract and incomplete identity/time (14–15 Oct):** USD is
+Jevon's explicit confirmation, not an inferred conversion. Unspecified source
+timezone remains unknown; UTC is a storage carrier only, with date/minute
+precision retained. Date-only transactions become available at day end for
+historical features. Each source account gets one anonymous observation proxy;
+the schema's technical `INDIVIDUAL` value does not identify a real person.
+No counterparty network, MCC, country, owner identity or FX rate is invented.
+
+**AS-08 — new synthetic stress design and estimator defaults (14–15 Oct):**
+Within the authorised replacement/generation work, use source-conditioned
+joint resampling, coherent simulated account profiles, neutral identifiers,
+explicit simulated UTC timestamps and overlapping benign lookalikes. Recipes,
+250 target rows/account, 12% stress/24% lookalike account shares, 180-day
+generated windows, seeds, perturbations and dormancy gaps are **experimental
+design choices, not FRD/TRD values or observed crime prevalence**; manifests
+record their exact parameters. The baseline Isolation Forest uses 100 trees,
+256 subsamples and a fixed inclusive score threshold of 0.5, with no fitting
+or threshold tuning on labels. The threshold is an isolation-score reference,
+not a fraud probability or approved operating point. Poor evaluated quality
+keeps these candidates DRAFT; these assumptions are not mentor ratification.
+
 ### TRD §1.5 — conflicts still open
 
 - **CF-01** (tied to MQ-09): boundary between forbidden autonomous closure and permitted exact-duplicate suppression
@@ -531,7 +565,8 @@ Two directives changed the plan:
 2. *"Scope Financial Crime ada 2 dan harus dikerjakan semua: Fraud dan AML.
    Use case boleh memilih, tapi project harus tetap ada Fraud dan AML."*
 
-**Conflict with the TRD, decided by the team, awaiting mentor ratification.**
+**Historical decision, superseded by Jevon's unsupervised directive on
+14 October (see §14).**
 The TRD's model is *unsupervised*: a per-entity 90-day baseline with
 standardized deviations (FR-401, ADR-007, TRD §10.2), with the generator's
 labels as evaluation ground truth only (TRD §10.6). Directive 1 asks for a
@@ -811,6 +846,11 @@ across *two* groups; one group doing all 15 domains doubles the load.
 
 ## 10. Running it
 
+Use [ML_DATA_ENGINE.md](ML_DATA_ENGINE.md) for the current USD workflow.
+The legacy generator/demo commands below document the earlier IDR stage;
+running them would recreate data Jevon asked to remove. Seed users only for
+a fresh setup; do not restore the old customer/account population.
+
 ```bash
 cp .env.example .env
 docker compose up --build
@@ -841,7 +881,9 @@ truncate.
 
 ### Demo path (GATE 2, ~5 minutes)
 
-Sign in as `dataops@` → upload `sample_data/transactions_sample.csv` from
+Historical contract test: sign in as `dataops@` → upload the test-only
+`tests/fixtures/transactions_contract.csv` (after explicitly preparing legacy
+master data in an isolated test environment) from
 Overview → **Run detection** → switch to `triage@` → open the CUST-006 alert →
 escalate with a reason → **Open case from this alert** → click the correlation
 ID to see the full chain in the audit trail.
@@ -1180,3 +1222,162 @@ Small or new data. The other conflicts below are accepted as analysed.
 7. **The scoring model version must be ACTIVE through maker-checker
    (FR-405).** Not built: the first model version is seeded ACTIVE with the
    same documented bypass as RUL-0001
+
+---
+
+## 14. Current handoff — source-based unsupervised replacement, 15 October 2026
+
+### Authority and scope
+
+Jevon explicitly requested deletion/replacement of the old dummy datasets,
+source-based varied simulation at large volume, and a reusable standardization
+engine after mentor feedback that large repeated amounts dominated the earlier
+training. He then explicitly confirmed **unsupervised learning and USD**. This
+supersedes the old supervised-training decision, generator freeze and shared
+Tiny/Small retention for this replacement only. It also authorises using the
+provided external dataset instead of FRD §3.3 CN-02's synthetic-only source
+restriction; this is a recorded user-directed exception, not a claim that the
+PDF was amended or the publisher/licence verified. Future generator changes
+still follow the repository working rules. Jevon performs commit and push;
+Codex supplies the exact commands and executes neither.
+
+### Source and reusable engine
+
+- Source: `backend/sample_data/raw/bank_transactions_data_2_augmented_clean_2.csv`,
+  50,000 observations / 15 columns / 495 account identifiers; SHA-256
+  `c4c44ae11496e31f6dea5126322463af719c0f175c6c2f7f0abbc15f96575b2a`.
+  No verified target, ownership graph or counterparty network. Publisher URL,
+  licence and augmentation lineage are unavailable. User confirms USD.
+- **43,750/50,000 (87.5%) are date-only**, 6,250 have minute precision; all
+  source timezones are unknown. Source ages/jobs conflict within accounts.
+  Preserving these limits prevents invented clock/identity certainty (AS-07).
+- `app/ml/behavioral/standardize.py` plus versioned profiles provides mapping,
+  exact monetary parsing, validation, quarantine and original-row provenance.
+  Missing values stay missing. A new schema needs an explicit mapping and
+  semantic policy; this is reusable infrastructure, not automatic semantic
+  discovery or production AutoML.
+- `behavioral_v1` builds 32 AML account-week and 35 Fraud transaction features
+  from available history. Source date-only observations become history after
+  their day ends; gated baseline comparisons need 30 prior observations and
+  30 observed days. Features do not infer unseen counterparties/countries/MCCs.
+  FR-401 / TRD C-07 and §10.2 motivate history/feature explanations; the new
+  subset does not claim full FR-401/graph implementation.
+- Migration 0009 carries observed location, IP, login attempts, duration,
+  balance, age/occupation, clock precision and timezone-known metadata.
+  Batch normalization and the application use the same feature/scoring code.
+  Legacy `fs_v2` stays available for historical regression, not new fitting.
+
+### Data generation, fitting and frozen test
+
+Original source accounts are partitioned before augmentation: 346 train
+(35,662 rows), 74 validation (6,809), 75 test (7,529). Global generation
+statistics use train only; each generated row records its actual parent in
+`lineage.csv`. Generated account/transaction identifiers and source parent
+sets are disjoint across splits. The explicit simulation includes low-value
+bursts, session changes, dormancy, micro-splitting and direction-change proxies,
+plus overlapping legitimate travel/device/shopping/payment lookalikes (AS-08).
+
+Run `behavioral_s20261015` generates **1,000,000 training + 200,000 validation
++ 200,000 final-test rows**. Fits use original train observations plus generated
+train observations, **1,035,662 inputs**, yielding 134,067 AML units and
+1,035,662 Fraud units. Isolation Forest fits, vocabulary and imputation never
+receive target/recipe sidecars. The original-source sparse/day-only history
+and denser simulated histories are different distributions; the synthetic
+windows are disjoint but this is not a strictly chronological split of all
+original-source data.
+
+Both models and validation cards were frozen at
+`2026-10-15T12:54:27.284238+00:00`; test generation started after that at
+`2026-10-15T12:54:27.284259+00:00`. Frozen hashes are checked after evaluation.
+Only evaluation reads the generated answer sidecar, which encodes simulator
+assumptions rather than verified crime. Threshold 0.5 was fixed without label
+selection. A later small-amount reporting correction includes exact USD83.44
+boundary values consistently; it changes no model/card/data/score/threshold.
+Reports retain the correction and original private backup. See the
+[dated evaluation](ml/behavioral_evaluation_20261015.md) and its compact JSON.
+
+### Measured quality — not approved
+
+Final synthetic test: AML precision **3.13%**, recall **62.28%**; Fraud precision
+**2.25%**, recall **18.64%**. Small-amount Fraud (at most training q25,
+USD83.44) precision **2.48%**, recall **32.76%**. On the unlabeled original
+source holdout, flags cover 42.22% of AML units and 92.16% of transactions;
+these are review loads, not accuracy. Three additional train-fitted prototypes
+were assessed on validation only; precision/recall tradeoffs remained poor.
+They were not promoted or evaluated on the final test. More synthetic rows
+have not established reliable financial-crime precision.
+
+`aml_if_v1` / `fraud_if_v1` are registered **DRAFT** in the live demo;
+`aml_gbm_v1` / `fraud_gbm_v1` are **RETIRED** through audited transitions. No
+model is ACTIVE. Cards/models remain immutable. New explanations are score
+changes when replacing a feature with its training median: non-additive,
+not TreeSHAP, log-odds, causal proof or fraud probability. UI displays the
+learning type, currency, model lifecycle and absence of active ML scoring.
+CF-05 remains open: `ML_SCORE` stays DRAFT, no independent ML alerts. P02 is
+unchanged and IDR-only; no USD conversion or invented reporting threshold.
+
+### Cleanup, upload and verification
+
+154 old generated files (780,744,721 bytes) were deleted from the explicit
+allowlist, including tracked Tiny/Small/sample and old local ML/manual corpora.
+The source CSV/archive, code, reference configuration, model evidence, private
+backups and Git history were not deleted. The retained 29-row contract fixture
+is test-only; old-generator regression corpora are built in pytest temp paths,
+not shared project datasets or new training inputs.
+
+Old dataset tables were cleared in ten named local databases: `fcip`,
+`fcip_demo_s20261007`, `fcip_feature_docs_test`,
+`fcip_manual_full_s20261007_verify_test`, `fcip_prepare_upload_test`,
+`fcip_test`, `fcip_ui_makeover_test`, `fcip_upload_regression_test`,
+`fcip_demo_s20261007_test`, `fcip_behavioral_app_test`. No database was dropped
+for this cleanup, no triggers/security were weakened, and no CASCADE was used.
+Authentication, sessions, previous audit, model/rule versions and simulations
+were preservation-checked; reset events were appended. Each DB reset is atomic;
+the multi-DB command is sequential, not a distributed transaction. Reviewed
+plans/execution proofs are private under
+`backend/local_backups/behavioral_replace_20261015/`.
+
+Live `fcip_demo_s20261007` starts with **0 transactions / 0 quarantine / 0 alerts
+and 800 fresh USD account observation proxies** for Jevon's manual upload. The
+single upload file is
+`backend/ml_data/behavioral_s20261015/test_web/transactions_001.csv`:
+200,000 rows, 38,293,500 bytes, SHA-256
+`852625719bec3a9050418d4e219b9c617cd865435e08774e92071c70202e971a`.
+With no ACTIVE model and P02 restricted to IDR, this upload checks ingestion,
+not active USD ML detection. Do not interpret an empty flag list as safety.
+
+An isolated new-data QA database, `fcip_behavioral_verify_test`, retains the
+200,000 new rows used for technical verification: actual CSV endpoint accepts
+200,000 / quarantines 0, all observed metadata matches, scoring flags match
+offline exactly (2,270 AML; 16,336 Fraud), and no ML alert bypass occurs.
+Its test-only ACTIVE registration proves parity, not approval for live use.
+The run took 62.48 seconds locally. All 492 regular tests pass across full and
+focused runs plus the host documentation check; all five slow checks and the
+frontend production build pass. Test figures validate implementation, not
+fraud detection quality. See [the engine guide](ML_DATA_ENGINE.md) and
+[manual demo steps](DEMO_FRESH_DATA.md) for roles and commands.
+
+A guarded read-only headless-browser check passes eight combinations: Data Ops
+and Triage, Overview and Model signals, 1440/390 px. It verifies the zero-data
+state, 800 proxies, DRAFT/RETIRED statuses, separate synthetic-validation values,
+role-specific upload controls and no page overflow. No operational mutation
+was attempted; authentication was allowed, with two expected fresh-profile
+refresh 401 responses and no browser exceptions. Private harness, report and
+screenshots are under the same local backup directory; no user browser profile
+was used. The broader 7 October UI evidence remains historical (§13).
+
+Final source-clock regression checks (63 focused backend cases) also pass:
+transaction browse, alert evidence and the latest-transaction summary now carry
+precision/timezone-known fields, tied to the displayed observation. Date-only
+source values show only their date, and unknown wall clocks retain source time
+instead of acquiring the viewer's offset. Legacy null metadata falls back to
+a conservative date display. These changes do not alter model scores or data.
+
+**Decisions taken independently for Jevon to check:** explicit canonical
+profiles and anonymous account proxies; versioned validated JSON estimators;
+median-replacement explanations; complete-record CSV splitting under 50 MiB;
+test fixture isolation and reset-preservation checks; keep poor candidates
+DRAFT and withdraw legacy scoring rather than publish unsupported precision.
+No new mentor approval, model approval, CF-05 decision or real-world crime
+label has been inferred. Engineering/data replacement is complete; the request
+for reliable high-precision fraud/AML detection is **not achieved**.

@@ -15,7 +15,6 @@ import json
 import re
 import shutil
 from datetime import datetime
-from pathlib import Path
 
 import lightgbm as lgb
 import pytest
@@ -45,16 +44,15 @@ from app.services.ingestion import ingest_transactions_csv
 from app.services.ml_scoring import SIGNAL_NOTICE, ModelIntegrityError, run_ml_scoring, verify
 from app.services.detection.p02_structuring import run_p02_structuring
 
-SMALL = Path(__file__).resolve().parents[1] / "sample_data" / "Small"
 ACCUSING = re.compile(r"\b(suspicious|fraudulent|laundering|mencurigakan|penipuan|pencucian uang)\b", re.I)
 
 
 @pytest.fixture(scope="module")
-def trained(tmp_path_factory):
-    """Both models trained on a copy of Small, and Small's offline features."""
+def trained(tmp_path_factory, legacy_small_raw):
+    """Both test-only models and offline features use private generated data."""
     root = tmp_path_factory.mktemp("ml_app")
     folder = root / "Small"
-    shutil.copytree(SMALL, folder)
+    shutil.copytree(legacy_small_raw, folder)
     build(folder)
     frames, labels, truth, located, report = prepare(folder)
     for model in ("aml", "fraud"):
@@ -68,11 +66,12 @@ def loaded(db, trained, tmp_path):
     registered batch through the ingestion service, then the models registered."""
     db.add(User(email="dataops@fcip.internal", hashed_password="x", full_name="Data Ops", role=UserRole.ROLE_DATA_OPS))
     db.commit()
-    load_master_data(db, SMALL)
-    load_merchants_and_devices(db, SMALL)
+    folder = trained["folder"]
+    load_master_data(db, folder)
+    load_merchants_and_devices(db, folder)
     projected = tmp_path / "transactions_app_format.csv"
-    project_transactions(SMALL, projected)
-    manifest = json.loads((SMALL / "manifest.json").read_text())
+    project_transactions(folder, projected)
+    manifest = json.loads((folder / "manifest.json").read_text())
     summary = ingest_projected(db, projected, manifest, "dataops@fcip.internal")
     for name in ("aml_gbm_v1", "fraud_gbm_v1"):
         register(db, trained["models"] / name)

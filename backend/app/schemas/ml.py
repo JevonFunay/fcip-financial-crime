@@ -12,7 +12,7 @@ class Contribution(BaseModel):
     # The feature's plain definition (feature set registry), so the reason reads without a glossary.
     definition: str
     value: float | None
-    # Log-odds contribution to the score (TreeSHAP); positive pushes the score up.
+    # Its scale is given by the score's explanation_method, never assumed.
     contribution: float
 
 
@@ -30,6 +30,12 @@ class ScoreOut(BaseModel):
     threshold: float
     flagged: bool
     contributions: list[Contribution]
+    feature_set_version: str = "fs_v2"
+    explanation_method: str = "tree_shap_log_odds"
+    score_kind: str = "supervised_score"
+    currency: str | None = None
+    timestamp_precision: str | None = None
+    source_timezone_known: bool | None = None
 
 
 class ScoreListResponse(BaseModel):
@@ -55,6 +61,10 @@ class ModelVersionOut(BaseModel):
     validation: dict
     created_at: datetime
     synthetic_notice: str
+    explanation_method: str = "tree_shap_log_odds"
+    score_kind: str = "supervised_score"
+    training_kind: str = "supervised"
+    currency: str | None = None
 
 
 class UnitRunOut(BaseModel):
@@ -64,6 +74,7 @@ class UnitRunOut(BaseModel):
     units_scored: int
     units_flagged: int
     scores_stored: int
+    observations_skipped_currency: int = 0
 
 
 class MlRunSummary(BaseModel):

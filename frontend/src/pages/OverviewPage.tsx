@@ -15,7 +15,11 @@ import { fetchModels, fetchScores } from "../api/ml";
 import { Icon, type IconName } from "../components/Icon";
 import { SignalNotice } from "../components/Notices";
 import { useAuth } from "../context/AuthContext";
-import { formatAmount, formatDateTime } from "../format";
+import {
+  formatAmount,
+  formatDateTime,
+  formatObservedDateTime,
+} from "../format";
 import type { Direction } from "../types";
 
 const PAGE_SIZE = 25;
@@ -68,6 +72,10 @@ export function OverviewPage() {
     queryFn: () => fetchBatches(10),
   });
   const models = useQuery({ queryKey: ["models"], queryFn: fetchModels });
+  const behavioral =
+    models.data?.some((model) => model.score_kind === "anomaly_score") ?? false;
+  const hasActiveModel =
+    models.data?.some((model) => model.state === "ACTIVE") ?? false;
   // Separate units and real server totals; never add AML weeks to Fraud transactions.
   const aml = useQuery({
     queryKey: ["model-counts", "AML"],
@@ -188,7 +196,11 @@ export function OverviewPage() {
           label="Sinyal AML"
           value={aml.data?.total}
           icon="activity"
-          note="Entity-week di atas threshold"
+          note={
+            behavioral
+              ? "Rekening-week di atas threshold"
+              : "Entity-week di atas threshold"
+          }
           to="/model-flags?unit=AML"
         />
         <Tile
@@ -210,7 +222,8 @@ export function OverviewPage() {
       <div className="data-summary" aria-label="Master data dan status review">
         <span className="data-summary-item">
           <Icon name="users" size={16} />
-          <strong>{data ? number(data.customers) : "—"}</strong>nasabah
+          <strong>{data ? number(data.customers) : "—"}</strong>
+          {behavioral ? "proxy observasi" : "nasabah"}
         </span>
         <span className="data-summary-item">
           <Icon name="wallet" size={16} />
@@ -227,7 +240,11 @@ export function OverviewPage() {
         <span className="data-summary-item small">
           <Icon name="clock" size={15} />
           {data?.latest_transaction_date
-            ? `Terbaru: ${formatDateTime(data.latest_transaction_date)}`
+            ? `Terbaru: ${formatObservedDateTime(
+                data.latest_transaction_date,
+                data.latest_transaction_timestamp_precision ?? "day",
+                data.latest_transaction_source_timezone_known ?? false,
+              )}`
             : "Belum ada riwayat transaksi"}
         </span>
       </div>
@@ -438,7 +455,9 @@ export function OverviewPage() {
               <div className="model-health-head">
                 <strong>
                   {model.unit === "AML"
-                    ? "AML · Weekly entity model"
+                    ? model.score_kind === "anomaly_score"
+                      ? "AML · Weekly account model"
+                      : "AML · Weekly entity model"
                     : "Fraud · Transaction model"}
                 </strong>
                 <span
@@ -453,10 +472,18 @@ export function OverviewPage() {
                   maximumFractionDigits: 4,
                 })}
               </p>
+              {model.score_kind === "anomaly_score" && (
+                <p>
+                  Unsupervised · {model.currency ?? "mata uang belum diketahui"}{" "}
+                  · tanpa konversi FX
+                </p>
+              )}
               <p>
                 Unit skor:{" "}
                 {model.unit === "AML"
-                  ? "satu nasabah per minggu kalender"
+                  ? model.score_kind === "anomaly_score"
+                    ? "satu rekening-proxy per minggu kalender sumber"
+                    : "satu nasabah per minggu kalender"
                   : "satu transaksi"}
               </p>
             </div>
@@ -478,6 +505,19 @@ export function OverviewPage() {
               ? "Deteksi manual menjalankan rule P02 dan seluruh model ACTIVE. Upload seluruh bagian sebelum memulai."
               : "Deteksi dapat dijalankan setelah transaksi diterima."}
           </p>
+          {models.isSuccess && !hasActiveModel && (
+            <p className="muted small" role="status">
+              Belum ada model ACTIVE. Upload tetap dapat diuji; model DRAFT
+              belum menilai transaksi atau menghasilkan sinyal ML.
+            </p>
+          )}
+          {behavioral && (
+            <p className="muted small">
+              Identitas pemilik rekening tidak disimpulkan dari data transaksi.
+              Rule P02 tetap khusus IDR. Model USD hanya menilai transaksi
+              setelah aktif; tidak ada konversi FX atau perubahan threshold P02.
+            </p>
+          )}
           <Link className="small" to="/model-flags">
             Lihat sinyal & versi model <Icon name="arrow-right" size={13} />
           </Link>
@@ -509,8 +549,19 @@ export function OverviewPage() {
               {detect.data.ml.models.map((model) => (
                 <p key={model.model_version} className="small">
                   {model.model_version}: {number(model.units_scored)}{" "}
-                  {model.unit === "AML" ? "entity-week" : "transaksi"} dinilai;{" "}
-                  {number(model.units_flagged)} di atas threshold.
+                  {model.unit === "AML"
+                    ? behavioral
+                      ? "rekening-week"
+                      : "entity-week"
+                    : "transaksi"}{" "}
+                  dinilai; {number(model.units_flagged)} di atas threshold.
+                  {!!model.observations_skipped_currency && (
+                    <>
+                      {" "}
+                      {number(model.observations_skipped_currency)} transaksi
+                      tidak dinilai karena mata uang berbeda dari model.
+                    </>
+                  )}
                 </p>
               ))}
               <p className="muted small">
@@ -617,7 +668,13 @@ export function OverviewPage() {
                   {transactions.data.items.map((row) => (
                     <tr key={row.id}>
                       <td className="mono">{row.transaction_ref}</td>
-                      <td>{formatDateTime(row.transaction_date)}</td>
+                      <td>
+                        {formatObservedDateTime(
+                          row.transaction_date,
+                          row.timestamp_precision ?? "day",
+                          row.source_timezone_known ?? false,
+                        )}
+                      </td>
                       <td>
                         {row.customer_ref}
                         <div className="muted">{row.customer_name}</div>

@@ -2,7 +2,6 @@ import uuid
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -23,7 +22,7 @@ from app.services.detection.p02_structuring import (
 )
 from app.services.ingestion import ingest_transactions_csv
 
-SAMPLE_FILE = Path(__file__).resolve().parents[1] / "sample_data" / "transactions_sample.csv"
+from data_helpers import TRANSACTIONS_CONTRACT as SAMPLE_FILE
 DAY0 = datetime(2026, 8, 1, tzinfo=timezone.utc)
 M = Decimal("1000000")
 

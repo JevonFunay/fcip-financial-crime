@@ -18,7 +18,8 @@ from app.services.ml_scoring import FEATURE_DEFINITIONS, UNIT_FEATURES
 
 def _base() -> Select:
     return (
-        select(MlScore, ModelVersion.version, Customer, Transaction.transaction_ref, Transaction.amount)
+        select(MlScore, ModelVersion, Customer, Transaction.transaction_ref, Transaction.amount,
+               Transaction.timestamp_precision, Transaction.source_timezone_known, Transaction.currency)
         .join(ModelVersion, MlScore.model_version_id == ModelVersion.id)
         .join(Customer, MlScore.customer_id == Customer.id)
         .outerjoin(Transaction, MlScore.transaction_id == Transaction.id)
@@ -26,15 +27,25 @@ def _base() -> Select:
 
 
 def to_out(row) -> ScoreOut:
-    score, version, customer, transaction_ref, amount = row
+    score, version, customer, transaction_ref, amount, precision, timezone_known, currency = row
+    card = version.model_card
+    behavioral = version.artefact_type == "ISOLATION_FOREST_JSON"
+    definitions = card.get("feature_set", {}).get("definitions", {})
     return ScoreOut(
-        id=score.id, model_version=version, unit=score.unit, customer_id=customer.id,
+        id=score.id, model_version=version.version, unit=score.unit, customer_id=customer.id,
         customer_ref=customer.customer_ref, customer_name=customer.full_name, as_of=score.as_of,
         transaction_ref=transaction_ref, transaction_amount=float(amount) if amount is not None else None,
         score=score.score, threshold=score.threshold, flagged=score.flagged,
         contributions=[Contribution(feature=c["feature"], value=c["value"], contribution=c["contribution"],
-                                    definition=FEATURE_DEFINITIONS.get((UNIT_FEATURES[score.unit], c["feature"]), ""))
+                                    definition=(definitions.get(c["feature"], c["feature"]) if behavioral else
+                                                FEATURE_DEFINITIONS.get((UNIT_FEATURES[score.unit], c["feature"]), "")))
                        for c in score.contributions],
+        feature_set_version=version.feature_set_version,
+        explanation_method=card.get("model", {}).get("explanation_method", "tree_shap_log_odds"),
+        score_kind=card.get("model", {}).get("score_kind", "supervised_score"),
+        currency=currency or card.get("feature_set", {}).get("vocabulary", {}).get("currency"),
+        timestamp_precision=(precision if score.unit == UNIT_FRAUD else "week") if behavioral else precision,
+        source_timezone_known=timezone_known,
     )
 
 

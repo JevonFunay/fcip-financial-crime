@@ -23,6 +23,12 @@ def get_overview(db: Session = Depends(get_db)) -> OverviewSummary:
     def count(model, *conditions) -> int:
         return db.scalar(select(func.count()).select_from(model).where(*conditions)) or 0
 
+    # Keep precision and timezone knowledge attached to the same latest row,
+    # including when several observations share a timestamp carrier.
+    latest = db.execute(select(Transaction.transaction_date, Transaction.timestamp_precision,
+                               Transaction.source_timezone_known)
+                        .order_by(Transaction.transaction_date.desc(), Transaction.transaction_ref)
+                        .limit(1)).first()
     return OverviewSummary(
         customers=count(Customer),
         accounts=count(Account),
@@ -32,5 +38,7 @@ def get_overview(db: Session = Depends(get_db)) -> OverviewSummary:
         alerts_escalated=count(Alert, Alert.status == AlertStatus.ESCALATED),
         alerts_disposed=count(Alert, Alert.status == AlertStatus.DISPOSED),
         cases=count(Case),
-        latest_transaction_date=db.scalar(select(func.max(Transaction.transaction_date))),
+        latest_transaction_date=latest.transaction_date if latest else None,
+        latest_transaction_timestamp_precision=latest.timestamp_precision if latest else None,
+        latest_transaction_source_timezone_known=latest.source_timezone_known if latest else None,
     )

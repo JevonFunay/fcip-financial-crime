@@ -8,7 +8,6 @@ reads them from there, and every alert names the exact version behind it.
 import uuid
 from datetime import timedelta
 from decimal import Decimal
-from pathlib import Path
 
 import pytest
 from alembic import command
@@ -26,7 +25,7 @@ from app.services.detection import p02_structuring
 from app.services.detection.p02_structuring import TEMPLATE_VERSION, P02Parameters, run_p02_structuring
 from app.services.ingestion import ingest_transactions_csv
 
-SAMPLE_FILE = Path(__file__).resolve().parents[1] / "sample_data" / "transactions_sample.csv"
+from data_helpers import TRANSACTIONS_CONTRACT as SAMPLE_FILE
 
 # TRD §8.6, the alert example that shows this rule.
 TRD_P02_DESCRIPTION = (

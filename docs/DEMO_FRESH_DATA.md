@@ -1,100 +1,122 @@
-# Demo upload manual — dataset baru, 7 Oktober 2026
+# Demo upload manual — data USD, 15 Oktober 2026
 
-Panduan ini memakai aplikasi berjalan di http://localhost:5173. Mockup untuk
-mentor adalah [file preview terpisah](mockups/fcip-upload-results-preview.html);
-upload sebenarnya dilakukan di halaman **Overview** aplikasi. UI aplikasi
-telah diperbarui: navigasi ada di sidebar, dengan menu untuk layar kecil.
+Panduan lengkap arsitektur, provenance, reproduksi dan hasil kualitas ada di
+**[ML_DATA_ENGINE.md](ML_DATA_ENGINE.md)**. Gunakan aplikasi sebenarnya di
+http://localhost:5173, halaman **Overview**. Angka demo 7 Oktober disimpan
+sebagai arsip di bawah dan bukan keadaan/data/model saat ini.
 
-## Kondisi awal
+## Kondisi saat disiapkan
 
-Database demo `fcip_demo_s20261007` disiapkan terpisah dari database lama `fcip`.
-Sebelum upload, transaksi, quarantine, batch, alert, case, dan skor model
-berjumlah **0**. Master data sengaja sudah tersedia: **11.200 customer,
-13.455 account, 1.500 merchant, dan 11.932 device**. Empat akun lama disalin
-dengan UUID dan password hash yang sama. Data asli tidak dihapus.
+Aplikasi disiapkan untuk upload manual dengan **800 rekening-proxy observasi
+serta 0 transaksi**. Proxy teknis ini tidak membuktikan identitas nasabah;
+AccountID sumber tidak disamakan dengan hasil entity resolution. Pengguna,
+audit, konfigurasi rule dan riwayat model dipertahankan sesuai rencana reset.
+Periksa Overview sebelum mulai: angka kondisi awal berubah setelah upload.
 
-Model `aml_gbm_v1` dan `fraud_gbm_v1` memakai artefak training yang sudah ada,
-ACTIVE dengan bypass maker-checker yang telah didokumentasikan. Threshold
-tetap; tidak ada training ulang. Rule P02 ACTIVE; rule `ML_SCORE` tetap DRAFT
-sambil menunggu keputusan CF-05.
+Sumber publik baru berisi **50.000 observasi tanpa label fraud terverifikasi**;
+mata uang **USD** dikonfirmasi Jevon pada 14 Oktober. Simulasi baru dibuat
+terpisah: **1.000.000 transaksi training**, **200.000 validation**, dan
+**200.000 final test setelah model dibekukan**. Fit memakai observasi training
+sumber dan simulasi tanpa target. Label stress sintetis hanya untuk evaluasi,
+bukan jawaban fraud nyata dan tidak masuk file upload.
 
-Dataset baru dibuat 7 Oktober, setelah training model: generator **1.4.0**,
-profil **Full**, seed **20261007**, reference date **2026-09-30** yang sama
-dengan preset training/test. Dataset berisi **421.746 transaksi mentah**;
-hasil penerimaan/quarantine pembanding telah diuji pada database terpisah
-seperti tabel di bawah. Angka kondisi awal di atas adalah keadaan saat
-database disiapkan, sebelum upload dan pengujian berikutnya.
-Semua data sintetis; hasilnya bukan estimasi performa pada transaksi nyata.
+Model baru `aml_if_v1` dan `fraud_if_v1` **tetap DRAFT** karena precision stress
+sintetis belum memadai; model tersebut belum dipromosikan untuk scoring.
+Alur model supervised lama dihentikan dan kedua versi lama sudah
+RETIRED melalui transisi yang diaudit. Periksa status aktual di **Model signals**.
+DRAFT tidak dijalankan oleh deteksi. Skor anomali bukan probabilitas fraud;
+penjelasan model baru memakai selisih skor penggantian median, bukan TreeSHAP.
+
+Rule P02 tetap ACTIVE dengan threshold **IDR** semula. **USD tidak dikonversi
+ke IDR**, sehingga file USD ini berada di luar cakupan rule P02. `ML_SCORE`
+tetap DRAFT menunggu CF-05; tidak ada aktivasi rule untuk membuat alert model.
 
 ## Akun dan kewenangan
 
-Password keempat akun demo sudah diverifikasi: `DevPassword123!`.
+Akun yang dipertahankan: `dataops@fcip.internal`, `analyst@fcip.internal`,
+`triage@fcip.internal`, dan `investigator@fcip.internal`. Password demo
+sebelumnya adalah `DevPassword123!`; seed tidak mengganti password akun yang
+sudah ada. Untuk membuat login development yang belum ada tanpa menambahkan
+kembali customer/account dummy lama:
 
-| Akun | Yang dapat dilakukan |
+```bash
+docker compose exec backend python -m app.scripts.seed --users-only
+```
+
+| Akun | Kewenangan |
 |---|---|
-| `dataops@fcip.internal` | Upload CSV dan menjalankan deteksi |
-| `analyst@fcip.internal` | Membaca hasil/sinyal dan menjalankan deteksi |
-| `triage@fcip.internal` | Menilai alert: false positive atau escalate |
-| `investigator@fcip.internal` | Membuka case dari alert yang telah escalated dan belum punya case |
+| Data Ops | Upload CSV dan menjalankan deteksi manual |
+| Analyst | Membaca hasil/sinyal dan menjalankan deteksi |
+| Triage | Memutuskan alert OPEN yang tersedia: false positive atau escalate |
+| Investigator | Membuka case dari alert escalated yang belum memiliki case |
 
-`ROLE_ADMIN` belum diimplementasikan. Triage menangani keputusan alert;
-admin bukan pengganti Triage (FRD §4.1.1). Upload dibatasi pada Data Ops
-(FRD §4.1.2; perilaku endpoint yang sudah ada).
+`ROLE_ADMIN` belum tersedia; admin bukan pengganti Triage (FRD §4.1.1).
 
-## File yang diunggah
+## File yang diunggah sekarang
 
-Folder siap upload:
-`backend/sample_data/raw/manual_full_s20261007_web/`.
+Gunakan hanya:
+`backend/ml_data/behavioral_s20261015/test_web/transactions_001.csv`.
 
-| Urutan | File | Expected records | Ukuran byte |
-|---|---|---:|---:|
-| 1 | `transactions_001.csv` | 313720 | 52.428.695 |
-| 2 | `transactions_002.csv` | 108026 | 18.055.978 |
+| File | Expected records | Ukuran byte |
+|---|---:|---:|
+| `transactions_001.csv` | 200000 | 38.293.500 |
 
-Kedua file berjumlah 421.746 baris, masing-masing di bawah batas API
-**52.428.800 byte (50 MiB)**. `upload_manifest.json` mencatat jumlah, SHA-256,
-dan verifikasi bahwa penggabungan kedua bagian menghasilkan proyeksi asli
-dengan urutan baris yang sama. File ini untuk diperiksa, bukan diunggah.
+Satu file ini berada di bawah batas API **52.428.800 byte (50 MiB)**.
+`upload_manifest.json` pada folder yang sama mencatat jumlah dan SHA-256;
+manifest adalah bahan pemeriksaan, bukan file upload. CSV membawa observasi
+canonical, termasuk lokasi, IP, login, durasi, saldo, demografi yang memang
+tercatat, presisi timestamp dan penanda zona waktu sumber. Nilai yang tidak
+diketahui tetap null. File `ground_truth.csv`, `lineage.csv`, source profile,
+dan laporan evaluasi tidak diunggah.
 
-CSV memakai proyeksi bridge yang sudah ada, termasuk kolom device, merchant,
-jenis transaksi, negara counterparty, dan source status. Data ground truth
-tidak masuk file upload. Endpoint saat ini menerima **CSV transaksi saja**;
-ZIP paket, `labels.csv`, dan `label_transactions.csv` tidak diunggah.
+## Langkah upload manual
 
-## Upload sampai hasil
+1. Login sebagai **Data Ops** dan buka **Overview**.
+2. Pilih file `transactions_001.csv` dari folder `test_web` di atas.
+3. Isi Source system `BEHAVIORAL_SIMULATION`, Business date `2026-10-15`,
+   Expected records `200000`, lalu tekan **Upload CSV** satu kali.
+4. Tunggu hasil batch. Catat total read, accepted, quarantine dan status aktual.
+   Pengujian terisolasi file ini menerima 200.000 baris dan 0 quarantine;
+   angka tersebut bukan klaim bahwa file sudah diunggah ke aplikasi live.
+5. Buka daftar transaksi dan audit batch untuk memeriksa isi serta provenance.
+   Upload tidak melakukan training atau mengaktifkan model.
+6. **Jalankan deteksi** tetap merupakan aksi manual terpisah. Selama model
+   baru DRAFT dan model lama RETIRED, tidak ada model ACTIVE untuk scoring.
+   P02 mengabaikan USD; jangan mengharapkan model flags/alert dari file ini.
+7. Buka **Model signals** untuk melihat versi, status DRAFT, threshold dan
+   batas evaluasinya. Kosongnya flags dalam keadaan ini bukan bukti transaksi
+   bebas fraud. Alur triage/case memerlukan alert yang benar-benar tersedia.
 
-1. Login sebagai **Data Ops**, lalu buka **Overview**.
-2. Pilih `transactions_001.csv`. Isi Source system `NDP_WALLET_CORE`,
-   Business date `2026-09-30`, Expected records `313720`, lalu **Upload CSV**.
-   Tunggu hasil batch dan catat accepted/quarantine yang ditampilkan.
-3. Pilih `transactions_002.csv`, dengan Source system dan Business date yang
-   sama, Expected records `108026`, lalu **Upload CSV**. Tunggu batch selesai.
-4. **Upload kedua bagian sebelum menjalankan deteksi.** Skor yang tersimpan
-   bersifat immutable; run dengan riwayat parsial bukan hasil akhir dataset.
-5. Tekan **Jalankan deteksi** di kartu **Rule & model** satu kali. Endpoint
-   menjalankan rule P02 serta kedua model ACTIVE. Tunggu selesai; UI
-   menampilkan hasil aktual tanpa persentase progress buatan.
-6. Buka **Alert queue** untuk alert P02; buka detailnya untuk faktor rule dan
-   **Model signals**. Buka **Model flags** untuk unit di atas threshold:
-   halaman ini berjudul **Model signals**. AML memakai entity-week, Fraud
-   memakai transaksi; kedua jumlah tidak dijumlahkan sebagai transaksi unik.
-7. Logout, login sebagai **Triage**, lalu buka sebuah alert OPEN. Pilih
-   false positive atau escalate dengan alasan minimal **20 karakter**.
-   Dari alert escalated, Triage atau Investigator dapat membuka case.
-8. Buka correlation ID pada alert/case untuk memeriksa rantai audit.
+Upload ulang file identik untuk source system dan business date yang sama
+mendapat 409. Pengiriman ulang dengan metadata batch berbeda tetap mengirim
+transaction_ref yang sudah ada ke quarantine; data lama tidak ditimpa.
+Sistem tidak memblokir, menahan atau membalikkan transaksi (NG-01).
 
-**Batas keputusan manusia:** model flags saat ini dapat dibaca, tetapi belum
-punya disposisi sendiri. Dengan `ML_SCORE` DRAFT, skor model tidak membuat
-alert tersendiri (CF-05); form triage hanya tersedia pada rule alert.
-Sinyal merupakan observasi pendukung investigasi, bukan bukti perbuatan salah
-(FR-406). Sistem tidak memblokir atau membalikkan transaksi.
+## Batas kualitas dan interpretasi
 
-## Hasil pembanding yang sudah diuji
+Precision/recall fraud sumber publik tidak dapat diukur karena tidak ada
+label terverifikasi. Angka stress sintetis mengukur asumsi skenario simulator.
+Evaluasi model baru menunjukkan beban flag dan pemisahan stress yang belum
+memadai, termasuk pergeseran antara sumber historis yang jarang/day-only dan
+simulasi yang lebih padat. Karena itu status model tetap DRAFT. Hasil tinggi
+model lama di bawah tidak dipakai untuk menyatakan kualitas engine baru.
+Sinyal selalu merupakan observasi pendukung investigasi, bukan bukti salah
+(FR-406); keputusan manusia dan CF-05 tetap berlaku.
+
+## Arsip demo 7 Oktober 2026 — bukan petunjuk setup saat ini
+
+Dataset Full seed `20261007`, dua bagian upload lama, dan model supervised
+`aml_gbm_v1`/`fraud_gbm_v1` berasal dari generator 1.4.0 lama. Direktori dataset
+serta artefak lokal lama telah dikeluarkan dari alur aktif pada penggantian
+15 Oktober. Instruksi regenerasi, registrasi ACTIVE dan pergantian database
+lama tidak berlaku untuk demo USD ini. Tabel berikut dipertahankan sebagai
+bukti pengujian historis, bukan angka kondisi live atau kualitas model baru.
+
+### Hasil pembanding historis yang diuji pada 7 Oktober
 
 Angka berikut berasal dari pengujian endpoint pada **database verifikasi
-terpisah**, bukan isi database demo saat ini. Jika kedua bagian diunggah
-berurutan ke keadaan awal yang disiapkan, sebelum run deteksi pertama,
-hasil pembandingnya:
+terpisah**, bukan isi database demo saat ini. Pada pengujian historis kedua bagian diunggah
+berurutan ke keadaan awal terisolasi sebelum run deteksi pertama; hasilnya:
 
 | File | Total | Accepted | Quarantine | Status batch |
 |---|---:|---:|---:|---|
@@ -121,7 +143,7 @@ tidak membuktikan performa data nyata. Lihat
 [laporan evaluasi fresh](ml/evaluation_manual_s20261007.md) untuk metrik,
 provenance, dan keterbatasan. Labels tidak dipakai oleh website/inference.
 
-## Catatan sesi UI, 7 Oktober
+### Catatan sesi UI, 7 Oktober
 
 Pada pemeriksaan sesi UI, Jevon sudah mengunggah bagian pertama sebagai
 `BAT-000001` (306.718 diterima / 7.002 quarantine) dan menjalankan deteksi
@@ -131,46 +153,9 @@ Database dan hasil manual tersebut dipertahankan selama makeover.
 
 Pada 15:15:37 WIB, intersepsi tes UI gagal dan CSV dummy
 `qa-transactions.csv` masuk sebagai **BAT-000002**: **0 transaksi diterima,
-3 baris quarantine**. Batch serta auditnya tetap tersimpan; jumlah quarantine
-demo bertambah 3 dari artefak tes ini. Correlation ID:
+3 baris quarantine**. Pada saat itu batch serta auditnya dipertahankan; jumlah quarantine
+demo bertambah 3 dari artefak tes ini. Audit historis dipertahankan ketika
+reset operasional kemudian dilakukan. Correlation ID:
 `ce24ef64-401d-4dc7-8c47-33ae81a4a601`. Seluruh tes operasi setelah kejadian
 ini dijalankan pada frontend, backend dan database QA terpisah. Catatan ini
 menjelaskan selisih artefak QA ketika membandingkan dengan angka dataset.
-
-## Reproduksi melalui CLI
-
-Perintah dari root repository, setelah backend menunjuk database demo.
-Gunakan folder baru agar hasil siap upload yang sudah ada tetap utuh:
-
-```bash
-docker compose exec backend python -m app.scripts.generate_raw_dataset \
-  --profile full --seed 20261007 --reference-date 2026-09-30 \
-  --out ml_data/manual_full_s20261007_reproduced
-docker compose exec backend python -m app.scripts.load_raw_dataset \
-  --raw-dir ml_data/manual_full_s20261007_reproduced --master-data-only
-docker compose exec backend python -m app.scripts.prepare_upload_csv \
-  --raw-dir ml_data/manual_full_s20261007_reproduced \
-  --out-dir sample_data/raw/manual_full_s20261007_reproduced_web
-```
-
-Master-data-only tidak memasukkan transaksi. Adapter memverifikasi manifest,
-menggunakan proyeksi bridge, lalu memecah CSV tanpa mengubah urutan/nilai.
-Kedua model sudah terdaftar di database demo; tidak perlu registrasi atau
-training ulang. Upload tetap dilakukan sendiri lewat website.
-
-## Kembali ke database lama
-
-Backup privat tersimpan di
-`backend/local_backups/before_demo_s20261007_20261007_120834/`:
-`fcip_before_demo.dump` dan `env.before`. Folder ini diabaikan Git dan tidak
-dibagikan karena berisi konfigurasi/kredensial atau password hash.
-
-Untuk kembali ke DB lama yang tetap utuh, dari root repository:
-
-```bash
-cp backend/local_backups/before_demo_s20261007_20261007_120834/env.before .env
-docker compose up -d --no-deps --force-recreate backend
-```
-
-Login ulang setelah berpindah database. Tidak perlu restore dump ke database
-asli; jangan memakai `docker compose down -v` atau menimpa database `fcip`.

@@ -7,7 +7,6 @@ false positives are counted apart from positives, and that the report renders.
 """
 
 import shutil
-from pathlib import Path
 
 import numpy as np
 import pytest
@@ -17,14 +16,11 @@ from app.ml.evaluate import _pattern_features, evaluate_model, render, wilson
 from app.ml.models import FEATURES
 from app.ml.train import prepare, train_model
 
-SMALL = Path(__file__).resolve().parents[1] / "sample_data" / "Small"
-
-
 @pytest.fixture(scope="module")
-def trained(tmp_path_factory):
+def trained(tmp_path_factory, legacy_small_raw):
     root = tmp_path_factory.mktemp("evaluation")
     folder = root / "Small"
-    shutil.copytree(SMALL, folder)
+    shutil.copytree(legacy_small_raw, folder)
     build(folder)
     frames, labels, truth, located, report = prepare(folder)
     for model in ("aml", "fraud"):
