@@ -7,7 +7,17 @@ stage: entity resolution, risk scoring, watchlist/PEP screening, graph
 investigation, AI narrative, maker-checker approval, dashboards, and
 additional detection patterns — these come in later iterations.
 
-## Current data and ML workflow — 15 October 2026
+## Current data and ML workflow — 16 October 2026
+
+**Latest follow-up:** the [source-cadence robustness report](docs/ml/robustness_20261016.md)
+records the validation audit, repaired generator, six unsupervised fits,
+1.4 million new simulated rows, strict grouped selection and independent AML
+network benchmark. No alternative preserves reference coverage/workload;
+both units fall back to the reference. New final synthetic precision is
+AML **0.96%**, FRAUD **3.01%**, with substantial false positives. All research
+remains offline DRAFT; **159 focused ML tests pass**. Data volume does not
+establish useful crime-detection quality. App/demo upload instructions remain
+the existing workflow below.
 
 **16 October research update:** controlled source-only/mixed/equal-origin
 retraining and a fresh 200,000-row final simulation are complete. Precision

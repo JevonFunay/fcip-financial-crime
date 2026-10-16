@@ -1,0 +1,265 @@
+unit,role,candidate,dimension,slice,units,tp,fp,fn,tn,flagged,precision,recall,zero_label_flag_rate,share_of_all_fp,share_of_all_fn
+AML,selected,mixed_portable_2048__train_q0.95,recipe,card_testing_burst,20,20,0,0,0,20,1.0,1.0,,0.0,0.0
+AML,selected,mixed_portable_2048__train_q0.95,recipe,dormant_reactivation,30,3,0,27,0,3,1.0,0.1,,0.0,0.391304347826087
+AML,selected,mixed_portable_2048__train_q0.95,recipe,micro_splitting,24,4,0,20,0,4,1.0,0.16666666666666666,,0.0,0.2898550724637681
+AML,selected,mixed_portable_2048__train_q0.95,recipe,new_phone,72,0,52,0,20,52,0.0,,0.7222222222222222,0.07439198855507868,0.0
+AML,selected,mixed_portable_2048__train_q0.95,recipe,ordinary,20058,0,557,0,19501,557,0.0,,0.02776946854123043,0.7968526466380543,0.0
+AML,selected,mixed_portable_2048__train_q0.95,recipe,pass_through_proxy,22,6,0,16,0,6,1.0,0.2727272727272727,,0.0,0.2318840579710145
+AML,selected,mixed_portable_2048__train_q0.95,recipe,repeated_small_payments,56,0,10,0,46,10,0.0,,0.17857142857142858,0.01430615164520744,0.0
+AML,selected,mixed_portable_2048__train_q0.95,recipe,session_change,26,20,0,6,0,20,1.0,0.7692307692307693,,0.0,0.08695652173913043
+AML,selected,mixed_portable_2048__train_q0.95,recipe,shopping,49,0,31,0,18,31,0.0,,0.6326530612244898,0.044349070100143065,0.0
+AML,selected,mixed_portable_2048__train_q0.95,recipe,travel,60,0,49,0,11,49,0.0,,0.8166666666666667,0.07010014306151645,0.0
+AML,selected,mixed_portable_2048__train_q0.95,label_type,synthetic_background,20058,0,557,0,19501,557,0.0,,0.02776946854123043,0.7968526466380543,0.0
+AML,selected,mixed_portable_2048__train_q0.95,label_type,synthetic_lookalike,237,0,142,0,95,142,0.0,,0.5991561181434599,0.20314735336194564,0.0
+AML,selected,mixed_portable_2048__train_q0.95,label_type,synthetic_stress,122,53,0,69,0,53,1.0,0.4344262295081967,,0.0,1.0
+AML,selected,mixed_portable_2048__train_q0.95,amount,other,19486,51,574,67,18794,625,0.0816,0.4322033898305085,0.029636513837257333,0.821173104434907,0.9710144927536232
+AML,selected,mixed_portable_2048__train_q0.95,amount,small,931,2,125,2,802,127,0.015748031496062992,0.5,0.1348435814455232,0.17882689556509299,0.028985507246376812
+AML,selected,mixed_portable_2048__train_q0.95,history_support,supported,15478,53,674,68,14683,727,0.07290233837689133,0.4380165289256198,0.043888780360747545,0.9642346208869814,0.9855072463768116
+AML,selected,mixed_portable_2048__train_q0.95,history_support,under_30_days,778,0,0,0,778,0,,,0.0,0.0,0.0
+AML,selected,mixed_portable_2048__train_q0.95,history_support,under_30_prior,4161,0,25,1,4135,25,0.0,0.0,0.006009615384615385,0.0357653791130186,0.014492753623188406
+AML,selected,mixed_portable_2048__train_q0.95,old_reference,available,15460,52,674,51,14683,726,0.07162534435261708,0.5048543689320388,0.043888780360747545,0.9642346208869814,0.7391304347826086
+AML,selected,mixed_portable_2048__train_q0.95,old_reference,unavailable,4957,1,25,18,4913,26,0.038461538461538464,0.05263157894736842,0.005062778452814905,0.0357653791130186,0.2608695652173913
+AML,selected,mixed_portable_2048__train_q0.95,portable_reference,available,15478,53,674,68,14683,727,0.07290233837689133,0.4380165289256198,0.043888780360747545,0.9642346208869814,0.9855072463768116
+AML,selected,mixed_portable_2048__train_q0.95,portable_reference,unavailable,4939,0,25,1,4913,25,0.0,0.0,0.005062778452814905,0.0357653791130186,0.014492753623188406
+AML,selected,mixed_portable_2048__train_q0.95,device,new,311,40,146,1,124,186,0.21505376344086022,0.975609756097561,0.5407407407407407,0.2088698140200286,0.014492753623188406
+AML,selected,mixed_portable_2048__train_q0.95,device,seen,15167,13,528,67,14559,541,0.024029574861367836,0.1625,0.03499701729966196,0.7553648068669528,0.9710144927536232
+AML,selected,mixed_portable_2048__train_q0.95,device,unknown,4939,0,25,1,4913,25,0.0,0.0,0.005062778452814905,0.0357653791130186,0.014492753623188406
+AML,selected,mixed_portable_2048__train_q0.95,login,at_most_one,15975,6,166,56,15747,172,0.03488372093023256,0.0967741935483871,0.010431722491045058,0.2374821173104435,0.8115942028985508
+AML,selected,mixed_portable_2048__train_q0.95,login,two_or_more,4442,47,533,13,3849,580,0.08103448275862069,0.7833333333333333,0.12163395709721589,0.7625178826895566,0.18840579710144928
+AML,selected,mixed_portable_2048__train_q0.95,context_login,new | at_most_one,2321,3,122,15,2181,125,0.024,0.16666666666666666,0.052974381241858444,0.17453505007153075,0.21739130434782608
+AML,selected,mixed_portable_2048__train_q0.95,context_login,new | two_or_more,910,44,265,4,597,309,0.1423948220064725,0.9166666666666666,0.3074245939675174,0.3791130185979971,0.057971014492753624
+AML,selected,mixed_portable_2048__train_q0.95,context_login,seen | at_most_one,9699,3,44,40,9612,47,0.06382978723404255,0.06976744186046512,0.004556752278376139,0.06294706723891273,0.5797101449275363
+AML,selected,mixed_portable_2048__train_q0.95,context_login,seen | two_or_more,2548,3,243,9,2293,246,0.012195121951219513,0.25,0.09582018927444795,0.34763948497854075,0.13043478260869565
+AML,selected,mixed_portable_2048__train_q0.95,context_login,unknown | at_most_one,3955,0,0,1,3954,0,,0.0,0.0,0.0,0.014492753623188406
+AML,selected,mixed_portable_2048__train_q0.95,context_login,unknown | two_or_more,984,0,25,0,959,25,0.0,,0.02540650406504065,0.0357653791130186,0.0
+AML,selected,mixed_portable_2048__train_q0.95,precision,second,20417,53,699,69,19596,752,0.07047872340425532,0.4344262295081967,0.034441980783444195,1.0,1.0
+AML,selected,mixed_portable_2048__train_q0.95,recipe_amount,card_testing_burst | other,19,19,0,0,0,19,1.0,1.0,,0.0,0.0
+AML,selected,mixed_portable_2048__train_q0.95,recipe_amount,card_testing_burst | small,1,1,0,0,0,1,1.0,1.0,,0.0,0.0
+AML,selected,mixed_portable_2048__train_q0.95,recipe_amount,dormant_reactivation | other,30,3,0,27,0,3,1.0,0.1,,0.0,0.391304347826087
+AML,selected,mixed_portable_2048__train_q0.95,recipe_amount,micro_splitting | other,22,4,0,18,0,4,1.0,0.18181818181818182,,0.0,0.2608695652173913
+AML,selected,mixed_portable_2048__train_q0.95,recipe_amount,micro_splitting | small,2,0,0,2,0,0,,0.0,,0.0,0.028985507246376812
+AML,selected,mixed_portable_2048__train_q0.95,recipe_amount,new_phone | other,70,0,50,0,20,50,0.0,,0.7142857142857143,0.0715307582260372,0.0
+AML,selected,mixed_portable_2048__train_q0.95,recipe_amount,new_phone | small,2,0,2,0,0,2,0.0,,1.0,0.002861230329041488,0.0
+AML,selected,mixed_portable_2048__train_q0.95,recipe_amount,ordinary | other,19147,0,444,0,18703,444,0.0,,0.02318901133336815,0.6351931330472103,0.0
+AML,selected,mixed_portable_2048__train_q0.95,recipe_amount,ordinary | small,911,0,113,0,798,113,0.0,,0.12403951701427003,0.16165951359084407,0.0
+AML,selected,mixed_portable_2048__train_q0.95,recipe_amount,pass_through_proxy | other,22,6,0,16,0,6,1.0,0.2727272727272727,,0.0,0.2318840579710145
+AML,selected,mixed_portable_2048__train_q0.95,recipe_amount,repeated_small_payments | other,50,0,8,0,42,8,0.0,,0.16,0.011444921316165951,0.0
+AML,selected,mixed_portable_2048__train_q0.95,recipe_amount,repeated_small_payments | small,6,0,2,0,4,2,0.0,,0.3333333333333333,0.002861230329041488,0.0
+AML,selected,mixed_portable_2048__train_q0.95,recipe_amount,session_change | other,25,19,0,6,0,19,1.0,0.76,,0.0,0.08695652173913043
+AML,selected,mixed_portable_2048__train_q0.95,recipe_amount,session_change | small,1,1,0,0,0,1,1.0,1.0,,0.0,0.0
+AML,selected,mixed_portable_2048__train_q0.95,recipe_amount,shopping | other,42,0,24,0,18,24,0.0,,0.5714285714285714,0.034334763948497854,0.0
+AML,selected,mixed_portable_2048__train_q0.95,recipe_amount,shopping | small,7,0,7,0,0,7,0.0,,1.0,0.010014306151645207,0.0
+AML,selected,mixed_portable_2048__train_q0.95,recipe_amount,travel | other,59,0,48,0,11,48,0.0,,0.8135593220338984,0.06866952789699571,0.0
+AML,selected,mixed_portable_2048__train_q0.95,recipe_amount,travel | small,1,0,1,0,0,1,0.0,,1.0,0.001430615164520744,0.0
+AML,selected,mixed_portable_2048__train_q0.95,recipe_history,card_testing_burst | supported,20,20,0,0,0,20,1.0,1.0,,0.0,0.0
+AML,selected,mixed_portable_2048__train_q0.95,recipe_history,dormant_reactivation | supported,30,3,0,27,0,3,1.0,0.1,,0.0,0.391304347826087
+AML,selected,mixed_portable_2048__train_q0.95,recipe_history,micro_splitting | supported,23,4,0,19,0,4,1.0,0.17391304347826086,,0.0,0.2753623188405797
+AML,selected,mixed_portable_2048__train_q0.95,recipe_history,micro_splitting | under_30_prior,1,0,0,1,0,0,,0.0,,0.0,0.014492753623188406
+AML,selected,mixed_portable_2048__train_q0.95,recipe_history,new_phone | supported,72,0,52,0,20,52,0.0,,0.7222222222222222,0.07439198855507868,0.0
+AML,selected,mixed_portable_2048__train_q0.95,recipe_history,ordinary | supported,15120,0,532,0,14588,532,0.0,,0.03518518518518519,0.7610872675250357,0.0
+AML,selected,mixed_portable_2048__train_q0.95,recipe_history,ordinary | under_30_days,778,0,0,0,778,0,,,0.0,0.0,0.0
+AML,selected,mixed_portable_2048__train_q0.95,recipe_history,ordinary | under_30_prior,4160,0,25,0,4135,25,0.0,,0.006009615384615385,0.0357653791130186,0.0
+AML,selected,mixed_portable_2048__train_q0.95,recipe_history,pass_through_proxy | supported,22,6,0,16,0,6,1.0,0.2727272727272727,,0.0,0.2318840579710145
+AML,selected,mixed_portable_2048__train_q0.95,recipe_history,repeated_small_payments | supported,56,0,10,0,46,10,0.0,,0.17857142857142858,0.01430615164520744,0.0
+AML,selected,mixed_portable_2048__train_q0.95,recipe_history,session_change | supported,26,20,0,6,0,20,1.0,0.7692307692307693,,0.0,0.08695652173913043
+AML,selected,mixed_portable_2048__train_q0.95,recipe_history,shopping | supported,49,0,31,0,18,31,0.0,,0.6326530612244898,0.044349070100143065,0.0
+AML,selected,mixed_portable_2048__train_q0.95,recipe_history,travel | supported,60,0,49,0,11,49,0.0,,0.8166666666666667,0.07010014306151645,0.0
+AML,reference,mixed_full_256__auto,recipe,card_testing_burst,20,20,0,0,0,20,1.0,1.0,,0.0,0.0
+AML,reference,mixed_full_256__auto,recipe,dormant_reactivation,30,14,0,16,0,14,1.0,0.4666666666666667,,0.0,0.2857142857142857
+AML,reference,mixed_full_256__auto,recipe,micro_splitting,24,4,0,20,0,4,1.0,0.16666666666666666,,0.0,0.35714285714285715
+AML,reference,mixed_full_256__auto,recipe,new_phone,72,0,58,0,14,58,0.0,,0.8055555555555556,0.028141678796700632,0.0
+AML,reference,mixed_full_256__auto,recipe,ordinary,20058,0,1906,0,18152,1906,0.0,,0.0950244291554492,0.9247937894226104,0.0
+AML,reference,mixed_full_256__auto,recipe,pass_through_proxy,22,6,0,16,0,6,1.0,0.2727272727272727,,0.0,0.2857142857142857
+AML,reference,mixed_full_256__auto,recipe,repeated_small_payments,56,0,13,0,43,13,0.0,,0.23214285714285715,0.006307617661329452,0.0
+AML,reference,mixed_full_256__auto,recipe,session_change,26,22,0,4,0,22,1.0,0.8461538461538461,,0.0,0.07142857142857142
+AML,reference,mixed_full_256__auto,recipe,shopping,49,0,34,0,15,34,0.0,,0.6938775510204082,0.016496846191169336,0.0
+AML,reference,mixed_full_256__auto,recipe,travel,60,0,50,0,10,50,0.0,,0.8333333333333334,0.024260067928190198,0.0
+AML,reference,mixed_full_256__auto,label_type,synthetic_background,20058,0,1906,0,18152,1906,0.0,,0.0950244291554492,0.9247937894226104,0.0
+AML,reference,mixed_full_256__auto,label_type,synthetic_lookalike,237,0,155,0,82,155,0.0,,0.6540084388185654,0.07520621057738962,0.0
+AML,reference,mixed_full_256__auto,label_type,synthetic_stress,122,66,0,56,0,66,1.0,0.5409836065573771,,0.0,1.0
+AML,reference,mixed_full_256__auto,amount,other,19486,64,1765,54,17603,1829,0.034991798797156914,0.5423728813559322,0.0911296984717059,0.856380397865114,0.9642857142857143
+AML,reference,mixed_full_256__auto,amount,small,931,2,296,2,631,298,0.006711409395973154,0.5,0.3193096008629989,0.14361960213488598,0.03571428571428571
+AML,reference,mixed_full_256__auto,history_support,supported,15478,66,974,55,14383,1040,0.06346153846153846,0.5454545454545454,0.06342384580321678,0.4725861232411451,0.9821428571428571
+AML,reference,mixed_full_256__auto,history_support,under_30_days,778,0,125,0,653,125,0.0,,0.16066838046272494,0.0606501698204755,0.0
+AML,reference,mixed_full_256__auto,history_support,under_30_prior,4161,0,962,1,3198,962,0.0,0.0,0.23125,0.46676370693837943,0.017857142857142856
+AML,reference,mixed_full_256__auto,old_reference,available,15460,57,974,46,14383,1031,0.055286129970902036,0.5533980582524272,0.06342384580321678,0.4725861232411451,0.8214285714285714
+AML,reference,mixed_full_256__auto,old_reference,unavailable,4957,9,1087,10,3851,1096,0.008211678832116789,0.47368421052631576,0.22012960712839205,0.5274138767588549,0.17857142857142858
+AML,reference,mixed_full_256__auto,portable_reference,available,15478,66,974,55,14383,1040,0.06346153846153846,0.5454545454545454,0.06342384580321678,0.4725861232411451,0.9821428571428571
+AML,reference,mixed_full_256__auto,portable_reference,unavailable,4939,0,1087,1,3851,1087,0.0,0.0,0.22012960712839205,0.5274138767588549,0.017857142857142856
+AML,reference,mixed_full_256__auto,device,new,311,40,119,1,151,159,0.25157232704402516,0.975609756097561,0.44074074074074077,0.057738961669092675,0.017857142857142856
+AML,reference,mixed_full_256__auto,device,seen,15167,26,855,54,14232,881,0.029511918274687854,0.325,0.05667130642274806,0.4148471615720524,0.9642857142857143
+AML,reference,mixed_full_256__auto,device,unknown,4939,0,1087,1,3851,1087,0.0,0.0,0.22012960712839205,0.5274138767588549,0.017857142857142856
+AML,reference,mixed_full_256__auto,login,at_most_one,15975,14,1042,48,14871,1056,0.013257575757575758,0.22580645161290322,0.06548105322692138,0.5055798156234838,0.8571428571428571
+AML,reference,mixed_full_256__auto,login,two_or_more,4442,52,1019,8,3363,1071,0.04855275443510738,0.8666666666666667,0.23254221816522136,0.49442018437651625,0.14285714285714285
+AML,reference,mixed_full_256__auto,context_login,new | at_most_one,2321,9,219,9,2084,228,0.039473684210526314,0.5,0.09509335649153278,0.10625909752547306,0.16071428571428573
+AML,reference,mixed_full_256__auto,context_login,new | two_or_more,910,48,366,0,496,414,0.11594202898550725,1.0,0.4245939675174014,0.17758369723435224,0.0
+AML,reference,mixed_full_256__auto,context_login,seen | at_most_one,9699,5,167,38,9489,172,0.029069767441860465,0.11627906976744186,0.017294946147473074,0.08102862688015526,0.6785714285714286
+AML,reference,mixed_full_256__auto,context_login,seen | two_or_more,2548,4,222,8,2314,226,0.017699115044247787,0.3333333333333333,0.08753943217665615,0.10771470160116449,0.14285714285714285
+AML,reference,mixed_full_256__auto,context_login,unknown | at_most_one,3955,0,656,1,3298,656,0.0,0.0,0.16590794132524025,0.3182920912178554,0.017857142857142856
+AML,reference,mixed_full_256__auto,context_login,unknown | two_or_more,984,0,431,0,553,431,0.0,,0.4380081300813008,0.20912178554099953,0.0
+AML,reference,mixed_full_256__auto,precision,second,20417,66,2061,56,18234,2127,0.031029619181946404,0.5409836065573771,0.1015521064301552,1.0,1.0
+AML,reference,mixed_full_256__auto,recipe_amount,card_testing_burst | other,19,19,0,0,0,19,1.0,1.0,,0.0,0.0
+AML,reference,mixed_full_256__auto,recipe_amount,card_testing_burst | small,1,1,0,0,0,1,1.0,1.0,,0.0,0.0
+AML,reference,mixed_full_256__auto,recipe_amount,dormant_reactivation | other,30,14,0,16,0,14,1.0,0.4666666666666667,,0.0,0.2857142857142857
+AML,reference,mixed_full_256__auto,recipe_amount,micro_splitting | other,22,4,0,18,0,4,1.0,0.18181818181818182,,0.0,0.32142857142857145
+AML,reference,mixed_full_256__auto,recipe_amount,micro_splitting | small,2,0,0,2,0,0,,0.0,,0.0,0.03571428571428571
+AML,reference,mixed_full_256__auto,recipe_amount,new_phone | other,70,0,56,0,14,56,0.0,,0.8,0.027171276079573023,0.0
+AML,reference,mixed_full_256__auto,recipe_amount,new_phone | small,2,0,2,0,0,2,0.0,,1.0,0.0009704027171276079,0.0
+AML,reference,mixed_full_256__auto,recipe_amount,ordinary | other,19147,0,1622,0,17525,1622,0.0,,0.08471300987099807,0.7869966035904901,0.0
+AML,reference,mixed_full_256__auto,recipe_amount,ordinary | small,911,0,284,0,627,284,0.0,,0.31174533479692645,0.13779718583212033,0.0
+AML,reference,mixed_full_256__auto,recipe_amount,pass_through_proxy | other,22,6,0,16,0,6,1.0,0.2727272727272727,,0.0,0.2857142857142857
+AML,reference,mixed_full_256__auto,recipe_amount,repeated_small_payments | other,50,0,10,0,40,10,0.0,,0.2,0.0048520135856380394,0.0
+AML,reference,mixed_full_256__auto,recipe_amount,repeated_small_payments | small,6,0,3,0,3,3,0.0,,0.5,0.001455604075691412,0.0
+AML,reference,mixed_full_256__auto,recipe_amount,session_change | other,25,21,0,4,0,21,1.0,0.84,,0.0,0.07142857142857142
+AML,reference,mixed_full_256__auto,recipe_amount,session_change | small,1,1,0,0,0,1,1.0,1.0,,0.0,0.0
+AML,reference,mixed_full_256__auto,recipe_amount,shopping | other,42,0,28,0,14,28,0.0,,0.6666666666666666,0.013585638039786511,0.0
+AML,reference,mixed_full_256__auto,recipe_amount,shopping | small,7,0,6,0,1,6,0.0,,0.8571428571428571,0.002911208151382824,0.0
+AML,reference,mixed_full_256__auto,recipe_amount,travel | other,59,0,49,0,10,49,0.0,,0.8305084745762712,0.023774866569626393,0.0
+AML,reference,mixed_full_256__auto,recipe_amount,travel | small,1,0,1,0,0,1,0.0,,1.0,0.00048520135856380397,0.0
+AML,reference,mixed_full_256__auto,recipe_history,card_testing_burst | supported,20,20,0,0,0,20,1.0,1.0,,0.0,0.0
+AML,reference,mixed_full_256__auto,recipe_history,dormant_reactivation | supported,30,14,0,16,0,14,1.0,0.4666666666666667,,0.0,0.2857142857142857
+AML,reference,mixed_full_256__auto,recipe_history,micro_splitting | supported,23,4,0,19,0,4,1.0,0.17391304347826086,,0.0,0.3392857142857143
+AML,reference,mixed_full_256__auto,recipe_history,micro_splitting | under_30_prior,1,0,0,1,0,0,,0.0,,0.0,0.017857142857142856
+AML,reference,mixed_full_256__auto,recipe_history,new_phone | supported,72,0,58,0,14,58,0.0,,0.8055555555555556,0.028141678796700632,0.0
+AML,reference,mixed_full_256__auto,recipe_history,ordinary | supported,15120,0,819,0,14301,819,0.0,,0.05416666666666667,0.39737991266375544,0.0
+AML,reference,mixed_full_256__auto,recipe_history,ordinary | under_30_days,778,0,125,0,653,125,0.0,,0.16066838046272494,0.0606501698204755,0.0
+AML,reference,mixed_full_256__auto,recipe_history,ordinary | under_30_prior,4160,0,962,0,3198,962,0.0,,0.23125,0.46676370693837943,0.0
+AML,reference,mixed_full_256__auto,recipe_history,pass_through_proxy | supported,22,6,0,16,0,6,1.0,0.2727272727272727,,0.0,0.2857142857142857
+AML,reference,mixed_full_256__auto,recipe_history,repeated_small_payments | supported,56,0,13,0,43,13,0.0,,0.23214285714285715,0.006307617661329452,0.0
+AML,reference,mixed_full_256__auto,recipe_history,session_change | supported,26,22,0,4,0,22,1.0,0.8461538461538461,,0.0,0.07142857142857142
+AML,reference,mixed_full_256__auto,recipe_history,shopping | supported,49,0,34,0,15,34,0.0,,0.6938775510204082,0.016496846191169336,0.0
+AML,reference,mixed_full_256__auto,recipe_history,travel | supported,60,0,50,0,10,50,0.0,,0.8333333333333334,0.024260067928190198,0.0
+FRAUD,selected,mixed_portable_2048__auto,recipe,card_testing_burst,440,67,0,373,0,67,1.0,0.15227272727272728,,0.0,0.23473882945248584
+FRAUD,selected,mixed_portable_2048__auto,recipe,dormant_reactivation,396,148,0,248,0,148,1.0,0.37373737373737376,,0.0,0.15607300188797987
+FRAUD,selected,mixed_portable_2048__auto,recipe,micro_splitting,394,18,0,376,0,18,1.0,0.04568527918781726,,0.0,0.236626809314034
+FRAUD,selected,mixed_portable_2048__auto,recipe,new_phone,932,0,225,0,707,225,0.0,,0.24141630901287553,0.031455333426534324,0.0
+FRAUD,selected,mixed_portable_2048__auto,recipe,ordinary,194023,0,6558,0,187465,6558,0.0,,0.03380011648103575,0.9168181182720537,0.0
+FRAUD,selected,mixed_portable_2048__auto,recipe,pass_through_proxy,351,30,0,321,0,30,1.0,0.08547008547008547,,0.0,0.20201384518565135
+FRAUD,selected,mixed_portable_2048__auto,recipe,repeated_small_payments,979,0,57,0,922,57,0.0,,0.05822267620020429,0.007968684468055362,0.0
+FRAUD,selected,mixed_portable_2048__auto,recipe,session_change,382,111,0,271,0,111,1.0,0.2905759162303665,,0.0,0.17054751415984895
+FRAUD,selected,mixed_portable_2048__auto,recipe,shopping,1051,0,195,0,856,195,0.0,,0.18553758325404376,0.027261288969663077,0.0
+FRAUD,selected,mixed_portable_2048__auto,recipe,travel,1052,0,118,0,934,118,0.0,,0.11216730038022814,0.016496574863693554,0.0
+FRAUD,selected,mixed_portable_2048__auto,label_type,synthetic_background,194023,0,6558,0,187465,6558,0.0,,0.03380011648103575,0.9168181182720537,0.0
+FRAUD,selected,mixed_portable_2048__auto,label_type,synthetic_lookalike,4014,0,595,0,3419,595,0.0,,0.1482311908320877,0.08318188172794631,0.0
+FRAUD,selected,mixed_portable_2048__auto,label_type,synthetic_stress,1963,374,0,1589,0,374,1.0,0.19052470708099847,,0.0,1.0
+FRAUD,selected,mixed_portable_2048__auto,amount,other,151549,214,4177,1137,146021,4391,0.048736051013436574,0.15840118430792005,0.027809957522736656,0.5839507898783727,0.7155443675267463
+FRAUD,selected,mixed_portable_2048__auto,amount,small,48451,160,2976,452,44863,3136,0.05102040816326531,0.26143790849673204,0.06220865820773846,0.41604921012162727,0.2844556324732536
+FRAUD,selected,mixed_portable_2048__auto,history_support,supported,162538,374,7153,1586,153425,7527,0.04968779062043311,0.19081632653061226,0.044545329995391646,1.0,0.9981120201384519
+FRAUD,selected,mixed_portable_2048__auto,history_support,under_30_days,13462,0,0,0,13462,0,,,0.0,0.0,0.0
+FRAUD,selected,mixed_portable_2048__auto,history_support,under_30_prior,24000,0,0,3,23997,0,,0.0,0.0,0.0,0.0018879798615481435
+FRAUD,selected,mixed_portable_2048__auto,old_reference,available,162220,355,7116,1561,153188,7471,0.04751706598848882,0.18528183716075156,0.04439065775027448,0.9948273451698588,0.9823788546255506
+FRAUD,selected,mixed_portable_2048__auto,old_reference,unavailable,37780,19,37,28,37696,56,0.3392857142857143,0.40425531914893614,0.000980574033339517,0.005172654830141199,0.01762114537444934
+FRAUD,selected,mixed_portable_2048__auto,portable_reference,available,162538,374,7153,1586,153425,7527,0.04968779062043311,0.19081632653061226,0.044545329995391646,1.0,0.9981120201384519
+FRAUD,selected,mixed_portable_2048__auto,portable_reference,unavailable,37462,0,0,3,37459,0,,0.0,0.0,0.0,0.0018879798615481435
+FRAUD,selected,mixed_portable_2048__auto,device,new,334,39,212,0,83,251,0.1553784860557769,1.0,0.7186440677966102,0.029637914161890117,0.0
+FRAUD,selected,mixed_portable_2048__auto,device,seen,162204,335,6941,1586,153342,7276,0.04604178119846069,0.1743883394065591,0.043304654891660375,0.9703620858381099,0.9981120201384519
+FRAUD,selected,mixed_portable_2048__auto,device,unknown,37462,0,0,3,37459,0,,0.0,0.0,0.0,0.0018879798615481435
+FRAUD,selected,mixed_portable_2048__auto,login,at_most_one,186344,205,4176,1268,180695,4381,0.04679296964163433,0.13917175831636117,0.02258872402918792,0.583810988396477,0.7979861548143486
+FRAUD,selected,mixed_portable_2048__auto,login,two_or_more,13656,169,2977,321,10189,3146,0.05371900826446281,0.3448979591836735,0.22611271456782622,0.416189011603523,0.20201384518565135
+FRAUD,selected,mixed_portable_2048__auto,context_login,new | at_most_one,3538,36,1937,6,1559,1973,0.01824632539280284,0.8571428571428571,0.5540617848970252,0.2707954704319866,0.003775959723096287
+FRAUD,selected,mixed_portable_2048__auto,context_login,new | two_or_more,321,31,290,0,0,321,0.09657320872274143,1.0,1.0,0.040542429749755346,0.0
+FRAUD,selected,mixed_portable_2048__auto,context_login,seen | at_most_one,147848,169,2239,1259,144181,2408,0.0701827242524917,0.11834733893557423,0.015291626826936211,0.3130155179644904,0.7923222152297043
+FRAUD,selected,mixed_portable_2048__auto,context_login,seen | two_or_more,10831,138,2687,321,7685,2825,0.048849557522123895,0.3006535947712418,0.2590628615503278,0.37564658185376765,0.20201384518565135
+FRAUD,selected,mixed_portable_2048__auto,context_login,unknown | at_most_one,34958,0,0,3,34955,0,,0.0,0.0,0.0,0.0018879798615481435
+FRAUD,selected,mixed_portable_2048__auto,context_login,unknown | two_or_more,2504,0,0,0,2504,0,,,0.0,0.0,0.0
+FRAUD,selected,mixed_portable_2048__auto,precision,second,200000,374,7153,1589,190884,7527,0.04968779062043311,0.19052470708099847,0.03611951302029419,1.0,1.0
+FRAUD,selected,mixed_portable_2048__auto,recipe_amount,card_testing_burst | other,313,38,0,275,0,38,1.0,0.12140575079872204,,0.0,0.17306482064191314
+FRAUD,selected,mixed_portable_2048__auto,recipe_amount,card_testing_burst | small,127,29,0,98,0,29,1.0,0.2283464566929134,,0.0,0.06167400881057269
+FRAUD,selected,mixed_portable_2048__auto,recipe_amount,dormant_reactivation | other,333,101,0,232,0,101,1.0,0.3033033033033033,,0.0,0.1460037759597231
+FRAUD,selected,mixed_portable_2048__auto,recipe_amount,dormant_reactivation | small,63,47,0,16,0,47,1.0,0.746031746031746,,0.0,0.010069225928256766
+FRAUD,selected,mixed_portable_2048__auto,recipe_amount,micro_splitting | other,263,4,0,259,0,4,1.0,0.015209125475285171,,0.0,0.16299559471365638
+FRAUD,selected,mixed_portable_2048__auto,recipe_amount,micro_splitting | small,131,14,0,117,0,14,1.0,0.10687022900763359,,0.0,0.0736312146003776
+FRAUD,selected,mixed_portable_2048__auto,recipe_amount,new_phone | other,697,0,150,0,547,150,0.0,,0.2152080344332855,0.020970222284356216,0.0
+FRAUD,selected,mixed_portable_2048__auto,recipe_amount,new_phone | small,235,0,75,0,160,75,0.0,,0.3191489361702128,0.010485111142178108,0.0
+FRAUD,selected,mixed_portable_2048__auto,recipe_amount,ordinary | other,147771,0,3913,0,143858,3913,0.0,,0.026480161872085864,0.5470431986579057,0.0
+FRAUD,selected,mixed_portable_2048__auto,recipe_amount,ordinary | small,46252,0,2645,0,43607,2645,0.0,,0.057186716250108106,0.36977491961414793,0.0
+FRAUD,selected,mixed_portable_2048__auto,recipe_amount,pass_through_proxy | other,170,7,0,163,0,7,1.0,0.041176470588235294,,0.0,0.10258023914411579
+FRAUD,selected,mixed_portable_2048__auto,recipe_amount,pass_through_proxy | small,181,23,0,158,0,23,1.0,0.1270718232044199,,0.0,0.09943360604153556
+FRAUD,selected,mixed_portable_2048__auto,recipe_amount,repeated_small_payments | other,431,0,0,0,431,0,,,0.0,0.0,0.0
+FRAUD,selected,mixed_portable_2048__auto,recipe_amount,repeated_small_payments | small,548,0,57,0,491,57,0.0,,0.10401459854014598,0.007968684468055362,0.0
+FRAUD,selected,mixed_portable_2048__auto,recipe_amount,session_change | other,272,64,0,208,0,64,1.0,0.23529411764705882,,0.0,0.13089993706733793
+FRAUD,selected,mixed_portable_2048__auto,recipe_amount,session_change | small,110,47,0,63,0,47,1.0,0.42727272727272725,,0.0,0.039647577092511016
+FRAUD,selected,mixed_portable_2048__auto,recipe_amount,shopping | other,463,0,47,0,416,47,0.0,,0.10151187904967603,0.006570669649098281,0.0
+FRAUD,selected,mixed_portable_2048__auto,recipe_amount,shopping | small,588,0,148,0,440,148,0.0,,0.25170068027210885,0.020690619320564797,0.0
+FRAUD,selected,mixed_portable_2048__auto,recipe_amount,travel | other,836,0,67,0,769,67,0.0,,0.08014354066985646,0.009366699287012442,0.0
+FRAUD,selected,mixed_portable_2048__auto,recipe_amount,travel | small,216,0,51,0,165,51,0.0,,0.2361111111111111,0.0071298755766811125,0.0
+FRAUD,selected,mixed_portable_2048__auto,recipe_history,card_testing_burst | supported,440,67,0,373,0,67,1.0,0.15227272727272728,,0.0,0.23473882945248584
+FRAUD,selected,mixed_portable_2048__auto,recipe_history,dormant_reactivation | supported,396,148,0,248,0,148,1.0,0.37373737373737376,,0.0,0.15607300188797987
+FRAUD,selected,mixed_portable_2048__auto,recipe_history,micro_splitting | supported,391,18,0,373,0,18,1.0,0.04603580562659847,,0.0,0.23473882945248584
+FRAUD,selected,mixed_portable_2048__auto,recipe_history,micro_splitting | under_30_prior,3,0,0,3,0,0,,0.0,,0.0,0.0018879798615481435
+FRAUD,selected,mixed_portable_2048__auto,recipe_history,new_phone | supported,932,0,225,0,707,225,0.0,,0.24141630901287553,0.031455333426534324,0.0
+FRAUD,selected,mixed_portable_2048__auto,recipe_history,ordinary | supported,156564,0,6558,0,150006,6558,0.0,,0.04188702383689737,0.9168181182720537,0.0
+FRAUD,selected,mixed_portable_2048__auto,recipe_history,ordinary | under_30_days,13462,0,0,0,13462,0,,,0.0,0.0,0.0
+FRAUD,selected,mixed_portable_2048__auto,recipe_history,ordinary | under_30_prior,23997,0,0,0,23997,0,,,0.0,0.0,0.0
+FRAUD,selected,mixed_portable_2048__auto,recipe_history,pass_through_proxy | supported,351,30,0,321,0,30,1.0,0.08547008547008547,,0.0,0.20201384518565135
+FRAUD,selected,mixed_portable_2048__auto,recipe_history,repeated_small_payments | supported,979,0,57,0,922,57,0.0,,0.05822267620020429,0.007968684468055362,0.0
+FRAUD,selected,mixed_portable_2048__auto,recipe_history,session_change | supported,382,111,0,271,0,111,1.0,0.2905759162303665,,0.0,0.17054751415984895
+FRAUD,selected,mixed_portable_2048__auto,recipe_history,shopping | supported,1051,0,195,0,856,195,0.0,,0.18553758325404376,0.027261288969663077,0.0
+FRAUD,selected,mixed_portable_2048__auto,recipe_history,travel | supported,1052,0,118,0,934,118,0.0,,0.11216730038022814,0.016496574863693554,0.0
+FRAUD,reference,mixed_full_256__auto,recipe,card_testing_burst,440,90,0,350,0,90,1.0,0.20454545454545456,,0.0,0.21148036253776434
+FRAUD,reference,mixed_full_256__auto,recipe,dormant_reactivation,396,65,0,331,0,65,1.0,0.16414141414141414,,0.0,0.2
+FRAUD,reference,mixed_full_256__auto,recipe,micro_splitting,394,22,0,372,0,22,1.0,0.05583756345177665,,0.0,0.22477341389728098
+FRAUD,reference,mixed_full_256__auto,recipe,new_phone,932,0,146,0,786,146,0.0,,0.15665236051502146,0.011204911742133538,0.0
+FRAUD,reference,mixed_full_256__auto,recipe,ordinary,194023,0,12356,0,181667,12356,0.0,,0.0636831715827505,0.9482732156561781,0.0
+FRAUD,reference,mixed_full_256__auto,recipe,pass_through_proxy,351,43,0,308,0,43,1.0,0.1225071225071225,,0.0,0.18610271903323264
+FRAUD,reference,mixed_full_256__auto,recipe,repeated_small_payments,979,0,81,0,898,81,0.0,,0.08273748723186926,0.006216423637759018,0.0
+FRAUD,reference,mixed_full_256__auto,recipe,session_change,382,88,0,294,0,88,1.0,0.23036649214659685,,0.0,0.17764350453172206
+FRAUD,reference,mixed_full_256__auto,recipe,shopping,1051,0,336,0,715,336,0.0,,0.3196955280685062,0.025786646201074445,0.0
+FRAUD,reference,mixed_full_256__auto,recipe,travel,1052,0,111,0,941,111,0.0,,0.10551330798479087,0.00851880276285495,0.0
+FRAUD,reference,mixed_full_256__auto,label_type,synthetic_background,194023,0,12356,0,181667,12356,0.0,,0.0636831715827505,0.9482732156561781,0.0
+FRAUD,reference,mixed_full_256__auto,label_type,synthetic_lookalike,4014,0,674,0,3340,674,0.0,,0.16791230692575984,0.05172678434382195,0.0
+FRAUD,reference,mixed_full_256__auto,label_type,synthetic_stress,1963,308,0,1655,0,308,1.0,0.15690269994905756,,0.0,1.0
+FRAUD,reference,mixed_full_256__auto,amount,other,151549,144,8008,1207,142190,8152,0.017664376840039256,0.10658771280532939,0.05331628916496891,0.6145817344589409,0.7293051359516616
+FRAUD,reference,mixed_full_256__auto,amount,small,48451,164,5022,448,42817,5186,0.031623602005399154,0.2679738562091503,0.10497711072555864,0.38541826554105907,0.27069486404833837
+FRAUD,reference,mixed_full_256__auto,history_support,supported,162538,307,7529,1653,153049,7836,0.03917815211842777,0.15663265306122448,0.046886871177869945,0.5778204144282425,0.9987915407854985
+FRAUD,reference,mixed_full_256__auto,history_support,under_30_days,13462,0,1033,0,12429,1033,0.0,,0.07673451195958995,0.07927858787413661,0.0
+FRAUD,reference,mixed_full_256__auto,history_support,under_30_prior,24000,1,4468,2,19529,4469,0.00022376370552696352,0.3333333333333333,0.18618994040921782,0.3429009976976209,0.0012084592145015106
+FRAUD,reference,mixed_full_256__auto,old_reference,available,162220,300,7484,1616,152820,7784,0.03854059609455293,0.15657620041753653,0.0466862960375287,0.5743668457405986,0.9764350453172206
+FRAUD,reference,mixed_full_256__auto,old_reference,unavailable,37780,8,5546,39,32187,5554,0.0014404033129276198,0.1702127659574468,0.14698009699732328,0.4256331542594014,0.023564954682779457
+FRAUD,reference,mixed_full_256__auto,portable_reference,available,162538,307,7529,1653,153049,7836,0.03917815211842777,0.15663265306122448,0.046886871177869945,0.5778204144282425,0.9987915407854985
+FRAUD,reference,mixed_full_256__auto,portable_reference,unavailable,37462,1,5501,2,31958,5502,0.0001817520901490367,0.3333333333333333,0.1468538935903254,0.4221795855717575,0.0012084592145015106
+FRAUD,reference,mixed_full_256__auto,device,new,334,19,78,20,217,97,0.1958762886597938,0.48717948717948717,0.26440677966101694,0.0059861857252494245,0.012084592145015106
+FRAUD,reference,mixed_full_256__auto,device,seen,162204,288,7451,1633,152832,7739,0.03721411035017444,0.14992191566892243,0.046486526955447555,0.571834228702993,0.9867069486404834
+FRAUD,reference,mixed_full_256__auto,device,unknown,37462,1,5501,2,31958,5502,0.0001817520901490367,0.3333333333333333,0.1468538935903254,0.4221795855717575,0.0012084592145015106
+FRAUD,reference,mixed_full_256__auto,login,at_most_one,186344,155,10480,1318,174391,10635,0.01457451810061119,0.10522742701968771,0.056688177161371985,0.8042977743668457,0.7963746223564955
+FRAUD,reference,mixed_full_256__auto,login,two_or_more,13656,153,2550,337,10616,2703,0.05660377358490566,0.3122448979591837,0.19368069269330093,0.19570222563315426,0.20362537764350452
+FRAUD,reference,mixed_full_256__auto,context_login,new | at_most_one,3538,23,796,19,2700,819,0.028083028083028084,0.5476190476190477,0.22768878718535468,0.06108979278587874,0.011480362537764351
+FRAUD,reference,mixed_full_256__auto,context_login,new | two_or_more,321,18,164,13,126,182,0.0989010989010989,0.5806451612903226,0.5655172413793104,0.012586339217191097,0.00785498489425982
+FRAUD,reference,mixed_full_256__auto,context_login,seen | at_most_one,147848,131,5013,1297,141407,5144,0.02546656298600311,0.09173669467787114,0.034237126075672725,0.3847275518035303,0.7836858006042297
+FRAUD,reference,mixed_full_256__auto,context_login,seen | two_or_more,10831,135,1556,324,8816,1691,0.07983441750443525,0.29411764705882354,0.15001928268414963,0.11941673062164236,0.1957703927492447
+FRAUD,reference,mixed_full_256__auto,context_login,unknown | at_most_one,34958,1,4671,2,30284,4672,0.00021404109589041095,0.3333333333333333,0.1336289515090831,0.35848042977743666,0.0012084592145015106
+FRAUD,reference,mixed_full_256__auto,context_login,unknown | two_or_more,2504,0,830,0,1674,830,0.0,,0.3314696485623003,0.0636991557943208,0.0
+FRAUD,reference,mixed_full_256__auto,precision,second,200000,308,13030,1655,185007,13338,0.023091917828759936,0.15690269994905756,0.06579578563601751,1.0,1.0
+FRAUD,reference,mixed_full_256__auto,recipe_amount,card_testing_burst | other,313,40,0,273,0,40,1.0,0.12779552715654952,,0.0,0.16495468277945619
+FRAUD,reference,mixed_full_256__auto,recipe_amount,card_testing_burst | small,127,50,0,77,0,50,1.0,0.3937007874015748,,0.0,0.04652567975830816
+FRAUD,reference,mixed_full_256__auto,recipe_amount,dormant_reactivation | other,333,47,0,286,0,47,1.0,0.14114114114114115,,0.0,0.172809667673716
+FRAUD,reference,mixed_full_256__auto,recipe_amount,dormant_reactivation | small,63,18,0,45,0,18,1.0,0.2857142857142857,,0.0,0.027190332326283987
+FRAUD,reference,mixed_full_256__auto,recipe_amount,micro_splitting | other,263,7,0,256,0,7,1.0,0.026615969581749048,,0.0,0.15468277945619335
+FRAUD,reference,mixed_full_256__auto,recipe_amount,micro_splitting | small,131,15,0,116,0,15,1.0,0.11450381679389313,,0.0,0.07009063444108761
+FRAUD,reference,mixed_full_256__auto,recipe_amount,new_phone | other,697,0,80,0,617,80,0.0,,0.11477761836441894,0.0061396776669224865,0.0
+FRAUD,reference,mixed_full_256__auto,recipe_amount,new_phone | small,235,0,66,0,169,66,0.0,,0.28085106382978725,0.005065234075211052,0.0
+FRAUD,reference,mixed_full_256__auto,recipe_amount,ordinary | other,147771,0,7741,0,140030,7741,0.0,,0.052385109392235285,0.5940905602455872,0.0
+FRAUD,reference,mixed_full_256__auto,recipe_amount,ordinary | small,46252,0,4615,0,41637,4615,0.0,,0.09977946899593532,0.35418265541059096,0.0
+FRAUD,reference,mixed_full_256__auto,recipe_amount,pass_through_proxy | other,170,2,0,168,0,2,1.0,0.011764705882352941,,0.0,0.1015105740181269
+FRAUD,reference,mixed_full_256__auto,recipe_amount,pass_through_proxy | small,181,41,0,140,0,41,1.0,0.2265193370165746,,0.0,0.08459214501510574
+FRAUD,reference,mixed_full_256__auto,recipe_amount,repeated_small_payments | other,431,0,24,0,407,24,0.0,,0.05568445475638051,0.001841903300076746,0.0
+FRAUD,reference,mixed_full_256__auto,recipe_amount,repeated_small_payments | small,548,0,57,0,491,57,0.0,,0.10401459854014598,0.004374520337682272,0.0
+FRAUD,reference,mixed_full_256__auto,recipe_amount,session_change | other,272,48,0,224,0,48,1.0,0.17647058823529413,,0.0,0.13534743202416918
+FRAUD,reference,mixed_full_256__auto,recipe_amount,session_change | small,110,40,0,70,0,40,1.0,0.36363636363636365,,0.0,0.04229607250755287
+FRAUD,reference,mixed_full_256__auto,recipe_amount,shopping | other,463,0,95,0,368,95,0.0,,0.20518358531317496,0.0072908672294704525,0.0
+FRAUD,reference,mixed_full_256__auto,recipe_amount,shopping | small,588,0,241,0,347,241,0.0,,0.4098639455782313,0.01849577897160399,0.0
+FRAUD,reference,mixed_full_256__auto,recipe_amount,travel | other,836,0,68,0,768,68,0.0,,0.08133971291866028,0.005218726016884114,0.0
+FRAUD,reference,mixed_full_256__auto,recipe_amount,travel | small,216,0,43,0,173,43,0.0,,0.19907407407407407,0.0033000767459708366,0.0
+FRAUD,reference,mixed_full_256__auto,recipe_history,card_testing_burst | supported,440,90,0,350,0,90,1.0,0.20454545454545456,,0.0,0.21148036253776434
+FRAUD,reference,mixed_full_256__auto,recipe_history,dormant_reactivation | supported,396,65,0,331,0,65,1.0,0.16414141414141414,,0.0,0.2
+FRAUD,reference,mixed_full_256__auto,recipe_history,micro_splitting | supported,391,21,0,370,0,21,1.0,0.05370843989769821,,0.0,0.22356495468277945
+FRAUD,reference,mixed_full_256__auto,recipe_history,micro_splitting | under_30_prior,3,1,0,2,0,1,1.0,0.3333333333333333,,0.0,0.0012084592145015106
+FRAUD,reference,mixed_full_256__auto,recipe_history,new_phone | supported,932,0,146,0,786,146,0.0,,0.15665236051502146,0.011204911742133538,0.0
+FRAUD,reference,mixed_full_256__auto,recipe_history,ordinary | supported,156564,0,6855,0,149709,6855,0.0,,0.04378401165018778,0.5260936300844206,0.0
+FRAUD,reference,mixed_full_256__auto,recipe_history,ordinary | under_30_days,13462,0,1033,0,12429,1033,0.0,,0.07673451195958995,0.07927858787413661,0.0
+FRAUD,reference,mixed_full_256__auto,recipe_history,ordinary | under_30_prior,23997,0,4468,0,19529,4468,0.0,,0.18618994040921782,0.3429009976976209,0.0
+FRAUD,reference,mixed_full_256__auto,recipe_history,pass_through_proxy | supported,351,43,0,308,0,43,1.0,0.1225071225071225,,0.0,0.18610271903323264
+FRAUD,reference,mixed_full_256__auto,recipe_history,repeated_small_payments | supported,979,0,81,0,898,81,0.0,,0.08273748723186926,0.006216423637759018,0.0
+FRAUD,reference,mixed_full_256__auto,recipe_history,session_change | supported,382,88,0,294,0,88,1.0,0.23036649214659685,,0.0,0.17764350453172206
+FRAUD,reference,mixed_full_256__auto,recipe_history,shopping | supported,1051,0,336,0,715,336,0.0,,0.3196955280685062,0.025786646201074445,0.0
+FRAUD,reference,mixed_full_256__auto,recipe_history,travel | supported,1052,0,111,0,941,111,0.0,,0.10551330798479087,0.00851880276285495,0.0

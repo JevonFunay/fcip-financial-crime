@@ -60,6 +60,20 @@ Partial: FR-306, FR-309, FR-310, FR-1103, FR-808, FR-612.
 
 ## Built since the last progress report
 
+### 16 October — source-cadence repair and recall-preserving follow-up
+
+All five authorised steps are complete: validation audit, new source-cadence
+generator, grouped selection, six target-free fits and fresh frozen final,
+plus a separate published sender–receiver AML benchmark. Generated 1M/200k/200k
+rows; no alternative passes the coverage/workload guard, so both retain the
+reference. Final simulated precision/recall: AML **0.96%/67.36%**, FRAUD
+**3.01%/57.69%**; quality remains inadequate. **159 focused checks pass**;
+35 new and 52 prior frozen hashes match. No app/DB/promotion changes.
+**Own decisions:** AS-10 records the new generator, relative-view experiment,
+three parent groups, strict fallback and disclosed external graph exclusions.
+**Capstone:** Evaluasi lebih ketat, tetapi belum ada model lebih baik; data
+tanpa fakta pembeda tidak bisa memastikan fraud. [Full evidence](ml/robustness_20261016.md).
+
 ### 16 October — controlled retraining and fresh final simulation
 
 Jevon approved the proposed source-only/mixed training comparison, comparable

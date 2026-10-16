@@ -7,14 +7,17 @@ is actually built, what is deliberately not built, and what is still undecided.
 Last updated: **16 October 2026** · Week 6 of 16 · ~17% of MVP scope
 (scope percentage last recounted 29 September)
 
-**Current handoff:** §14–15 and [ML_DATA_ENGINE.md](ML_DATA_ENGINE.md) supersede
-the old dataset/training instructions below. The new USD pipeline is
-unsupervised; 1,400,000 generated rows and a real 200,000-row upload are
-verified. Model quality is inadequate: both new versions remain **DRAFT**,
+**Current handoff:** §14–16 and [ML_DATA_ENGINE.md](ML_DATA_ENGINE.md) supersede
+the old dataset/training instructions below. The USD pipeline is unsupervised;
+the initial replacement verified 1,400,000 generated rows and an actual
+200,000-row upload (§14). The new offline follow-up creates another 1,400,000
+research rows (§16). Model quality is inadequate: both app versions remain **DRAFT**,
 both old supervised versions are **RETIRED**, and no model is ACTIVE in the
-live demo. The 16 October offline retraining improves synthetic precision but
-loses AML coverage; all research candidates remain DRAFT (§15). Do not read
-the historical supervised results as current quality.
+live demo. The first 16 October offline retraining improves synthetic precision
+but loses AML coverage (§15). The subsequent source-cadence follow-up (§16)
+finds no alternative retaining coverage/workload, so both units fall back to
+the reference; synthetic precision remains poor. All candidates stay DRAFT.
+Do not read the historical supervised results as current quality.
 
 ---
 
@@ -579,6 +582,36 @@ synthetic validation labels do inform candidate/threshold selection. A new
 200,000-row simulation follows frozen hashes; known source parents/recipes
 limit independence. All results stay offline DRAFT and do not change CF-05,
 the application registry, P02, permissions or current demo data.
+
+**AS-10 — authorised robustness repair and separate AML benchmark (16 Oct):**
+Jevon approved all five proposed follow-up steps after the first retraining.
+A NEW generator retains source-parent calendar spans, source-style day/minute
+precision and unknown timezone, adds a label-independent ordinary hiatus and
+matched legitimate dormant-reactivation controls, and retains ordinary
+prehistory/follow-up around interventions. The prior generator, data and models
+stay immutable. Account-disjoint partitions overlap in calendar support;
+they are explicitly **not chronological holdouts**. Extra clones do not add
+independent customers. The 12%/24% simulated account allocations, 20% shared
+hiatus mechanism and other manifest values are declared experiment choices,
+not observed crime rates or FRD/TRD thresholds.
+
+New research selection must retain **100% of reference true positives** overall,
+on low amounts, in each of three source-parent validation groups, on low amounts
+within those groups, and per stress recipe (plus clock slices when available).
+All descendants of a source parent share a group; these are heldout groups,
+not three model refits. Synthetic false positives and unlabelled-source flags
+must not increase. Rank by precision, AP, source workload and identifier;
+the reference is the fallback if no improvement passes. Three fixed feature/
+subsample configurations and TRAIN-score quantiles .90/.95/.97/.99 are research
+choices. Labels inform audit, feature design and validation selection, but
+never estimator fitting or preprocessing. Final data is a new stochastic draw
+after freeze, not independent real-crime evidence.
+
+An external sender–receiver simulator benchmark is a separate research arm;
+its published labels describe simulator SARs, not proven laundering. Report
+licence/provenance, account/time exclusions and pattern retention. Its graph
+is never merged into the Kaggle observations. This authorisation does not
+approve deployment, model registration, changes to P02 or CF-05 activation.
 
 ### TRD §1.5 — conflicts still open
 
@@ -1508,3 +1541,69 @@ retain poor final coverage honestly and stop tuning after the final draw. These
 are research choices within the user-approved experiment, not model approval,
 verified crime labels or mentor ratification. The experimental steps are complete;
 reliable high-precision crime detection is still not achieved.
+
+---
+
+## 16. Source-cadence robustness and independent AML graph benchmark — 16 October 2026
+
+**All five follow-up steps Jevon approved are executed. No better eligible
+model was found.** [Full report](ml/robustness_20261016.md),
+[results/hashes](ml/robustness_20261016.json),
+[validation audit](ml/validation_error_audit_20261016.md) and
+[external graph evidence](ml/aml_network_20261016.json) are versioned in docs.
+Existing app/demo data, model registry, P02 and CF-05 are unchanged.
+
+The new generator v2 retains actual source-parent calendar support, empirical
+cadence, day/minute precision and unknown timezone. It creates 1M TRAIN,
+200k validation and 200k fresh final observations. TRAIN has 9,702 proxy
+accounts; validation/final each have 1,940, derived from disjoint 346/74/75
+source parents. Median generated gaps are 12 days, not the old dense 180-day
+population. These are account-heldout, overlapping-calendar simulations,
+**not chronological holdouts or new independent customers**. Labels remain
+simulated intervention/background assumptions; three benign/stress pairs are
+observationally equivalent and cannot reveal unobserved criminal intent.
+
+Six unsupervised models compare full/portable/audit-motivated relative views.
+Three validation parent groups (25/25/24) keep all clones together. The new
+AS-10 guard requires at least reference TP counts in all declared total,
+low-amount, group, recipe and clock slices, with no increased FP/source flags.
+Every alternative fails, so both units retain `mixed_full_256__auto`. This is
+label-informed validation selection after all target-free fits, with an honest
+reference fallback; it does not establish improved detection quality.
+
+35 initial input/code/model/card/protocol/selection hashes are verified. Models
+freeze at 08:52:55.849364 UTC; fresh final generation starts 0.123698 seconds
+later, seed 2026101602. The run ends at 08:53:23.686445 UTC. Independent review
+rebuilds every validation guard and final metric, confirming exact alignment;
+all 52 prior protected research files still match, without old-final reads.
+
+| New final | TP / FP / FN / TN | Precision / recall |
+|---|---|---|
+| AML, 160,270 account-weeks | 291 / 30,060 / 141 / 129,778 | **0.959% / 67.36%** |
+| FRAUD, 200,000 transactions | 1,001 / 32,277 / 734 / 165,988 | **3.008% / 57.69%** |
+
+Selected/reference are identical; the final guard passes by fallback. New
+final precision cannot be compared directly with the earlier different-
+generator final. Original unlabelled source-validation flags fall to 959/5,764
+AML and 987/6,809 FRAUD; this is workload, not verified accuracy.
+
+The independent IBM AMLSim v2.1 archive contains 885,744 actual simulator
+sender–receiver edges and 20,000 accounts. Graph-only IF excludes amount and
+SAR/GPML predictors, freezes before label evaluation, and uses fixed 0.5 plus
+TRAIN q99. Its entire graph is one component; account/time separation retains
+250,600 TRAIN and 33,744 holdout edges but excludes 601,400. Only 22 SAR edges
+and zero complete patterns remain in holdout. Account/30-day-window precision/
+recall at 0.5 is 0.336%/25.71%; complete-pattern recall is undefined. This arm
+also fails to establish useful AML quality. The archive's generating commit
+and separate data licence are unknown; the reference code is Apache-2.0 and
+raw external data stays ignored. No edge is fabricated for the Kaggle source.
+
+**159 focused tests pass**, including 55 new generator/audit/robustness/network
+checks. No fresh full DB-backed app suite, frontend build, browser UAT or live
+upload claim is made; Docker is unavailable. All research artifacts remain
+local under ignored ml_data/ml_models roots; tracked evidence is aggregated.
+
+**Own decisions:** AS-10 records generator/candidate/grouping/threshold choices,
+recall-preserving fallback, unchanged old evidence, and graph partition limits.
+**Capstone:** Evaluasi lebih ketat dan data lebih sesuai sumber, tetapi belum
+ada model yang memenuhi peningkatan kualitas; semua kandidat tetap DRAFT.

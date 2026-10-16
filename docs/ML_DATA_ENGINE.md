@@ -4,6 +4,13 @@
 flow is implemented. The current models remain **DRAFT** because benchmark
 quality is poor; this guide does not recommend activation.
 
+**Latest 16 October follow-up:** the [source-cadence robustness report](ml/robustness_20261016.md)
+documents the validation error audit, a separate repaired generator,
+recall-preserving grouped validation, frozen fresh final evaluation and an
+independent published sender–receiver AML benchmark. It supersedes the research
+procedure below for new experiments; existing app/demo artifacts remain the
+15 October versions. Research thresholds are not approved operating points.
+
 **16 October research update:** the [controlled retraining report](ml/retraining_20261016.md)
 compares source-only/mixed/equal-origin training, repaired observation-reference
 features and a new frozen final draw. Precision improves partially and AML
@@ -175,3 +182,56 @@ design/data and record the repeated-validation/known-parent limits. Existing
 output roots and old split seeds are refused. Keep the original run and its
 negative findings intact; changing the final cutoff after seeing its results
 would turn that set into development data.
+
+## Run the source-cadence robustness follow-up
+
+The new `generate_v2` keeps each heldout source parent's actual calendar span,
+empirical day-gap shape, day/minute precision and unknown timezone. It adds
+ordinary shared hiatuses and matched legitimate controls, with ordinary
+history and follow-up around every supported intervention. These splits are
+account-disjoint and **not chronological holdouts**. Some benign/stress pairs
+are observationally identical; labels alone cannot supply missing crime facts.
+
+`robustness` fits six unsupervised models (three fixed configurations per unit)
+on 1,000,000 new generated TRAIN rows plus 35,662 original TRAIN observations.
+Validation uses 200,000 new rows and three heldout source-parent groups, keeping
+all descendants together. Labels are used after all fits for selection, never
+for fitting medians, vocabulary or estimators. A candidate must preserve the
+reference TP count in every declared slice and avoid increasing synthetic FP
+or source review flags; if none passes, the reference is retained. Selection
+does not guarantee the same individual cases are retained or that final
+coverage will generalize. The final 200,000 rows are generated after freezing.
+
+From `backend/`, using fresh, non-existing roots:
+
+```bash
+.venv/bin/python -m app.ml.behavioral.robustness \
+  --source sample_data/raw/bank_transactions_data_2_augmented_clean_2.csv \
+  --out ml_data/robustness_NEW_RUN \
+  --models-out ml_models/robustness_NEW_RUN \
+  --train-rows 1000000 --validation-rows 200000 --test-rows 200000 \
+  --seed 2026101620 --final-seed 2026101602 --estimators 100 \
+  --bootstrap-replicates 300
+```
+
+These seeds reproduce the recorded draw, not another independent evaluation.
+Keep every prior final result unchanged. Extra simulations from known source
+parents/recipe families do not become independent real-crime evidence.
+
+The separate published IBM AMLSim benchmark uses actual simulator sender/
+receiver columns and graph-only inputs; it does not attach imagined edges to
+the Kaggle source. Its entire published graph is connected, so the declared
+account/time partition drops edges and reports partial pattern retention.
+It uses fixed score 0.5 and TRAIN q99, with no target-based threshold selection.
+
+```bash
+.venv/bin/python -m app.ml.behavioral.aml_network_benchmark \
+  --download --raw ml_data/aml_network_SOURCE/raw \
+  --out ml_data/aml_network_NEW_RUN --seed 20261016 --estimators 100
+```
+
+The downloader pins the archive checksum and preserves provenance. The reference
+repository is Apache-2.0; the external archive has no separately stated data
+licence in its README/wiki. Raw external data stays local and ignored. Account
+and 30-day graph windows are a batch benchmark, not proof of real-time warning.
+All research remains DRAFT with no DB registration, approval or CF-05 change.

@@ -1,0 +1,253 @@
+{
+  "completed_at": "2026-10-16T08:53:35.051272+00:00",
+  "state": "DRAFT",
+  "source": {
+    "source": "IBM AMLSim published bank_mixed v2.1",
+    "documentation_url": "https://github.com/IBM/AMLSim/wiki/Download-Example-Data-Set",
+    "download_url": "https://www.dropbox.com/sh/l3grpumqfgbxqak/AAAj0fIjtJI6n9fdIBy2V7Lia/banks/v2.1?dl=1",
+    "archive_sha256": "e36015be8c728dc0acdc437aa7ab494fdc24d3289c0090673b07de31ac12a5fa",
+    "archive_bytes": 25061861,
+    "reference_repository": "https://github.com/IBM/AMLSim",
+    "reference_repository_commit": "7338a4bcb1af9bcfea2201ad7daccfe2a4d569ca",
+    "generation_commit": null,
+    "license": {
+      "reference_repository": "Apache-2.0",
+      "external_archive_data": "Not separately stated in archive README or linked wiki; do not infer a separate data licence from the repository licence."
+    },
+    "downloaded_at": "2026-10-16T08:48:32.635748+00:00",
+    "excluded_provided_features": "The features/ directory includes SAR-dependent GPML features and is never loaded.",
+    "files": {
+      "README.md": "5bf77a9d74d1399f4e696047571fcc3c47762c1a305b837a0672069a09191b21",
+      "paramFiles/bank_mixed/conf.json": "fc75dc0f87a1444831ea83249e9d0985ed0a156522d4cf4079ebf50b7192a0de",
+      "paramFiles/bank_mixed/schema.json": "a5b955b0edb164b5b23fa792b035aed70eee87489476869c93ed61e8ee9b49ce",
+      "paramFiles/bank_mixed/alertPatterns.csv": "ad3bbe7a62165bf5b87bb59e29592bfbe8aca101ee1314a99dbaf8c37e3e68e9",
+      "data/bank_mixed/transactions.csv.gz": "d32cd92994941ae61128a29e1d59ca828ae389d9a90aef962f281d450e676d08",
+      "data/bank_mixed/accounts.csv.gz": "c07436098bc13d345d52b9c063dbe08e674adf71b955c95c8907a1e3e54a602f",
+      "data/bank_mixed/alert_transactions.csv.gz": "d32d38c93ec32c2fa38f3d55fbb4e8907811e61e3a1a8a438540fd37ef964336",
+      "data/bank_mixed/alert_accounts.csv.gz": "a17be41c7db8cfe78a9a28a1d38a48bfa91058bd4a7af72ee0661d473b16cbbb",
+      "v2.1.zip": "e36015be8c728dc0acdc437aa7ab494fdc24d3289c0090673b07de31ac12a5fa",
+      "repository_LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "repository_README.md": "3672e53c602026f4fb7ef99218ba07e3a41ecae6d14176c0984bd8e9f2543101"
+    }
+  },
+  "partition": {
+    "policy": "Label-blind SHA256 account groups plus non-overlapping chronological complete-window boundary; induced subgraphs only.",
+    "seed": 20261016,
+    "account_train_fraction": 0.7,
+    "time_train_fraction": 0.6,
+    "base_date": "2017-01-01T00:00:00+00:00",
+    "cutoff": "2018-02-25T00:00:00+00:00",
+    "window_days": 30,
+    "windows": 24,
+    "training_windows": 14,
+    "weak_components": 1,
+    "largest_component_accounts": 20000,
+    "component_disjoint_possible": false,
+    "component_policy": "The published graph has one giant component; account grouping is a disclosed induced-subgraph alternative, not a component-disjoint claim.",
+    "source_transactions": 885744,
+    "source_accounts": 20000,
+    "assigned_train_accounts": 13917,
+    "assigned_holdout_accounts": 6083,
+    "train_transactions": 250600,
+    "holdout_transactions": 33744,
+    "excluded_cross_group_transactions": 375063,
+    "excluded_train_accounts_after_cutoff": 178791,
+    "excluded_holdout_accounts_before_cutoff": 47546,
+    "excluded_total": 601400
+  },
+  "model": {
+    "state": "DRAFT",
+    "algorithm": "Unsupervised IsolationForest; graph-only numeric inputs",
+    "fit_uses_targets": false,
+    "thresholds": {
+      "auto": 0.5,
+      "train_q99": 0.622696181294866
+    },
+    "features": [
+      "IN_COUNT",
+      "OUT_COUNT",
+      "IN_DISTINCT_PEERS",
+      "OUT_DISTINCT_PEERS",
+      "DISTINCT_PEERS",
+      "IN_REPEAT_SHARE",
+      "OUT_REPEAT_SHARE",
+      "DIRECTION_COUNT_BALANCE",
+      "FAN_IN_RATIO",
+      "FAN_OUT_RATIO",
+      "RECIPROCAL_PEERS",
+      "RECIPROCAL_PEER_SHARE",
+      "DIRECTED_TRIANGLES",
+      "SELF_TRANSACTION_SHARE",
+      "MEAN_OUT_NEIGHBOR_OUT_DEGREE",
+      "MEAN_IN_NEIGHBOR_IN_DEGREE",
+      "ACTIVE_DAYS",
+      "EVENTS_PER_ACTIVE_DAY"
+    ],
+    "train_account_windows": 178897,
+    "holdout_account_windows": 39828,
+    "train_accounts": 13906,
+    "holdout_accounts": 5921,
+    "currency": "USD",
+    "amount_used_as_predictor": false,
+    "caveat": "Independent published synthetic AMLSim data, not real financial crime. is_sar and alert_type are simulator scenario indicators used only for evaluation. Account/time partitioning removes cross-group and out-of-period edges and can fragment patterns. This research model is not registered or approved."
+  },
+  "evaluation": {
+    "label_scope": "Published simulator SAR/scenario indicators, not independently verified crime",
+    "published_SAR_transactions": 807,
+    "train_SAR_transactions_evaluation_only": 187,
+    "holdout_SAR_transactions": 22,
+    "protocol_excluded_SAR_transactions": 598,
+    "thresholds": {
+      "auto": {
+        "threshold": 0.5,
+        "account_window": {
+          "units": 39828,
+          "positive_units": 35,
+          "tp": 9,
+          "fp": 2673,
+          "fn": 26,
+          "tn": 37120,
+          "precision": 0.003355704697986577,
+          "recall": 0.2571428571428571,
+          "flag_rate": 0.06733956010846641,
+          "average_precision": 0.004175262608371722,
+          "roc_auc": 0.6607088109538289
+        },
+        "transaction_endpoint_support": {
+          "units": 33744,
+          "positive_units": 22,
+          "tp": 10,
+          "fp": 7638,
+          "fn": 12,
+          "tn": 26084,
+          "precision": 0.001307531380753138,
+          "recall": 0.45454545454545453,
+          "flag_rate": 0.22664770033191087,
+          "average_precision": 0.0061393601482477795,
+          "roc_auc": 0.6642419839220147
+        },
+        "patterns": {
+          "cycle": {
+            "published_patterns": 20,
+            "observed_holdout_fragments": 0,
+            "detected_fragments": 0,
+            "fragment_recall": null,
+            "complete_holdout_patterns": 0,
+            "detected_complete_patterns": 0,
+            "complete_pattern_recall": null
+          },
+          "gather_scatter": {
+            "published_patterns": 50,
+            "observed_holdout_fragments": 4,
+            "detected_fragments": 4,
+            "fragment_recall": 1.0,
+            "complete_holdout_patterns": 0,
+            "detected_complete_patterns": 0,
+            "complete_pattern_recall": null
+          },
+          "scatter_gather": {
+            "published_patterns": 30,
+            "observed_holdout_fragments": 9,
+            "detected_fragments": 1,
+            "fragment_recall": 0.1111111111111111,
+            "complete_holdout_patterns": 0,
+            "detected_complete_patterns": 0,
+            "complete_pattern_recall": null
+          }
+        }
+      },
+      "train_q99": {
+        "threshold": 0.622696181294866,
+        "account_window": {
+          "units": 39828,
+          "positive_units": 35,
+          "tp": 1,
+          "fp": 56,
+          "fn": 34,
+          "tn": 39737,
+          "precision": 0.017543859649122806,
+          "recall": 0.02857142857142857,
+          "flag_rate": 0.001431153962036758,
+          "average_precision": 0.004175262608371722,
+          "roc_auc": 0.6607088109538289
+        },
+        "transaction_endpoint_support": {
+          "units": 33744,
+          "positive_units": 22,
+          "tp": 4,
+          "fp": 383,
+          "fn": 18,
+          "tn": 33339,
+          "precision": 0.0103359173126615,
+          "recall": 0.18181818181818182,
+          "flag_rate": 0.011468705547652915,
+          "average_precision": 0.0061393601482477795,
+          "roc_auc": 0.6642419839220147
+        },
+        "patterns": {
+          "cycle": {
+            "published_patterns": 20,
+            "observed_holdout_fragments": 0,
+            "detected_fragments": 0,
+            "fragment_recall": null,
+            "complete_holdout_patterns": 0,
+            "detected_complete_patterns": 0,
+            "complete_pattern_recall": null
+          },
+          "gather_scatter": {
+            "published_patterns": 50,
+            "observed_holdout_fragments": 4,
+            "detected_fragments": 1,
+            "fragment_recall": 0.25,
+            "complete_holdout_patterns": 0,
+            "detected_complete_patterns": 0,
+            "complete_pattern_recall": null
+          },
+          "scatter_gather": {
+            "published_patterns": 30,
+            "observed_holdout_fragments": 9,
+            "detected_fragments": 0,
+            "fragment_recall": 0.0,
+            "complete_holdout_patterns": 0,
+            "detected_complete_patterns": 0,
+            "complete_pattern_recall": null
+          }
+        }
+      }
+    }
+  },
+  "frozen": {
+    "frozen_at": "2026-10-16T08:53:33.952533+00:00",
+    "files": {
+      "backend/ml_data/aml_network_ibm_amlsim_v21_20261016/raw/README.md": "5bf77a9d74d1399f4e696047571fcc3c47762c1a305b837a0672069a09191b21",
+      "backend/ml_data/aml_network_ibm_amlsim_v21_20261016/raw/paramFiles/bank_mixed/conf.json": "fc75dc0f87a1444831ea83249e9d0985ed0a156522d4cf4079ebf50b7192a0de",
+      "backend/ml_data/aml_network_ibm_amlsim_v21_20261016/raw/paramFiles/bank_mixed/schema.json": "a5b955b0edb164b5b23fa792b035aed70eee87489476869c93ed61e8ee9b49ce",
+      "backend/ml_data/aml_network_ibm_amlsim_v21_20261016/raw/paramFiles/bank_mixed/alertPatterns.csv": "ad3bbe7a62165bf5b87bb59e29592bfbe8aca101ee1314a99dbaf8c37e3e68e9",
+      "backend/ml_data/aml_network_ibm_amlsim_v21_20261016/raw/data/bank_mixed/transactions.csv.gz": "d32cd92994941ae61128a29e1d59ca828ae389d9a90aef962f281d450e676d08",
+      "backend/ml_data/aml_network_ibm_amlsim_v21_20261016/raw/data/bank_mixed/accounts.csv.gz": "c07436098bc13d345d52b9c063dbe08e674adf71b955c95c8907a1e3e54a602f",
+      "backend/ml_data/aml_network_ibm_amlsim_v21_20261016/raw/data/bank_mixed/alert_transactions.csv.gz": "d32d38c93ec32c2fa38f3d55fbb4e8907811e61e3a1a8a438540fd37ef964336",
+      "backend/ml_data/aml_network_ibm_amlsim_v21_20261016/raw/data/bank_mixed/alert_accounts.csv.gz": "a17be41c7db8cfe78a9a28a1d38a48bfa91058bd4a7af72ee0661d473b16cbbb",
+      "backend/ml_data/aml_network_ibm_amlsim_v21_20261016/raw/v2.1.zip": "e36015be8c728dc0acdc437aa7ab494fdc24d3289c0090673b07de31ac12a5fa",
+      "backend/ml_data/aml_network_ibm_amlsim_v21_20261016/raw/repository_LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "backend/ml_data/aml_network_ibm_amlsim_v21_20261016/raw/repository_README.md": "3672e53c602026f4fb7ef99218ba07e3a41ecae6d14176c0984bd8e9f2543101",
+      "backend/ml_data/aml_network_ibm_amlsim_v21_20261016/raw/provenance.json": "09c68a9d3e42f3255efe4c93d017efa540470490b0272c354b76dbe5bbf037bb",
+      "backend/app/ml/behavioral/aml_network_benchmark.py": "5c8eb1c81d62a87ce069f6b00b0e0f7892206d819aeb2363a416de927f4cc531",
+      "backend/app/ml/behavioral/model.py": "2853c51580e6ebc563bd5ad14f03ab88c57ff48a523e5ea1cbcf31c5e9429a41",
+      "backend/ml_data/aml_network_ibm_amlsim_v21_20261016/benchmark_guarded_v2/protocol.json": "3ecd99c2c9274f0fff96b482e37c8c4688b6e5916db978ad34762982a8fe59b6",
+      "backend/ml_data/aml_network_ibm_amlsim_v21_20261016/benchmark_guarded_v2/model.txt": "211c8ff8172195cbc4d1d67f4a1d5793edf9fda2a6d40ee1117fe2413fc0a12d",
+      "backend/ml_data/aml_network_ibm_amlsim_v21_20261016/benchmark_guarded_v2/model_card.json": "11eb85236a6e833aa176a3982ce1d0630326ee26b7d77ec829639e8fb2952d3c"
+    }
+  },
+  "frozen_manifest_sha256": "7aa4e8de8e2593f839490ab351c4a19a9d2d105b55e3315d8fa79408222d6b45",
+  "fit_uses_targets": false,
+  "threshold_selection_uses_targets": false,
+  "no_database_registration_or_promotion": true,
+  "limitations": [
+    "Independent published synthetic AMLSim data, not real financial crime. is_sar and alert_type are simulator scenario indicators used only for evaluation. Account/time partitioning removes cross-group and out-of-period edges and can fragment patterns. This research model is not registered or approved.",
+    "The external archive has no separately stated data licence; only the reference repository licence was verified.",
+    "Published data was tuned for GPML and uses stylized SAR amounts. This model excludes all amount features.",
+    "Graph observation windows are batch endpoints; flags do not establish real-time interception or early warning.",
+    "Account-disjoint induced subgraphs discard edges and fragment patterns; fragment recall is not whole-pattern recall.",
+    "Labels describe the independent simulator's declared SAR interventions; they do not establish real-world detection accuracy."
+  ]
+}

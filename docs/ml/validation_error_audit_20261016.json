@@ -1,0 +1,444 @@
+{
+  "scope": "VALIDATION ONLY; no final datasets, scores or results read",
+  "fit_performed": false,
+  "model_or_threshold_changes": false,
+  "small_amount_cutoff_usd": 84.4325,
+  "label_scope": "Explicit synthetic intervention labels; zero labels are assumed background/lookalikes, not verified legitimate banking activity.",
+  "aml_taxonomy": "One account-week; stress takes priority over lookalike over background. Multiple same-priority recipes become mixed_recipes. Counts never duplicate a week.",
+  "slice_scope": "Each dimension partitions the units once; totals across different dimensions must not be added. Associations are not ablation or causal importance.",
+  "login_slice": "At most one versus two-or-more observed attempts; descriptive slice, not a risk rule.",
+  "models": {
+    "AML": {
+      "selected": {
+        "candidate": "mixed_portable_2048__train_q0.95",
+        "threshold": 0.4852335819357355,
+        "units": 20417,
+        "tp": 53,
+        "fp": 699,
+        "fn": 69,
+        "tn": 19596,
+        "flagged": 752,
+        "precision": 0.07047872340425532,
+        "recall": 0.4344262295081967,
+        "zero_label_flag_rate": 0.034441980783444195,
+        "source_unlabelled_review_load": {
+          "units": 5764,
+          "units_flagged": 788,
+          "flag_rate": 0.13671061762664816
+        }
+      },
+      "reference": {
+        "candidate": "mixed_full_256__auto",
+        "threshold": 0.5,
+        "units": 20417,
+        "tp": 66,
+        "fp": 2061,
+        "fn": 56,
+        "tn": 18234,
+        "flagged": 2127,
+        "precision": 0.031029619181946404,
+        "recall": 0.5409836065573771,
+        "zero_label_flag_rate": 0.1015521064301552,
+        "source_unlabelled_review_load": {
+          "units": 5764,
+          "units_flagged": 2549,
+          "flag_rate": 0.44222761970853575
+        }
+      }
+    },
+    "FRAUD": {
+      "selected": {
+        "candidate": "mixed_portable_2048__auto",
+        "threshold": 0.5,
+        "units": 200000,
+        "tp": 374,
+        "fp": 7153,
+        "fn": 1589,
+        "tn": 190884,
+        "flagged": 7527,
+        "precision": 0.04968779062043311,
+        "recall": 0.19052470708099847,
+        "zero_label_flag_rate": 0.03611951302029419,
+        "source_unlabelled_review_load": {
+          "units": 6809,
+          "units_flagged": 1974,
+          "flag_rate": 0.28991041268908796
+        }
+      },
+      "reference": {
+        "candidate": "mixed_full_256__auto",
+        "threshold": 0.5,
+        "units": 200000,
+        "tp": 308,
+        "fp": 13030,
+        "fn": 1655,
+        "tn": 185007,
+        "flagged": 13338,
+        "precision": 0.023091917828759936,
+        "recall": 0.15690269994905756,
+        "zero_label_flag_rate": 0.06579578563601751,
+        "source_unlabelled_review_load": {
+          "units": 6809,
+          "units_flagged": 6383,
+          "flag_rate": 0.9374357468056983
+        }
+      }
+    }
+  },
+  "evidence_sha256": {
+    "AML_selected_card": "87c08a39e5fa365015e69ad7ee771cd43709e4a501e2db824c21612bece80a15",
+    "AML_selected_validation_scores": "d146f285b2674725f540f8400488b7dc6f14a4ee49917ab77e65813935655f0e",
+    "AML_reference_card": "da454443aa13643c247fcf171b8ea9243493e62f8744c9ae26de4730b473c1e2",
+    "AML_reference_validation_scores": "5f972a1db28c9e72f36904d278f6daa269563365f887d918ca815d48d8446a1a",
+    "FRAUD_selected_card": "4772b868b7d338e549f32edc0f8515716a6cae23cf9c55ce8c6760a1ece91cfa",
+    "FRAUD_selected_validation_scores": "30beeb62090a3a2d72bec5d8f42f9e33cf5cb5ba0f6faefd871174b0a04f3273",
+    "FRAUD_reference_card": "15158c712531c2f182e750a20127cc9d9016c0bc308e8cab9e0e635cf65fa82c",
+    "FRAUD_reference_validation_scores": "25c494c94cbd835bcf057fca82fae7c050f00d3e54573b88f1658eec8cccf91d",
+    "validation_transactions": "f2a282982152c20b41f428112d9fdb60bf0fa1f9efb841ed3d43810e7fa8f471",
+    "validation_truth": "3d055825c1ee0414326cb8367c8afbcc46bd8de263c5bec40a568af9665d498d",
+    "validation_manifest": "19723ee2de761504363de6fbdace80cbf402ecc31ca19ca32d56444faecf2519",
+    "validation_results": "38775a6361d1f33445964c4c7f0c91efdfdd68e385fbfc8378dab67077dd3af9",
+    "selection": "715980fe5bed9753f85872bae6432a6b5e597c884c4f2c77b4fb12a7fb0938ed",
+    "audit_code": "f5c9afda11a435832c2271d9641e3709359edfd2fcfd7cdc1ab4f1e292d400af"
+  },
+  "cached_score_scope": "Cached score hashes recorded; complete score joins and declared global confusion counts verified. Scores were not recomputed.",
+  "annotation_code_sha256": {
+    "features.py": "cb2400ab6fe27285a69346ca7c78951129641b33d8198d4df52c1895bbe40ba9",
+    "research_features.py": "d1ea51cd6c81583d54ca9912c2177ebbb369ff6ba48df3b8d4d2b5eeb25bf373",
+    "standardize.py": "4ab32d58ef5167fe3685edec2b0e2254c7d7d538e34005a2aaf4f9d761436e55"
+  },
+  "recipe_errors": {
+    "AML": {
+      "selected": [
+        {
+          "recipe": "card_testing_burst",
+          "units": 20,
+          "tp": 20,
+          "fp": 0,
+          "fn": 0,
+          "tn": 0
+        },
+        {
+          "recipe": "dormant_reactivation",
+          "units": 30,
+          "tp": 3,
+          "fp": 0,
+          "fn": 27,
+          "tn": 0
+        },
+        {
+          "recipe": "micro_splitting",
+          "units": 24,
+          "tp": 4,
+          "fp": 0,
+          "fn": 20,
+          "tn": 0
+        },
+        {
+          "recipe": "new_phone",
+          "units": 72,
+          "tp": 0,
+          "fp": 52,
+          "fn": 0,
+          "tn": 20
+        },
+        {
+          "recipe": "ordinary",
+          "units": 20058,
+          "tp": 0,
+          "fp": 557,
+          "fn": 0,
+          "tn": 19501
+        },
+        {
+          "recipe": "pass_through_proxy",
+          "units": 22,
+          "tp": 6,
+          "fp": 0,
+          "fn": 16,
+          "tn": 0
+        },
+        {
+          "recipe": "repeated_small_payments",
+          "units": 56,
+          "tp": 0,
+          "fp": 10,
+          "fn": 0,
+          "tn": 46
+        },
+        {
+          "recipe": "session_change",
+          "units": 26,
+          "tp": 20,
+          "fp": 0,
+          "fn": 6,
+          "tn": 0
+        },
+        {
+          "recipe": "shopping",
+          "units": 49,
+          "tp": 0,
+          "fp": 31,
+          "fn": 0,
+          "tn": 18
+        },
+        {
+          "recipe": "travel",
+          "units": 60,
+          "tp": 0,
+          "fp": 49,
+          "fn": 0,
+          "tn": 11
+        }
+      ],
+      "reference": [
+        {
+          "recipe": "card_testing_burst",
+          "units": 20,
+          "tp": 20,
+          "fp": 0,
+          "fn": 0,
+          "tn": 0
+        },
+        {
+          "recipe": "dormant_reactivation",
+          "units": 30,
+          "tp": 14,
+          "fp": 0,
+          "fn": 16,
+          "tn": 0
+        },
+        {
+          "recipe": "micro_splitting",
+          "units": 24,
+          "tp": 4,
+          "fp": 0,
+          "fn": 20,
+          "tn": 0
+        },
+        {
+          "recipe": "new_phone",
+          "units": 72,
+          "tp": 0,
+          "fp": 58,
+          "fn": 0,
+          "tn": 14
+        },
+        {
+          "recipe": "ordinary",
+          "units": 20058,
+          "tp": 0,
+          "fp": 1906,
+          "fn": 0,
+          "tn": 18152
+        },
+        {
+          "recipe": "pass_through_proxy",
+          "units": 22,
+          "tp": 6,
+          "fp": 0,
+          "fn": 16,
+          "tn": 0
+        },
+        {
+          "recipe": "repeated_small_payments",
+          "units": 56,
+          "tp": 0,
+          "fp": 13,
+          "fn": 0,
+          "tn": 43
+        },
+        {
+          "recipe": "session_change",
+          "units": 26,
+          "tp": 22,
+          "fp": 0,
+          "fn": 4,
+          "tn": 0
+        },
+        {
+          "recipe": "shopping",
+          "units": 49,
+          "tp": 0,
+          "fp": 34,
+          "fn": 0,
+          "tn": 15
+        },
+        {
+          "recipe": "travel",
+          "units": 60,
+          "tp": 0,
+          "fp": 50,
+          "fn": 0,
+          "tn": 10
+        }
+      ]
+    },
+    "FRAUD": {
+      "selected": [
+        {
+          "recipe": "card_testing_burst",
+          "units": 440,
+          "tp": 67,
+          "fp": 0,
+          "fn": 373,
+          "tn": 0
+        },
+        {
+          "recipe": "dormant_reactivation",
+          "units": 396,
+          "tp": 148,
+          "fp": 0,
+          "fn": 248,
+          "tn": 0
+        },
+        {
+          "recipe": "micro_splitting",
+          "units": 394,
+          "tp": 18,
+          "fp": 0,
+          "fn": 376,
+          "tn": 0
+        },
+        {
+          "recipe": "new_phone",
+          "units": 932,
+          "tp": 0,
+          "fp": 225,
+          "fn": 0,
+          "tn": 707
+        },
+        {
+          "recipe": "ordinary",
+          "units": 194023,
+          "tp": 0,
+          "fp": 6558,
+          "fn": 0,
+          "tn": 187465
+        },
+        {
+          "recipe": "pass_through_proxy",
+          "units": 351,
+          "tp": 30,
+          "fp": 0,
+          "fn": 321,
+          "tn": 0
+        },
+        {
+          "recipe": "repeated_small_payments",
+          "units": 979,
+          "tp": 0,
+          "fp": 57,
+          "fn": 0,
+          "tn": 922
+        },
+        {
+          "recipe": "session_change",
+          "units": 382,
+          "tp": 111,
+          "fp": 0,
+          "fn": 271,
+          "tn": 0
+        },
+        {
+          "recipe": "shopping",
+          "units": 1051,
+          "tp": 0,
+          "fp": 195,
+          "fn": 0,
+          "tn": 856
+        },
+        {
+          "recipe": "travel",
+          "units": 1052,
+          "tp": 0,
+          "fp": 118,
+          "fn": 0,
+          "tn": 934
+        }
+      ],
+      "reference": [
+        {
+          "recipe": "card_testing_burst",
+          "units": 440,
+          "tp": 90,
+          "fp": 0,
+          "fn": 350,
+          "tn": 0
+        },
+        {
+          "recipe": "dormant_reactivation",
+          "units": 396,
+          "tp": 65,
+          "fp": 0,
+          "fn": 331,
+          "tn": 0
+        },
+        {
+          "recipe": "micro_splitting",
+          "units": 394,
+          "tp": 22,
+          "fp": 0,
+          "fn": 372,
+          "tn": 0
+        },
+        {
+          "recipe": "new_phone",
+          "units": 932,
+          "tp": 0,
+          "fp": 146,
+          "fn": 0,
+          "tn": 786
+        },
+        {
+          "recipe": "ordinary",
+          "units": 194023,
+          "tp": 0,
+          "fp": 12356,
+          "fn": 0,
+          "tn": 181667
+        },
+        {
+          "recipe": "pass_through_proxy",
+          "units": 351,
+          "tp": 43,
+          "fp": 0,
+          "fn": 308,
+          "tn": 0
+        },
+        {
+          "recipe": "repeated_small_payments",
+          "units": 979,
+          "tp": 0,
+          "fp": 81,
+          "fn": 0,
+          "tn": 898
+        },
+        {
+          "recipe": "session_change",
+          "units": 382,
+          "tp": 88,
+          "fp": 0,
+          "fn": 294,
+          "tn": 0
+        },
+        {
+          "recipe": "shopping",
+          "units": 1051,
+          "tp": 0,
+          "fp": 336,
+          "fn": 0,
+          "tn": 715
+        },
+        {
+          "recipe": "travel",
+          "units": 1052,
+          "tp": 0,
+          "fp": 111,
+          "fn": 0,
+          "tn": 941
+        }
+      ]
+    }
+  }
+}
