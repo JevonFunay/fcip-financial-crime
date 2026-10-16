@@ -4,6 +4,12 @@
 flow is implemented. The current models remain **DRAFT** because benchmark
 quality is poor; this guide does not recommend activation.
 
+**16 October research update:** the [controlled retraining report](ml/retraining_20261016.md)
+compares source-only/mixed/equal-origin training, repaired observation-reference
+features and a new frozen final draw. Precision improves partially and AML
+coverage falls. Those candidates stay offline DRAFT and do not replace the
+application versions or the manual-upload instructions in this guide.
+
 ## Source and meaning of the data
 
 `backend/sample_data/raw/bank_transactions_data_2_augmented_clean_2.csv` has
@@ -139,3 +145,33 @@ Generator or shared-data changes still follow repository approval rules.
 This runs offline and does not register or activate models. Keep the generated
 final test untouched after evaluation; future revisions need a separate run and
 an honestly described evaluation boundary.
+
+## Run the controlled research experiment
+
+`app.ml.behavioral.experiments` reuses the immutable training/validation CSVs;
+it never reads the old final test or training answers. It records a protocol
+before fitting, selects with synthetic validation labels after all target-free
+fits finish, freezes all code/model/card/input/selection hashes and generates
+a new final draw only then. The portable representation is separately versioned
+and not automatically compatible with the application registry. No DB writes,
+registration, promotion or UI changes occur.
+
+From `backend/`, reproduce only in fresh roots:
+
+```bash
+.venv/bin/python -m app.ml.behavioral.experiments \
+  --source sample_data/raw/bank_transactions_data_2_augmented_clean_2.csv \
+  --previous-run ml_data/behavioral_s20261015 \
+  --out ml_data/retraining_NEW_RUN \
+  --models-out ml_models/retraining_NEW_RUN \
+  --test-rows 200000 --seed 20261015 --final-seed 2026101601 \
+  --reference-date 2026-10-16 --estimators 100 --max-samples 256 2048 \
+  --bootstrap-replicates 300
+```
+
+The command above reproduces the recorded stochastic draw; it does not create
+another independent test. For new model selection, use an untouched evaluation
+design/data and record the repeated-validation/known-parent limits. Existing
+output roots and old split seeds are refused. Keep the original run and its
+negative findings intact; changing the final cutoff after seeing its results
+would turn that set into development data.

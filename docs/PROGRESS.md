@@ -1,6 +1,6 @@
 # FCIP — Progress Status
 
-**As of 15 October 2026 · Week 6 of 16 · ~17% of MVP scope** (scope percentage last recounted 29 Sep; not a new scope estimate or model-quality claim)
+**As of 16 October 2026 · Week 6 of 16 · ~17% of MVP scope** (scope percentage last recounted 29 Sep; not a new scope estimate or model-quality claim)
 
 Supersedes any earlier progress figure. Scope definitions, architecture and open
 questions are unchanged — see `PROJECT_CONTEXT.md`.
@@ -20,11 +20,14 @@ questions are unchanged — see `PROJECT_CONTEXT.md`.
 | NFRs proven by measurement | 3 of 18 | 17% |
 | TRD components | ~6 full + ~5 partial of 30 | ~25% |
 
-**492 regular backend tests pass:** 485 in the full Docker run, three added
+**Preceding app baseline: 492 regular backend tests pass:** 485 in the full Docker run, three added
 reset checks, one amount-boundary check and two source-clock cases in focused runs, plus the
 container-excluded documentation check on the host. The five slow checks and
 frontend TypeScript/Vite build pass. Technical correctness does not establish
 useful detection quality; the current candidate quality gate remains unmet.
+The 16 October offline stage adds 42 passing feature/workflow/integrity checks
+and reruns 62 related pure ML checks (104 focused checks across runs); it does
+not claim a fresh full application-suite or frontend run.
 
 Pure FR counting gives ~10%; ~17% weights the foundation work already done.
 Neither document assigns effort weights, so the percentage is an estimate — the
@@ -56,6 +59,64 @@ Partial: FR-306, FR-309, FR-310, FR-1103, FR-808, FR-612.
 ---
 
 ## Built since the last progress report
+
+### 16 October — controlled retraining and fresh final simulation
+
+Jevon approved the proposed source-only/mixed training comparison, comparable
+validation, feature repair, frozen selection, new final test and report. The
+new offline runner fits **16 models** and evaluates **64 model/threshold
+options** across AML and FRAUD. The original full mixed models reproduce
+15 October's model text byte-for-byte. Original source-only models mark almost
+all generated validation rows as outliers; simply removing dummy data does
+not resolve the gap between observed-source and simulator populations.
+
+The separate research representation uses a supported minimum-30-observation
+reference with complete timestamp-boundary ties, calendar-day exposure and
+the 30-observation/30-observed-day gate. It excludes explicit clock/history-age
+risk inputs. Equal-origin sampling is a separate fit arm performed after
+complete histories are built. Existing source, generator, datasets and models
+are unchanged. No target enters fitting/preprocessing; synthetic validation
+labels select candidates under the predeclared F1/coverage/review-load rule
+(AS-09). This is label-informed selection of unsupervised estimators.
+
+After frozen selection/code/model/input hashes, **200,000 fresh final rows**
+are generated with seed `2026101601`. Both reference and selected candidates
+are scored on that same draw. AML precision **3.52% → 9.38%**, recall
+**63.79% → 38.79%**; FRAUD precision **3.28% → 6.71%**, recall
+**22.56% → 22.98%**. AML retains only 45/74 reference detections, so the 80%
+validation-coverage safeguard fails to generalize. FRAUD's point recall change
+is inconclusive under paired source-parent intervals. These are synthetic
+scenario metrics; the source has no verified fraud targets. Known source
+parents, repeated validation and remaining generator shortcuts limit claims.
+
+**Outcome: partial research improvement, no promotion.** Every new model stays
+offline DRAFT; research cards cannot silently replace the app serving contract.
+No registry, database, UI, P02 or CF-05 change occurs. No configuration is tuned
+after the new final draw. [Report, exact counts and limitations](ml/retraining_20261016.md),
+compact JSON evidence and a CSV of all validation options are under `docs/ml/`.
+
+**Verification:** 20 feature, 14 workflow and 8 integrity checks pass, plus
+62 related existing pure ML tests. Initial/manifest/frozen hashes verify before
+and after selection/final evaluation. Tests cover strict target separation,
+ancestry, source metrics staying null, guarded candidate selection, symmetric
+same-time history, before-fit/during-fit tamper refusal and fresh-test ordering.
+The pre-existing full app test results above remain historical; app modules
+and frontend were not changed in this stage.
+
+**Decisions taken independently for Jevon to check:** preserve generator and
+old evidence; separate portable observation-reference features; explicit origin
+balancing and threshold grid; research-only 80% reference coverage constraint;
+parent-cluster uncertainty; preserve negative final findings and keep DRAFT.
+These defaults are not FRD thresholds, model approval or mentor ratification.
+Commit/push remain with Jevon.
+
+**Ringkasan capstone (Indonesia):** Eksperimen membandingkan training tanpa
+label menggunakan sumber saja, campuran sumber-simulasi, dan sampling asal
+yang seimbang. Sebanyak 16 model dilatih dan dipilih menggunakan validasi
+sintetis dengan aturan yang ditetapkan sebelumnya. Pengujian baru 200 ribu
+transaksi setelah pembekuan model menunjukkan presisi meningkat, tetapi
+cakupan AML menurun dan kemampuan deteksi fraud nyata belum dapat dibuktikan.
+Seluruh kandidat dipertahankan sebagai DRAFT serta tidak diaktifkan di aplikasi.
 
 ### 14–15 October — source-based data replacement and reusable unsupervised flow
 

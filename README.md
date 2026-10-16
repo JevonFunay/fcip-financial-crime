@@ -9,6 +9,12 @@ additional detection patterns — these come in later iterations.
 
 ## Current data and ML workflow — 15 October 2026
 
+**16 October research update:** controlled source-only/mixed/equal-origin
+retraining and a fresh 200,000-row final simulation are complete. Precision
+improves partially, but AML coverage falls; all new candidates remain offline
+DRAFT. See the [retraining report](docs/ml/retraining_20261016.md). This does
+not activate models or change the app upload workflow below.
+
 Start with **[the current USD data-engine guide](docs/ML_DATA_ENGINE.md)** and
 [manual upload instructions](docs/DEMO_FRESH_DATA.md). The 50,000-row public
 source has **no verified fraud labels**. The replacement workflow fits

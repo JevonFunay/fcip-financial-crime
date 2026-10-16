@@ -4,15 +4,17 @@
 Intelligence Platform capstone: what the project is, what the spec demands, what
 is actually built, what is deliberately not built, and what is still undecided.
 
-Last updated: **15 October 2026** · Week 6 of 16 · ~17% of MVP scope
+Last updated: **16 October 2026** · Week 6 of 16 · ~17% of MVP scope
 (scope percentage last recounted 29 September)
 
-**Current handoff:** §14 and [ML_DATA_ENGINE.md](ML_DATA_ENGINE.md) supersede
+**Current handoff:** §14–15 and [ML_DATA_ENGINE.md](ML_DATA_ENGINE.md) supersede
 the old dataset/training instructions below. The new USD pipeline is
 unsupervised; 1,400,000 generated rows and a real 200,000-row upload are
 verified. Model quality is inadequate: both new versions remain **DRAFT**,
 both old supervised versions are **RETIRED**, and no model is ACTIVE in the
-live demo. Do not read the historical supervised results as current quality.
+live demo. The 16 October offline retraining improves synthetic precision but
+loses AML coverage; all research candidates remain DRAFT (§15). Do not read
+the historical supervised results as current quality.
 
 ---
 
@@ -114,13 +116,16 @@ percentage is an estimate — the counts underneath it are not.
 | NFRs proven by measurement | 3 of 18 | 17% |
 | TRD components | ~6 full + ~5 partial of 30 | ~25% |
 
-**492 regular backend tests pass** (485 in the full Docker run, three new
+**Preceding app baseline: 492 regular backend tests pass** (485 in the full Docker run, three new
 dataset-reset checks, one new amount-boundary check and two added source-clock
 cases in focused runs, plus the container-excluded documentation
 check on the host). The five slow checks also pass. Frontend TypeScript/Vite
 build passes; historical browser evidence for the UI refresh is in §13.
 The new actual 200,000-row ingestion/scoring parity check is isolated from
 the live demo and is technical evidence, not approval of model quality (§14).
+The 16 October offline research stage adds 42 passing checks and reruns 62
+related pure ML checks (104 focused checks across runs); it does not claim a
+new full app-suite or frontend run (§15).
 
 ### Per domain
 
@@ -549,6 +554,31 @@ record their exact parameters. The baseline Isolation Forest uses 100 trees,
 or threshold tuning on labels. The threshold is an isolation-score reference,
 not a fraud probability or approved operating point. Poor evaluated quality
 keeps these candidates DRAFT; these assumptions are not mentor ratification.
+
+**AS-09 — authorised retraining experiments (16 Oct):** Jevon explicitly
+approved all proposed source-only/mixed comparisons, validation-directed
+data/feature repairs and a new final simulation after freezing. Keep the
+existing generator and datasets immutable. Research alternatives may use a
+minimum-30-prior-observation reference (all oldest-boundary availability ties
+included), instead of requiring 30 observations inside 90 days; this is named
+separately and does not replace the FR-401 baseline. Preserve the 30-observation/
+30-observed-day gate, calendar-time exposure and missing-value semantics.
+Date-only history never acquires intraday ordering from identifiers. Relative
+gaps describe availability bounds, not recovered physical inactivity.
+
+The experiment declares source-only, mixed and equal-origin fit sampling,
+100 trees, subsamples 256/2048, fixed 0.5 or training-score quantiles
+0.95/0.97/0.99/0.995, and per-unit selection by validation F1, then AP, lower
+unlabelled-source review load and identifier. Eligibility retains at least
+80% of the mixed-reference total and small-amount true positives and does not
+increase source review load. The common small-amount cutoff is source-training
+q25. These are **research design choices, not approved operating thresholds**;
+80% permits a 20% coverage loss, which must be shown. Balanced sampling occurs
+after full histories are built. Labels never enter fitting/preprocessing, but
+synthetic validation labels do inform candidate/threshold selection. A new
+200,000-row simulation follows frozen hashes; known source parents/recipes
+limit independence. All results stay offline DRAFT and do not change CF-05,
+the application registry, P02, permissions or current demo data.
 
 ### TRD §1.5 — conflicts still open
 
@@ -1381,3 +1411,100 @@ DRAFT and withdraw legacy scoring rather than publish unsupported precision.
 No new mentor approval, model approval, CF-05 decision or real-world crime
 label has been inferred. Engineering/data replacement is complete; the request
 for reliable high-precision fraud/AML detection is **not achieved**.
+
+---
+
+## 15. Controlled offline retraining — 16 October 2026
+
+Jevon explicitly approved every proposed step: source-only versus mixed
+training, comparable validation, data/feature repairs, frozen selection, a new
+final dataset and a report. This is offline research; no model registration,
+activation, CF-05/P02 change, app database mutation or automatic commit/push.
+Docker was not running, and the experiment used the host environment with the
+same pinned numpy2.1.3/pandas2.2.3/sklearn1.5.2 versions. The existing generator,
+source, 15 October datasets and model artefacts remain immutable.
+
+`app/ml/behavioral/experiments.py` fits 16 Isolation Forests: full-view source
+only and mixed controls, plus portable-view source-only/mixed/equal-origin fits
+at subsamples 256/2048 for AML and FRAUD. Full mixed models reproduce both
+15 October model text files **byte-for-byte**. Source-only fits use 35,662
+source observations; mixed histories use 1,035,662 observations. Balanced
+variants construct complete histories before sampling equal counts of source
+and generated feature rows (59,256 AML / 71,324 FRAUD), rather than destroying
+history by downsampling transactions first. All fits/vocabularies/imputation
+exclude targets. Every fit finishes before validation answers are opened.
+
+`research_features.py` adds a separately named research representation:
+18 FRAUD / 15 AML features. Explicit precision/UTC-hour/history-age risk inputs are
+removed; references use at least 30 strictly available prior observations and
+include every oldest-boundary availability tie. They preserve the 30-day
+observed-history gate and calendar-day exposure, with no invented order for
+date-only rows. A review caught an identifier-order leak in an initial
+reference cutoff; boundary-tie and latest-availability regressions now prevent
+it. The original full feature representation is unchanged. These research
+cards are not app-registration compatible; the serving contract is not silently
+replaced. Reference design/selection parameters are AS-09, not FRD thresholds.
+
+The fixed validation set is 200,000 generated rows plus 6,809 unlabeled source
+rows, evaluated separately. The common small-amount slice uses source-TRAIN
+q25 **USD 84.4325** (interpolated descriptive quantile, not a monetary/legal
+threshold). Synthetic validation labels select among 64 model/threshold options
+across the two units; target-free fitting remains unsupervised, while selection
+is explicitly label-informed. Eligibility preserves 80% of reference total and
+small-slice TP counts and does not increase source review load, then maximizes
+F1/AP with deterministic ties. Validation has informed previous experiments,
+so it is development data, not independent evidence.
+
+Source-only full models flag almost all generated validation observations
+(20,391/20,417 AML; 199,971/200,000 FRAUD), with synthetic precision 0.59%/0.98%.
+Source-only training alone does not solve the cross-origin mismatch. Selected
+portable mixed variants reduce source-validation review load from 44.22% to
+13.67% AML and 93.74% to 28.99% FRAUD. These source counts are review load, never
+source precision or false-positive rates because targets are unknown.
+
+All initial input/manifest/code hashes are checked before and after selection.
+The protocol, model text/cards, feature/evaluation code, input hashes and
+selection are frozen at **2026-10-16T08:13:39.103675 UTC**. New 200,000-row test
+generation starts at **08:13:39.348089 UTC**, seed `2026101601`, using the immutable
+training fit profile. The old final test is never consulted by this runner.
+All frozen hashes remain identical after evaluation. Fresh final source parents
+are the same 75 already known from previous research, and generator recipes
+are unchanged: the new stochastic draw does **not** establish independent real
+fraud/AML accuracy. A known dormant-recipe gap/follow-up shortcut also remains
+an explicit simulator limitation, rather than being erased to improve metrics.
+
+| Fresh synthetic final unit | Mixed full reference P / R | Selected research P / R | TP / FP selected |
+|---|---|---|---|
+| AML account-week | 3.52% / 63.79% | 9.38% / 38.79% | 45 / 435 |
+| FRAUD transaction | 3.28% / 22.56% | 6.71% / 22.98% | 441 / 6,136 |
+
+Both columns above use the **same new test**, not 15 October's different final
+sample. AML retains only 45/74 (60.8%) reference detections; small-slice TP also
+falls 12→8. The 80% validation coverage safeguard **does not generalize** to this
+final sample. This is a material failure; higher precision does not make the
+AML operating point acceptable. FRAUD cuts assumed-background flags 12,768→6,136
+with similar point recall; parent-cluster bootstrap recall difference spans
+zero. Small-amount FRAUD precision 3.42%→8.31%, recall 32.18%→30.38%. Exact
+counts and 300 paired source-parent bootstrap intervals are in the
+[retraining report](ml/retraining_20261016.md), with compact JSON and all 64
+validation candidate results in CSV. No parameters are changed after this test.
+
+**Verification:** 20 new feature tests, 14 workflow tests and 8 integrity tests pass,
+plus 62 existing relevant pure ML checks (104 focused checks across the runs).
+They cover target isolation, train/validation ancestry, source metrics remaining
+null, selection safeguards, boundary-tie symmetry, data/manifest tampering,
+freeze-before-final ordering and immutable outputs. No DB/API/UI changes were
+made, and the preceding 492-test app baseline was not rerun for this offline
+module-only stage. New artifacts are under ignored
+`backend/ml_data/retraining_s20261016` and `backend/ml_models/retraining_s20261016`;
+public evidence/report is versioned in `docs/ml/`. The full run completed at
+08:14:01.290099 UTC. All new models remain offline **DRAFT**.
+
+**Decisions taken independently for Jevon to check:** preserve the generator;
+repair feature availability/reference support in a separate representation;
+predeclare equal-origin sampling, threshold grid and 80% coverage research rule;
+use paired source-parent uncertainty instead of treating clones as independent;
+retain poor final coverage honestly and stop tuning after the final draw. These
+are research choices within the user-approved experiment, not model approval,
+verified crime labels or mentor ratification. The experimental steps are complete;
+reliable high-precision crime detection is still not achieved.

@@ -1,0 +1,805 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-16",
+  "state": "DRAFT",
+  "outcome": "Partial synthetic precision/F1 improvement; high-precision financial-crime detection not established; AML recall-retention condition did not generalize to fresh final",
+  "estimator_fit_uses_targets": false,
+  "candidate_selection_uses_synthetic_validation_labels": true,
+  "database_registration_or_promotion": false,
+  "registration_compatible": false,
+  "source": {
+    "file": "bank_transactions_data_2_augmented_clean_2.csv",
+    "sha256": "c4c44ae11496e31f6dea5126322463af719c0f175c6c2f7f0abbc15f96575b2a",
+    "rows": 50000,
+    "accounts": 495,
+    "currency": "USD",
+    "currency_confirmation": "Jevon,2026-10-14",
+    "publisher_and_augmentation_verified": false,
+    "verified_target_labels": false,
+    "timestamp_precision_counts": {
+      "day": 43750,
+      "minute": 6250
+    },
+    "unknown_source_timezone_rows": 50000,
+    "account_partition_counts": {
+      "train": 346,
+      "validation": 74,
+      "test": 75
+    }
+  },
+  "design": {
+    "train_source_rows": 35662,
+    "train_generated_rows": 1000000,
+    "validation_source_rows": 6809,
+    "validation_generated_rows": 200000,
+    "estimator_seed": 20261015,
+    "estimators": 100,
+    "configurations": 8,
+    "models": 16,
+    "threshold_choices_per_unit": 32,
+    "total_unit_threshold_choices": 64,
+    "candidate_specs": [
+      {
+        "name": "source_only_full_256",
+        "origin": "source_only",
+        "representation": "full",
+        "max_samples": 256
+      },
+      {
+        "name": "mixed_full_256",
+        "origin": "mixed",
+        "representation": "full",
+        "max_samples": 256
+      },
+      {
+        "name": "source_only_portable_256",
+        "origin": "source_only",
+        "representation": "portable",
+        "max_samples": 256
+      },
+      {
+        "name": "source_only_portable_2048",
+        "origin": "source_only",
+        "representation": "portable",
+        "max_samples": 2048
+      },
+      {
+        "name": "mixed_portable_256",
+        "origin": "mixed",
+        "representation": "portable",
+        "max_samples": 256
+      },
+      {
+        "name": "mixed_portable_2048",
+        "origin": "mixed",
+        "representation": "portable",
+        "max_samples": 2048
+      },
+      {
+        "name": "balanced_origin_portable_256",
+        "origin": "balanced_origin",
+        "representation": "portable",
+        "max_samples": 256
+      },
+      {
+        "name": "balanced_origin_portable_2048",
+        "origin": "balanced_origin",
+        "representation": "portable",
+        "max_samples": 2048
+      }
+    ],
+    "threshold_quantiles": [
+      0.95,
+      0.97,
+      0.99,
+      0.995
+    ],
+    "comparison": ">=",
+    "selection": {
+      "reference": "mixed_full_256__auto",
+      "minimum_reference_tp_retention": 0.8,
+      "small_amount_definition": "Original source TRAIN amount q25, identical across all candidate evaluations",
+      "source_review_load": "must not exceed mixed full auto reference",
+      "rank": [
+        "maximum synthetic validation F1",
+        "maximum average precision",
+        "minimum unlabelled-source flagged count",
+        "lexical identifier"
+      ],
+      "status": "Research comparison rule; no production quality/approval claim"
+    },
+    "evaluation_small_amount_cutoff_usd": 84.4325,
+    "small_amount_reference": "Original source TRAIN amount q25, common across candidates; AML uses weekly mean, FRAUD transaction amount",
+    "library_versions": {
+      "python": "3.11.16",
+      "numpy": "2.1.3",
+      "pandas": "2.2.3",
+      "sklearn": "1.5.2"
+    },
+    "full_reference_model_bytes_equal_to_20261015": true
+  },
+  "controlled_validation": {
+    "AML": {
+      "source_only_full_256__auto": {
+        "candidate": "source_only_full_256",
+        "threshold_name": "auto",
+        "threshold": 0.5,
+        "origin": "source_only",
+        "representation": "full",
+        "synthetic": {
+          "units": 20417,
+          "units_flagged": 20391,
+          "flag_rate": 0.9987265514032424,
+          "threshold": 0.5,
+          "stress": {
+            "tp": 120,
+            "fp": 20271,
+            "fn": 2,
+            "tn": 24,
+            "precision": 0.005884949242312785,
+            "recall": 0.9836065573770492,
+            "f1": 0.011699897625895773,
+            "average_precision": 0.03923656570395187,
+            "roc_auc": 0.6422768266430802
+          },
+          "small_amount": {
+            "tp": 4,
+            "fp": 927,
+            "fn": 0,
+            "tn": 0,
+            "precision": 0.004296455424274973,
+            "recall": 1.0,
+            "f1": 0.008556149732620321,
+            "average_precision": 0.02676495896616521,
+            "roc_auc": 0.8201186623516721
+          }
+        },
+        "source_unlabelled": {
+          "units": 5764,
+          "units_flagged": 1151,
+          "flag_rate": 0.19968771686328937,
+          "threshold": 0.5,
+          "precision": null,
+          "recall": null,
+          "false_positive_rate": null
+        }
+      },
+      "mixed_full_256__auto": {
+        "candidate": "mixed_full_256",
+        "threshold_name": "auto",
+        "threshold": 0.5,
+        "origin": "mixed",
+        "representation": "full",
+        "synthetic": {
+          "units": 20417,
+          "units_flagged": 2127,
+          "flag_rate": 0.1041778909732086,
+          "threshold": 0.5,
+          "stress": {
+            "tp": 66,
+            "fp": 2061,
+            "fn": 56,
+            "tn": 18234,
+            "precision": 0.031029619181946404,
+            "recall": 0.5409836065573771,
+            "f1": 0.05869275233437083,
+            "average_precision": 0.09574214539474178,
+            "roc_auc": 0.8403628447610856
+          },
+          "small_amount": {
+            "tp": 2,
+            "fp": 296,
+            "fn": 2,
+            "tn": 631,
+            "precision": 0.006711409395973154,
+            "recall": 0.5,
+            "f1": 0.013245033112582781,
+            "average_precision": 0.145601411455101,
+            "roc_auc": 0.7548543689320388
+          }
+        },
+        "source_unlabelled": {
+          "units": 5764,
+          "units_flagged": 2549,
+          "flag_rate": 0.44222761970853575,
+          "threshold": 0.5,
+          "precision": null,
+          "recall": null,
+          "false_positive_rate": null
+        }
+      }
+    },
+    "FRAUD": {
+      "source_only_full_256__auto": {
+        "candidate": "source_only_full_256",
+        "threshold_name": "auto",
+        "threshold": 0.5,
+        "origin": "source_only",
+        "representation": "full",
+        "synthetic": {
+          "units": 200000,
+          "units_flagged": 199971,
+          "flag_rate": 0.999855,
+          "threshold": 0.5,
+          "stress": {
+            "tp": 1963,
+            "fp": 198008,
+            "fn": 0,
+            "tn": 29,
+            "precision": 0.0098164233813903,
+            "recall": 1.0,
+            "f1": 0.019441995899650382,
+            "average_precision": 0.00889654029270907,
+            "roc_auc": 0.48455762951679443
+          },
+          "small_amount": {
+            "tp": 612,
+            "fp": 47838,
+            "fn": 0,
+            "tn": 1,
+            "precision": 0.01263157894736842,
+            "recall": 1.0,
+            "f1": 0.02494802494802495,
+            "average_precision": 0.010700248475433587,
+            "roc_auc": 0.45251397764314866
+          }
+        },
+        "source_unlabelled": {
+          "units": 6809,
+          "units_flagged": 1502,
+          "flag_rate": 0.2205903950653547,
+          "threshold": 0.5,
+          "precision": null,
+          "recall": null,
+          "false_positive_rate": null
+        }
+      },
+      "mixed_full_256__auto": {
+        "candidate": "mixed_full_256",
+        "threshold_name": "auto",
+        "threshold": 0.5,
+        "origin": "mixed",
+        "representation": "full",
+        "synthetic": {
+          "units": 200000,
+          "units_flagged": 13338,
+          "flag_rate": 0.06669,
+          "threshold": 0.5,
+          "stress": {
+            "tp": 308,
+            "fp": 13030,
+            "fn": 1655,
+            "tn": 185007,
+            "precision": 0.023091917828759936,
+            "recall": 0.15690269994905756,
+            "f1": 0.040258806613946804,
+            "average_precision": 0.01903074937097799,
+            "roc_auc": 0.7010029470840611
+          },
+          "small_amount": {
+            "tp": 164,
+            "fp": 5022,
+            "fn": 448,
+            "tn": 42817,
+            "precision": 0.031623602005399154,
+            "recall": 0.2679738562091503,
+            "f1": 0.056571231459123836,
+            "average_precision": 0.02468049827309185,
+            "roc_auc": 0.6964663406002186
+          }
+        },
+        "source_unlabelled": {
+          "units": 6809,
+          "units_flagged": 6383,
+          "flag_rate": 0.9374357468056983,
+          "threshold": 0.5,
+          "precision": null,
+          "recall": null,
+          "false_positive_rate": null
+        }
+      }
+    }
+  },
+  "selected": {
+    "AML": {
+      "identifier": "mixed_portable_2048__train_q0.95",
+      "origin": "mixed",
+      "representation_version": "behavioral_research_views_v2_boundary_ties",
+      "feature_names": [
+        "COUNT_W_OVER_LAST30_PRIOR_RATE",
+        "VALUE_W_OVER_LAST30_PRIOR_RATE",
+        "TICKET_W_OVER_LAST30_PRIOR_MEAN",
+        "DEBIT_SHARE_W",
+        "SMALL_AMOUNT_SHARE_W",
+        "SMALL_PAYMENT_RELATIVE_ACCELERATION_W",
+        "LOGIN_ATTEMPTS_MEAN_W",
+        "LOGIN_ATTEMPTS_MAX_W",
+        "DURATION_MEAN_W",
+        "DURATION_MAX_W",
+        "BALANCE_W_OVER_LAST30_PRIOR_MEAN",
+        "DEVICE_NEW_SHARE_W",
+        "IP_NEW_SHARE_W",
+        "LOCATION_NEW_SHARE_W",
+        "NEW_CONTEXT_EXCESS_LOGIN_W"
+      ],
+      "fit_units": 134067,
+      "source_fit_units": 29628,
+      "generated_fit_units": 104439,
+      "hyperparameters": {
+        "n_estimators": 100,
+        "max_samples": 2048,
+        "seed": 20261015
+      },
+      "threshold": 0.4852335819357355,
+      "threshold_name": "train_q0.95",
+      "definition_hash": "92c1d741a75041f2fead300743146169854ad52ee48db0c1dee68a53444971fc",
+      "model_sha256": "97d6020ef1bdc73cd8a45b1e8aee36040aff6b592b318d81b985b59912fbbde6",
+      "card_sha256": "87c08a39e5fa365015e69ad7ee771cd43709e4a501e2db824c21612bece80a15",
+      "reference_model_sha256": "7c43fa14f5b49c588a1dbb6336554f82867fc5687c85a87f98cff72814019a39",
+      "reference_card_sha256": "da454443aa13643c247fcf171b8ea9243493e62f8744c9ae26de4730b473c1e2",
+      "training_review_load": {
+        "units": 134067,
+        "units_flagged": 6704,
+        "flag_rate": 0.0500048483221076,
+        "threshold": 0.4852335819357355
+      },
+      "minimum_validation_total_tp": 53,
+      "minimum_validation_small_tp": 2,
+      "eligible_threshold_choices": 10,
+      "excluded_threshold_choices": 22,
+      "validation": {
+        "candidate": "mixed_portable_2048",
+        "threshold_name": "train_q0.95",
+        "threshold": 0.4852335819357355,
+        "origin": "mixed",
+        "representation": "portable",
+        "synthetic": {
+          "units": 20417,
+          "units_flagged": 752,
+          "flag_rate": 0.036832051721604545,
+          "threshold": 0.4852335819357355,
+          "stress": {
+            "tp": 53,
+            "fp": 699,
+            "fn": 69,
+            "tn": 19596,
+            "precision": 0.07047872340425532,
+            "recall": 0.4344262295081967,
+            "f1": 0.12128146453089245,
+            "average_precision": 0.17892047002966724,
+            "roc_auc": 0.8099329964983703
+          },
+          "small_amount": {
+            "tp": 2,
+            "fp": 125,
+            "fn": 2,
+            "tn": 802,
+            "precision": 0.015748031496062992,
+            "recall": 0.5,
+            "f1": 0.030534351145038167,
+            "average_precision": 0.3799794635787807,
+            "roc_auc": 0.8101402373247033
+          }
+        },
+        "source_unlabelled": {
+          "units": 5764,
+          "units_flagged": 788,
+          "flag_rate": 0.13671061762664816,
+          "threshold": 0.4852335819357355,
+          "precision": null,
+          "recall": null,
+          "false_positive_rate": null
+        }
+      }
+    },
+    "FRAUD": {
+      "identifier": "mixed_portable_2048__auto",
+      "origin": "mixed",
+      "representation_version": "behavioral_research_views_v2_boundary_ties",
+      "feature_names": [
+        "LOG_AMOUNT",
+        "IS_DEBIT",
+        "CHANNEL_TRAIN_FREQUENCY",
+        "LOGIN_ATTEMPTS",
+        "TRANSACTION_DURATION",
+        "ACCOUNT_BALANCE",
+        "AMOUNT_OVER_LAST30_PRIOR_MEAN",
+        "AMOUNT_Z_LAST30_PRIOR",
+        "BALANCE_OVER_LAST30_PRIOR_MEAN",
+        "GAP_OVER_LAST30_PRIOR_MEAN_GAP",
+        "COUNT_R7D_OVER_LAST30_PRIOR_RATE",
+        "VALUE_R7D_OVER_LAST30_PRIOR_RATE",
+        "SMALL_PAYMENT_RELATIVE_ACCELERATION",
+        "DEVICE_FIRST_USE",
+        "IP_FIRST_USE",
+        "LOCATION_FIRST_USE",
+        "MERCHANT_FIRST_USE",
+        "NEW_CONTEXT_EXCESS_LOGIN"
+      ],
+      "fit_units": 1035662,
+      "source_fit_units": 35662,
+      "generated_fit_units": 1000000,
+      "hyperparameters": {
+        "n_estimators": 100,
+        "max_samples": 2048,
+        "seed": 20261015
+      },
+      "threshold": 0.5,
+      "threshold_name": "auto",
+      "definition_hash": "7690c85084304a41019320d7f87345fb0dcb70a9bba874d9bb93128c4aa95cf6",
+      "model_sha256": "a276fd2a635878ccabc8a1b7df5151068ea890b404ebb8852a6df2700ab27b7e",
+      "card_sha256": "4772b868b7d338e549f32edc0f8515716a6cae23cf9c55ce8c6760a1ece91cfa",
+      "reference_model_sha256": "fc18bc5511a701bf5c1d1553f8e2731435d2cb8c84c369fe66614ac4ff475d6a",
+      "reference_card_sha256": "15158c712531c2f182e750a20127cc9d9016c0bc308e8cab9e0e635cf65fa82c",
+      "training_review_load": {
+        "units": 1035662,
+        "units_flagged": 44884,
+        "flag_rate": 0.04333846370727129,
+        "threshold": 0.5
+      },
+      "minimum_validation_total_tp": 247,
+      "minimum_validation_small_tp": 132,
+      "eligible_threshold_choices": 11,
+      "excluded_threshold_choices": 21,
+      "validation": {
+        "candidate": "mixed_portable_2048",
+        "threshold_name": "auto",
+        "threshold": 0.5,
+        "origin": "mixed",
+        "representation": "portable",
+        "synthetic": {
+          "units": 200000,
+          "units_flagged": 7527,
+          "flag_rate": 0.037635,
+          "threshold": 0.5,
+          "stress": {
+            "tp": 374,
+            "fp": 7153,
+            "fn": 1589,
+            "tn": 190884,
+            "precision": 0.04968779062043311,
+            "recall": 0.19052470708099847,
+            "f1": 0.07881981032665965,
+            "average_precision": 0.03897565435554414,
+            "roc_auc": 0.7320150113403812
+          },
+          "small_amount": {
+            "tp": 160,
+            "fp": 2976,
+            "fn": 452,
+            "tn": 44863,
+            "precision": 0.05102040816326531,
+            "recall": 0.26143790849673204,
+            "f1": 0.08537886872998933,
+            "average_precision": 0.05103230229596732,
+            "roc_auc": 0.7345435746014648
+          }
+        },
+        "source_unlabelled": {
+          "units": 6809,
+          "units_flagged": 1974,
+          "flag_rate": 0.28991041268908796,
+          "threshold": 0.5,
+          "precision": null,
+          "recall": null,
+          "false_positive_rate": null
+        }
+      }
+    }
+  },
+  "fresh_final": {
+    "AML": {
+      "selected": {
+        "units": 20398,
+        "units_flagged": 480,
+        "flag_rate": 0.023531718795960388,
+        "threshold": 0.4852335819357355,
+        "stress": {
+          "tp": 45,
+          "fp": 435,
+          "fn": 71,
+          "tn": 19847,
+          "precision": 0.09375,
+          "recall": 0.3879310344827586,
+          "f1": 0.15100671140939598,
+          "average_precision": 0.22573726984748865,
+          "roc_auc": 0.8432260302153429
+        },
+        "small_amount": {
+          "tp": 8,
+          "fp": 105,
+          "fn": 8,
+          "tn": 1791,
+          "precision": 0.07079646017699115,
+          "recall": 0.5,
+          "f1": 0.12403100775193798,
+          "average_precision": 0.34358682339335095,
+          "roc_auc": 0.8454970991561181
+        }
+      },
+      "reference": {
+        "units": 20398,
+        "units_flagged": 2100,
+        "flag_rate": 0.1029512697323267,
+        "threshold": 0.5,
+        "stress": {
+          "tp": 74,
+          "fp": 2026,
+          "fn": 42,
+          "tn": 18256,
+          "precision": 0.035238095238095235,
+          "recall": 0.6379310344827587,
+          "f1": 0.06678700361010831,
+          "average_precision": 0.10379839192135006,
+          "roc_auc": 0.8479299633784332
+        },
+        "small_amount": {
+          "tp": 12,
+          "fp": 696,
+          "fn": 4,
+          "tn": 1200,
+          "precision": 0.01694915254237288,
+          "recall": 0.75,
+          "f1": 0.03314917127071823,
+          "average_precision": 0.1566996877786061,
+          "roc_auc": 0.7345068565400843
+        }
+      },
+      "paired_uncertainty": {
+        "cluster": "original source parent account",
+        "clusters": 75,
+        "replicates": 300,
+        "confidence": 0.95,
+        "intervals": {
+          "precision": {
+            "selected": {
+              "low": 0.0643746413512637,
+              "high": 0.13484020185029433,
+              "valid_replicates": 300
+            },
+            "reference": {
+              "low": 0.024511203946190076,
+              "high": 0.05139429465472158,
+              "valid_replicates": 300
+            },
+            "paired_delta": {
+              "low": 0.03265318953808675,
+              "high": 0.09051635682011488,
+              "valid_replicates": 300
+            }
+          },
+          "recall": {
+            "selected": {
+              "low": 0.2950284090909091,
+              "high": 0.48837398373983737,
+              "valid_replicates": 300
+            },
+            "reference": {
+              "low": 0.5493711157147085,
+              "high": 0.7443452877397831,
+              "valid_replicates": 300
+            },
+            "paired_delta": {
+              "low": -0.3392979656960511,
+              "high": -0.1673,
+              "valid_replicates": 300
+            }
+          },
+          "f1": {
+            "selected": {
+              "low": 0.10871073094867807,
+              "high": 0.208339828960848,
+              "valid_replicates": 300
+            },
+            "reference": {
+              "low": 0.04705979272365704,
+              "high": 0.09569516591857705,
+              "valid_replicates": 300
+            },
+            "paired_delta": {
+              "low": 0.045396068342993985,
+              "high": 0.12438491059291906,
+              "valid_replicates": 300
+            }
+          }
+        }
+      },
+      "total_reference_tp_retention": 0.6081081081081081,
+      "small_reference_tp_retention": 0.6666666666666666,
+      "meets_80pct_total_retention_descriptively": false,
+      "meets_80pct_small_retention_descriptively": false
+    },
+    "FRAUD": {
+      "selected": {
+        "units": 200000,
+        "units_flagged": 6577,
+        "flag_rate": 0.032885,
+        "threshold": 0.5,
+        "stress": {
+          "tp": 441,
+          "fp": 6136,
+          "fn": 1478,
+          "tn": 191945,
+          "precision": 0.06705184734681466,
+          "recall": 0.22980719124544033,
+          "f1": 0.1038135593220339,
+          "average_precision": 0.05803816369504719,
+          "roc_auc": 0.7446606599914507
+        },
+        "small_amount": {
+          "tp": 237,
+          "fp": 2615,
+          "fn": 543,
+          "tn": 53461,
+          "precision": 0.08309957924263675,
+          "recall": 0.3038461538461538,
+          "f1": 0.1305066079295154,
+          "average_precision": 0.08478682984647518,
+          "roc_auc": 0.7067898922890363
+        }
+      },
+      "reference": {
+        "units": 200000,
+        "units_flagged": 13201,
+        "flag_rate": 0.066005,
+        "threshold": 0.5,
+        "stress": {
+          "tp": 433,
+          "fp": 12768,
+          "fn": 1486,
+          "tn": 185313,
+          "precision": 0.03280054541322627,
+          "recall": 0.2256383533090151,
+          "f1": 0.05727513227513228,
+          "average_precision": 0.024052169022579083,
+          "roc_auc": 0.7361325798051586
+        },
+        "small_amount": {
+          "tp": 251,
+          "fp": 7081,
+          "fn": 529,
+          "tn": 48995,
+          "precision": 0.034233496999454445,
+          "recall": 0.3217948717948718,
+          "f1": 0.061883629191321496,
+          "average_precision": 0.028514773811508156,
+          "roc_auc": 0.6994136849074791
+        }
+      },
+      "paired_uncertainty": {
+        "cluster": "original source parent account",
+        "clusters": 75,
+        "replicates": 300,
+        "confidence": 0.95,
+        "intervals": {
+          "precision": {
+            "selected": {
+              "low": 0.047188060929447696,
+              "high": 0.08677053455019554,
+              "valid_replicates": 300
+            },
+            "reference": {
+              "low": 0.02453100110127665,
+              "high": 0.042655094658294264,
+              "valid_replicates": 300
+            },
+            "paired_delta": {
+              "low": 0.015108400147447654,
+              "high": 0.05375792121339882,
+              "valid_replicates": 300
+            }
+          },
+          "recall": {
+            "selected": {
+              "low": 0.172925480836426,
+              "high": 0.2860407673898409,
+              "valid_replicates": 300
+            },
+            "reference": {
+              "low": 0.16976790710688305,
+              "high": 0.2961078831042486,
+              "valid_replicates": 300
+            },
+            "paired_delta": {
+              "low": -0.0694691069077959,
+              "high": 0.06897341367748465,
+              "valid_replicates": 300
+            }
+          },
+          "f1": {
+            "selected": {
+              "low": 0.07452941451320526,
+              "high": 0.1309466331412344,
+              "valid_replicates": 300
+            },
+            "reference": {
+              "low": 0.043571073074309706,
+              "high": 0.0731203126860045,
+              "valid_replicates": 300
+            },
+            "paired_delta": {
+              "low": 0.018557516610721605,
+              "high": 0.07193987196785048,
+              "valid_replicates": 300
+            }
+          }
+        }
+      },
+      "total_reference_tp_retention": 1.0184757505773672,
+      "small_reference_tp_retention": 0.9442231075697212,
+      "meets_80pct_total_retention_descriptively": true,
+      "meets_80pct_small_retention_descriptively": true
+    }
+  },
+  "freeze": {
+    "models_frozen_at": "2026-10-16T08:13:39.103675+00:00",
+    "test_generation_started_at": "2026-10-16T08:13:39.348089+00:00",
+    "completed_at": "2026-10-16T08:14:01.290099+00:00",
+    "test_generated_after_selection_and_freeze": true,
+    "protocol_sha256": "412a3ffb8c8e8d1224f725ec4000375af9fcfac8f06b1a5662745e84c22c0006",
+    "frozen_file_count": 52,
+    "original_protocol_input_and_code_hashes_verified": true,
+    "all_frozen_file_hashes_verified": true,
+    "code_checksums": {
+      "backend/app/ml/behavioral/experiments.py": "1eb8ab52764a5ea633d4bed78890445b3cad9b980433f49d93d3828a7b2e6626",
+      "backend/app/ml/behavioral/research_features.py": "d1ea51cd6c81583d54ca9912c2177ebbb369ff6ba48df3b8d4d2b5eeb25bf373",
+      "backend/app/ml/behavioral/features.py": "cb2400ab6fe27285a69346ca7c78951129641b33d8198d4df52c1895bbe40ba9",
+      "backend/app/ml/behavioral/generate.py": "88d8efb29d5323082950655fdb6108ce41b6c3a2b86df1d102435edfa0574afe",
+      "backend/app/ml/behavioral/model.py": "2853c51580e6ebc563bd5ad14f03ab88c57ff48a523e5ea1cbcf31c5e9429a41",
+      "backend/app/ml/behavioral/standardize.py": "4ab32d58ef5167fe3685edec2b0e2254c7d7d538e34005a2aaf4f9d761436e55",
+      "backend/app/ml/behavioral/pipeline.py": "90c99afc7de7521355a9f13196c25c50e92ed28cdcd73b8ce16c499109889a43"
+    }
+  },
+  "final_draw": {
+    "seed": 2026101601,
+    "rows": 200000,
+    "account_proxies": 800,
+    "stress_rows": 1919,
+    "lookalike_rows": 4153,
+    "window": {
+      "days": 180,
+      "end_exclusive": "2026-10-17T00:00:00+00:00",
+      "start_inclusive": "2026-04-20T00:00:00+00:00"
+    },
+    "generator_version": "behavioral_source_conditioned_v1.0.0",
+    "transactions_sha256": "50b11e553e67c981ac12f9c3a3fdc243b1a5847b9da806d671bd028b1af3199b",
+    "manifest_sha256": "46e2617bc4463b0479d5d66aa084300d5009d6ffe9296808fe7db5ff5be0e0ba",
+    "training_fit_profile_sha256": "caf4c627b957edeee197172a5e128b1691dd52c5544a48df2b6509b679719a43",
+    "source_parent_accounts": 75,
+    "independence": "Fresh stochastic test draw; source test parents/recipes are known from prior research. Not independent real-crime validation.",
+    "source_test_re_evaluated": false
+  },
+  "checks": {
+    "new_workflow_tests": 14,
+    "new_integrity_tests": 8,
+    "new_research_feature_tests": 20,
+    "new_total": 42,
+    "related_existing_tests": 62,
+    "focused_total": 104,
+    "scope": "Portable focused pure tests, not a new complete backend/DB regression run"
+  },
+  "evidence_sha256": {
+    "full_report": "07cc00172d405a57ccaf607c54b577670bcc6b3f872be919341647cedc83a1d0",
+    "protocol": "412a3ffb8c8e8d1224f725ec4000375af9fcfac8f06b1a5662745e84c22c0006",
+    "selection": "715980fe5bed9753f85872bae6432a6b5e597c884c4f2c77b4fb12a7fb0938ed",
+    "validation": "38775a6361d1f33445964c4c7f0c91efdfdd68e385fbfc8378dab67077dd3af9",
+    "frozen": "eb5cee1661699ea8d6648f39bbccf36c203d45fddfe5a14cfd0e7cb89da10e31",
+    "candidate_csv": "a3f946e05206f7f0870744de6f9af179893ed3c96e32dd5c864afa16ff7a32d7"
+  },
+  "limitations": [
+    "Precision/recall/FPR on the source cannot be estimated without verified labels; source flags are review load only.",
+    "Fresh final is a stochastic simulation from75 previously known source test parents and known recipes; not independent real crime evidence.",
+    "AML selected retains45/74 total and8/12 small-slice reference true positives on final, below its80% validation research-retention objective.",
+    "FRAUD final recall difference is inconclusive under paired source-parent bootstrap; low absolute precision remains.",
+    "Dormancy stress uses a terminal35-65day gap without an equivalent legitimate dormant-reactivation control; perfect recipe-level detection would not prove crime detection.",
+    "Source history/precision differs from generated180day exact-time activity; removing explicit origin metadata cannot guarantee origin-invariant risk features.",
+    "Last30 event reference supports sparse history but may span years; it is a research representation, not a90day FR-401 implementation.",
+    "No source counterparty graph, ownership/MCC/country or reconstructed ledger is inferred.",
+    "Selected changes combine representation, max_samples and threshold choices; the selected-versus-reference contrast is not a single-factor causal attribution.",
+    "Historical diagnostic portable missingness refers to research_views_v1, not final research_views_v2_boundary_ties."
+  ],
+  "references": {
+    "outlier_detection": "https://scikit-learn.org/1.5/modules/outlier_detection.html",
+    "leakage_and_model_selection": "https://scikit-learn.org/1.5/common_pitfalls.html#data-leakage"
+  }
+}
