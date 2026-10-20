@@ -1,0 +1,535 @@
+{
+  "benchmark": {
+    "completed_at_utc": "2026-10-20T13:41:30.895326+00:00",
+    "final": {
+      "reference": {
+        "candidate": "raw_256__auto",
+        "slices": {
+          "all": {
+            "average_precision": 0.041691564373721714,
+            "flagged": 6053,
+            "fn": 9,
+            "fp": 5987,
+            "positives": 75,
+            "precision": 0.010903684123575086,
+            "recall": 0.88,
+            "rows": 56962,
+            "tn": 50900,
+            "tp": 66
+          },
+          "relative_time_block:0": {
+            "average_precision": 0.05986229395801165,
+            "flagged": 2177,
+            "fn": 3,
+            "fp": 2148,
+            "positives": 32,
+            "precision": 0.0133210840606339,
+            "recall": 0.90625,
+            "rows": 18989,
+            "tn": 16809,
+            "tp": 29
+          },
+          "relative_time_block:1": {
+            "average_precision": 0.07350970803065023,
+            "flagged": 1873,
+            "fn": 3,
+            "fp": 1845,
+            "positives": 31,
+            "precision": 0.014949279231179925,
+            "recall": 0.9032258064516129,
+            "rows": 18990,
+            "tn": 17114,
+            "tp": 28
+          },
+          "relative_time_block:2": {
+            "average_precision": 0.010362307704927905,
+            "flagged": 2003,
+            "fn": 3,
+            "fp": 1994,
+            "positives": 12,
+            "precision": 0.0044932601098352475,
+            "recall": 0.75,
+            "rows": 18983,
+            "tn": 16977,
+            "tp": 9
+          },
+          "small_amount": {
+            "average_precision": 0.0871862946641971,
+            "flagged": 1577,
+            "fn": 2,
+            "fp": 1539,
+            "positives": 40,
+            "precision": 0.024096385542168676,
+            "recall": 0.95,
+            "rows": 15704,
+            "tn": 14125,
+            "tp": 38
+          }
+        },
+        "threshold": 0.5
+      },
+      "selected": {
+        "candidate": "peer_2048__train_q0.95",
+        "slices": {
+          "all": {
+            "average_precision": 0.06527516692438096,
+            "flagged": 3221,
+            "fn": 10,
+            "fp": 3156,
+            "positives": 75,
+            "precision": 0.020180068301769636,
+            "recall": 0.8666666666666667,
+            "rows": 56962,
+            "tn": 53731,
+            "tp": 65
+          },
+          "relative_time_block:0": {
+            "average_precision": 0.0751755929638309,
+            "flagged": 1231,
+            "fn": 3,
+            "fp": 1202,
+            "positives": 32,
+            "precision": 0.023558082859463852,
+            "recall": 0.90625,
+            "rows": 18989,
+            "tn": 17755,
+            "tp": 29
+          },
+          "relative_time_block:1": {
+            "average_precision": 0.10791280497583898,
+            "flagged": 958,
+            "fn": 4,
+            "fp": 931,
+            "positives": 31,
+            "precision": 0.028183716075156576,
+            "recall": 0.8709677419354839,
+            "rows": 18990,
+            "tn": 18028,
+            "tp": 27
+          },
+          "relative_time_block:2": {
+            "average_precision": 0.025821756012098993,
+            "flagged": 1032,
+            "fn": 3,
+            "fp": 1023,
+            "positives": 12,
+            "precision": 0.00872093023255814,
+            "recall": 0.75,
+            "rows": 18983,
+            "tn": 17948,
+            "tp": 9
+          },
+          "small_amount": {
+            "average_precision": 0.2229883010105182,
+            "flagged": 799,
+            "fn": 3,
+            "fp": 762,
+            "positives": 40,
+            "precision": 0.04630788485607009,
+            "recall": 0.925,
+            "rows": 15704,
+            "tn": 14902,
+            "tp": 37
+          }
+        },
+        "threshold": 0.486403008203426
+      }
+    },
+    "final_guard_failures": [
+      "all: fewer reference true positives",
+      "small_amount: fewer reference true positives",
+      "relative_time_block:1: fewer reference true positives"
+    ],
+    "final_labels_first_parsed_at_utc": "2026-10-20T13:41:30.514681+00:00",
+    "final_reference_retention_passes": false,
+    "fit_uses_targets": false,
+    "freeze_precedes_final_labels": true,
+    "frozen": {
+      "files": {
+        "backend/app/ml/behavioral/fraud_public.py": "30302cca7d20a9c1e53f796d97dcf667f38409ffc63268219b4aff664457c790",
+        "backend/app/ml/behavioral/model.py": "2853c51580e6ebc563bd5ad14f03ab88c57ff48a523e5ea1cbcf31c5e9429a41",
+        "backend/ml_data/fraud_public_s20261020/run_integrity_v2/models/peer_2048/model.txt": "c539e781d0719734dd8a7485511e7d19ccf133d0bc6aab543251ddd733c87f70",
+        "backend/ml_data/fraud_public_s20261020/run_integrity_v2/models/peer_2048/model_card.json": "a1a2a5195d14156c6146c239a69e159573430cca24ecd681be71fd9fd942d85d",
+        "backend/ml_data/fraud_public_s20261020/run_integrity_v2/models/raw_2048/model.txt": "c074aca59dbf3691cf6fb69ea00223b24b2bdb402e105d7f8e4a6bf1d2409e87",
+        "backend/ml_data/fraud_public_s20261020/run_integrity_v2/models/raw_2048/model_card.json": "f38769602b2221e888618b7b5b65d96b7e5cde1d454857269b70a85c7275cf4e",
+        "backend/ml_data/fraud_public_s20261020/run_integrity_v2/models/raw_256/model.txt": "22136fbd1b7811ddc3f110a447cc2d154b519e8b24f49b78e5e36798e65f8147",
+        "backend/ml_data/fraud_public_s20261020/run_integrity_v2/models/raw_256/model_card.json": "1cc6ad5b523e83253fa59137fc258114b8143fd742837fbc2f9a752673fd7580",
+        "backend/ml_data/fraud_public_s20261020/run_integrity_v2/peer_profile.json": "8e466c0a13388cbb39118671dce300333ecb9d72cd0ec4b3e96d7a39db4c4876",
+        "backend/ml_data/fraud_public_s20261020/run_integrity_v2/protocol.json": "e1548ee8be8dff8b0202cfaf53290649deb4092bebd46c68a6e93abaff3f8d83",
+        "backend/ml_data/fraud_public_s20261020/run_integrity_v2/selection.json": "2a41cc99780e4f983f7adb0f2243583cdc60cdb9dca3f9f1eeba791d67e99f56",
+        "backend/ml_data/fraud_public_s20261020/run_integrity_v2/validation.json": "25e6ecf04bc0693cd607c485189c97e40c9ef49650831d6b2368d7dacbedd5cd",
+        "backend/ml_data/fraud_public_s20261020/run_integrity_v2/validation_scores.parquet": "a461fa5dcb7a9fdef6a64f4a7acbd0d403fe14def5ea4f62745fe0de23702135",
+        "backend/ml_data/fraud_public_s20261020/source/creditcard_1597_v1.parquet": "b7efcb35a428bbe22347a05d2437d9177bab07ce61e51214a17bec584ad9496d",
+        "backend/ml_data/fraud_public_s20261020/source/openml_1597.json": "fc60f3270694b4238601694e1c777ff278abef800d899168b735c70134976d12"
+      },
+      "frozen_at_utc": "2026-10-20T13:41:30.488573+00:00"
+    },
+    "frozen_manifest_sha256": "53fa0a665bc604408b5378f380d6f39565165290d36c3e5a59d8f3944d43a417",
+    "no_database_registration_or_promotion": true,
+    "protocol": {
+      "all_fits_before_validation_labels": true,
+      "candidates": [
+        {
+          "max_samples": 256,
+          "name": "raw_256",
+          "view": "raw"
+        },
+        {
+          "max_samples": 2048,
+          "name": "raw_2048",
+          "view": "raw"
+        },
+        {
+          "max_samples": 2048,
+          "name": "peer_2048",
+          "view": "peer"
+        }
+      ],
+      "creator_page": "https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud",
+      "currency": "source units unknown; no conversion or USD/EUR assumption",
+      "dataset_id": 1597,
+      "dataset_version": 1,
+      "download_url": "https://data.openml.org/datasets/0000/1597/dataset_1597.pq",
+      "estimators": 100,
+      "excluded": [
+        "Class",
+        "Time",
+        "row index",
+        "absolute date",
+        "account/device/counterparty inventions"
+      ],
+      "feature_names": {
+        "peer": [
+          "V1",
+          "V2",
+          "V3",
+          "V4",
+          "V5",
+          "V6",
+          "V7",
+          "V8",
+          "V9",
+          "V10",
+          "V11",
+          "V12",
+          "V13",
+          "V14",
+          "V15",
+          "V16",
+          "V17",
+          "V18",
+          "V19",
+          "V20",
+          "V21",
+          "V22",
+          "V23",
+          "V24",
+          "V25",
+          "V26",
+          "V27",
+          "V28",
+          "Amount",
+          "peer_distance",
+          "peer_component_excess",
+          "peer_amount_excess"
+        ],
+        "raw": [
+          "V1",
+          "V2",
+          "V3",
+          "V4",
+          "V5",
+          "V6",
+          "V7",
+          "V8",
+          "V9",
+          "V10",
+          "V11",
+          "V12",
+          "V13",
+          "V14",
+          "V15",
+          "V16",
+          "V17",
+          "V18",
+          "V19",
+          "V20",
+          "V21",
+          "V22",
+          "V23",
+          "V24",
+          "V25",
+          "V26",
+          "V27",
+          "V28",
+          "Amount"
+        ]
+      },
+      "fits_use_targets": false,
+      "label_provenance": "Supplied Class fraud labels for real anonymized European-card transactions; not FCIP reviewer decisions or synthetic injections. Independent adjudication is unavailable.",
+      "licence_limitation": "OpenML says Public; exact reusable licence is not established. Raw data stays ignored and is not redistributed.",
+      "licence_metadata_verbatim": "Public",
+      "limitations": [
+        "Public historical benchmark, not unseen production data or fraud-probability calibration.",
+        "No account identity: customer-disjoint splitting and behavioural history are impossible.",
+        "PCA was supplied upstream; its fit population/time scope is unknown and cannot be reconstructed.",
+        "Only two days of relative time; no long-term drift or AML-network claim."
+      ],
+      "metadata_sha256": "fc60f3270694b4238601694e1c777ff278abef800d899168b735c70134976d12",
+      "partition": {
+        "clock": "elapsed seconds since first observation; absolute date/timezone unknown",
+        "row_counts": {
+          "final": 56962,
+          "train": 170888,
+          "validation": 56957
+        },
+        "rule": "Time<=train_upper; train_upper<Time<=validation_upper; Time>validation_upper",
+        "target_used": false,
+        "ties_kept_together": true,
+        "train_upper_inclusive": 120396.0,
+        "validation_upper_inclusive": 145247.0
+      },
+      "peer_fit": "TRAIN-only robust median/IQR scaling of opaque PCA components; MiniBatchKMeans16, n_init5, batch2048, max_iter100; fixed seed. No customer identity claim.",
+      "seed": 20261020,
+      "selection": "precision with TP>=reference in all/small/three relative-time blocks, FP<=reference; fallback allowed",
+      "small_amount_cutoff_train_q25": 5.48,
+      "source_api": "https://www.openml.org/api/v1/json/data/1597",
+      "source_sha256": "b7efcb35a428bbe22347a05d2437d9177bab07ce61e51214a17bec584ad9496d",
+      "started_at_utc": "2026-10-20T13:41:27.284126+00:00",
+      "thresholds": [
+        "auto_0.5",
+        "train_q0.90",
+        "train_q0.95",
+        "train_q0.99"
+      ],
+      "version": "public_creditcard_unsupervised_v1"
+    },
+    "selection": {
+      "excluded": {
+        "peer_2048__auto": [
+          "all: fewer reference true positives",
+          "relative_time_block:1: fewer reference true positives"
+        ],
+        "peer_2048__train_q0.90": [
+          "all: more false positives"
+        ],
+        "peer_2048__train_q0.99": [
+          "all: fewer reference true positives",
+          "small_amount: fewer reference true positives",
+          "relative_time_block:0: fewer reference true positives",
+          "relative_time_block:1: fewer reference true positives",
+          "relative_time_block:2: fewer reference true positives"
+        ],
+        "raw_2048__auto": [
+          "all: fewer reference true positives",
+          "relative_time_block:1: fewer reference true positives"
+        ],
+        "raw_2048__train_q0.90": [
+          "all: more false positives"
+        ],
+        "raw_2048__train_q0.95": [
+          "all: fewer reference true positives",
+          "relative_time_block:1: fewer reference true positives"
+        ],
+        "raw_2048__train_q0.99": [
+          "all: fewer reference true positives",
+          "small_amount: fewer reference true positives",
+          "relative_time_block:0: fewer reference true positives",
+          "relative_time_block:1: fewer reference true positives",
+          "relative_time_block:2: fewer reference true positives"
+        ],
+        "raw_256__train_q0.90": [
+          "all: more false positives"
+        ],
+        "raw_256__train_q0.95": [
+          "all: fewer reference true positives",
+          "relative_time_block:0: fewer reference true positives",
+          "relative_time_block:1: fewer reference true positives"
+        ],
+        "raw_256__train_q0.99": [
+          "all: fewer reference true positives",
+          "small_amount: fewer reference true positives",
+          "relative_time_block:0: fewer reference true positives",
+          "relative_time_block:1: fewer reference true positives",
+          "relative_time_block:2: fewer reference true positives"
+        ]
+      },
+      "improvement_found": true,
+      "reference": "raw_256__auto",
+      "required_reference_tp_retention": 1.0,
+      "selected": "peer_2048__train_q0.95",
+      "slices_guarded": [
+        "all",
+        "small_amount",
+        "relative_time_block:0",
+        "relative_time_block:1",
+        "relative_time_block:2"
+      ],
+      "source": "held-out supplied validation labels only"
+    },
+    "selection_uses_supplied_validation_labels": true,
+    "validation_reference": {
+      "all": {
+        "average_precision": 0.023746272377555538,
+        "flagged": 6989,
+        "fn": 7,
+        "fp": 6939,
+        "positives": 57,
+        "precision": 0.007154099298898269,
+        "recall": 0.8771929824561403,
+        "rows": 56957,
+        "tn": 49961,
+        "tp": 50
+      },
+      "relative_time_block:0": {
+        "average_precision": 0.013088301301076175,
+        "flagged": 2259,
+        "fn": 1,
+        "fp": 2250,
+        "positives": 10,
+        "precision": 0.00398406374501992,
+        "recall": 0.9,
+        "rows": 18986,
+        "tn": 16726,
+        "tp": 9
+      },
+      "relative_time_block:1": {
+        "average_precision": 0.024273225637388436,
+        "flagged": 2278,
+        "fn": 2,
+        "fp": 2256,
+        "positives": 24,
+        "precision": 0.009657594381035996,
+        "recall": 0.9166666666666666,
+        "rows": 18986,
+        "tn": 16706,
+        "tp": 22
+      },
+      "relative_time_block:2": {
+        "average_precision": 0.04521181883340994,
+        "flagged": 2452,
+        "fn": 4,
+        "fp": 2433,
+        "positives": 23,
+        "precision": 0.007748776508972268,
+        "recall": 0.8260869565217391,
+        "rows": 18985,
+        "tn": 16529,
+        "tp": 19
+      },
+      "small_amount": {
+        "average_precision": 0.04061019326255186,
+        "flagged": 1488,
+        "fn": 5,
+        "fp": 1471,
+        "positives": 22,
+        "precision": 0.0114247311827957,
+        "recall": 0.7727272727272727,
+        "rows": 12114,
+        "tn": 10621,
+        "tp": 17
+      }
+    },
+    "validation_selected": {
+      "all": {
+        "average_precision": 0.03309409143100419,
+        "flagged": 3967,
+        "fn": 7,
+        "fp": 3917,
+        "positives": 57,
+        "precision": 0.012603982858583312,
+        "recall": 0.8771929824561403,
+        "rows": 56957,
+        "tn": 52983,
+        "tp": 50
+      },
+      "relative_time_block:0": {
+        "average_precision": 0.022623569527585707,
+        "flagged": 1244,
+        "fn": 1,
+        "fp": 1235,
+        "positives": 10,
+        "precision": 0.007234726688102894,
+        "recall": 0.9,
+        "rows": 18986,
+        "tn": 17741,
+        "tp": 9
+      },
+      "relative_time_block:1": {
+        "average_precision": 0.038109449417778316,
+        "flagged": 1291,
+        "fn": 2,
+        "fp": 1269,
+        "positives": 24,
+        "precision": 0.017041053446940357,
+        "recall": 0.9166666666666666,
+        "rows": 18986,
+        "tn": 17693,
+        "tp": 22
+      },
+      "relative_time_block:2": {
+        "average_precision": 0.050111426767162896,
+        "flagged": 1432,
+        "fn": 4,
+        "fp": 1413,
+        "positives": 23,
+        "precision": 0.013268156424581005,
+        "recall": 0.8260869565217391,
+        "rows": 18985,
+        "tn": 17549,
+        "tp": 19
+      },
+      "small_amount": {
+        "average_precision": 0.08605444706605522,
+        "flagged": 783,
+        "fn": 5,
+        "fp": 766,
+        "positives": 22,
+        "precision": 0.021711366538952746,
+        "recall": 0.7727272727272727,
+        "rows": 12114,
+        "tn": 11326,
+        "tp": 17
+      }
+    },
+    "version": "public_creditcard_unsupervised_v1"
+  },
+  "integrity_reproduction": {
+    "authoritative_reproduction": "run_integrity_v2",
+    "current_module_restored_to_authoritative_frozen_bytes": true,
+    "first_frozen_module_path_now_superseded": true,
+    "first_report_sha256": "0ae3fb72a41e5cf7e401423d1313ed597653f8acea1b6fecc1fff0aba5586694",
+    "first_run": "run",
+    "fresh_independent_final_claim": false,
+    "historical_16oct_protected_checks": [
+      {
+        "all_match": true,
+        "manifest": "backend/ml_data/retraining_s20261016/frozen.json",
+        "protected_files": 52
+      },
+      {
+        "all_match": true,
+        "manifest": "backend/ml_data/robustness_s20261016/frozen.json",
+        "protected_files": 35
+      },
+      {
+        "all_match": true,
+        "manifest": "backend/ml_data/aml_network_ibm_amlsim_v21_20261016/benchmark_guarded_v2/frozen.json",
+        "protected_files": 17
+      }
+    ],
+    "metrics_identical": true,
+    "model_bytes_identical": {
+      "peer_2048/model.txt": true,
+      "raw_2048/model.txt": true,
+      "raw_256/model.txt": true
+    },
+    "original_code_snapshot_sha256": "307d5e81b3d1a816fa50ba01fe9e6fd075751fff8eb57528aed6ff8141ba0802",
+    "original_snapshot_matches_first_frozen_module_hash": true,
+    "profile_bytes_identical": true,
+    "reason": "Model/card expected hashes now captured at creation and frozen-manifest own hash checked after final. No hyperparameter, data, feature, threshold or selection-policy change.",
+    "reproduced_report_sha256": "518b45c1d60871de99a14a816b477e735fe87dc69e9192987a7d9e437fcede88",
+    "same_heldout_labels_reused": true,
+    "validation_and_final_scores_exactly_identical": true
+  }
+}

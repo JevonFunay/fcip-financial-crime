@@ -1,0 +1,1731 @@
+{
+  "stage_date": "2026-10-20",
+  "state": "DRAFT",
+  "fit_uses_targets": false,
+  "selection_uses_validation_labels": true,
+  "database_registration_or_promotion": false,
+  "aml_matched_comparison": {
+    "state": "DRAFT",
+    "evaluation_id": "30d355e507ee17983fe4237d9246081598fae5f8cf7afd38021e05189e89bc72",
+    "target_scope": "published simulator SAR account-window indicators",
+    "selected": {
+      "tp": 147,
+      "fp": 21561,
+      "fn": 106,
+      "tn": 95225,
+      "precision": 0.006771697070204533,
+      "recall": 0.5810276679841897,
+      "units": 117039,
+      "positive_units": 253,
+      "negative_units": 116786
+    },
+    "reference": {
+      "tp": 147,
+      "fp": 21561,
+      "fn": 106,
+      "tn": 95225,
+      "precision": 0.006771697070204533,
+      "recall": 0.5810276679841897,
+      "units": 117039,
+      "positive_units": 253,
+      "negative_units": 116786
+    },
+    "precision_delta_percentage_points": 0.0,
+    "recall_count_guards": {
+      "all": true,
+      "complete_pattern:cycle": true,
+      "complete_pattern:gather_scatter": true,
+      "complete_pattern:scatter_gather": true,
+      "low_amount_positive_only": null
+    },
+    "unassessable_positive_slices": [
+      "low_amount_positive_only"
+    ],
+    "false_positives_do_not_increase": true,
+    "recall_counts_retained": true,
+    "matched_research_gain": false,
+    "production_approval": false,
+    "caveat": "Matched benchmark comparison only. Missing positive slices remain unassessed; no claim about real-world crime accuracy or approval follows."
+  },
+  "fraud_matched_comparison": {
+    "state": "DRAFT",
+    "evaluation_id": "53fa0a665bc604408b5378f380d6f39565165290d36c3e5a59d8f3944d43a417",
+    "target_scope": "OpenML publisher-supplied Class reference",
+    "selected": {
+      "tp": 65,
+      "fp": 3156,
+      "fn": 10,
+      "tn": 53731,
+      "precision": 0.020180068301769636,
+      "recall": 0.8666666666666667,
+      "units": 56962,
+      "positive_units": 75,
+      "negative_units": 56887
+    },
+    "reference": {
+      "tp": 66,
+      "fp": 5987,
+      "fn": 9,
+      "tn": 50900,
+      "precision": 0.010903684123575086,
+      "recall": 0.88,
+      "units": 56962,
+      "positive_units": 75,
+      "negative_units": 56887
+    },
+    "precision_delta_percentage_points": 0.927638417819455,
+    "recall_count_guards": {
+      "all": false,
+      "relative_time_block:0": true,
+      "relative_time_block:1": false,
+      "relative_time_block:2": true,
+      "small_amount": false
+    },
+    "unassessable_positive_slices": [],
+    "false_positives_do_not_increase": true,
+    "recall_counts_retained": false,
+    "matched_research_gain": false,
+    "production_approval": false,
+    "caveat": "Matched benchmark comparison only. Missing positive slices remain unassessed; no claim about real-world crime accuracy or approval follows."
+  },
+  "review_status": {
+    "caveat": "Reviewer agreement concerns visible anomalies, not verified fraud, money laundering, or production accuracy. Unreviewed and insufficient-evidence cases are unresolved, never normal labels. This validation population has already been used in research; it is not a new final holdout.",
+    "fraud_precision": null,
+    "aml_crime_precision": null,
+    "unit_results": {
+      "AML": {
+        "sampled": 150,
+        "status_counts": {
+          "PENDING": 150
+        },
+        "unresolved_sampled": 150,
+        "unresolved_sample_fraction": 1.0,
+        "flagged_sampled": 74,
+        "flagged_population": 959,
+        "flagged_resolved": 0,
+        "resolved_flagged_weight_fraction": 0.0,
+        "unresolved_flagged_weight_fraction": 1.0,
+        "weighted_anomalous_share_of_resolved_flags": null,
+        "estimated_population_anomaly_precision": null,
+        "conservative_95pct_sampling_interval": null,
+        "approximate_95pct_design_interval": null,
+        "unresolved_review_bounds_on_sample_weighted_anomaly_share": [
+          0.0,
+          1.0
+        ],
+        "nonflag_sampled": 76,
+        "nonflag_resolved": 0,
+        "uncertainty": "The conservative interval uses stratum-wise Hoeffding bounds with Bonferroni correction for 95% sampling coverage and remains nondegenerate for zero observed anomalies. Approximate normal design interval assumes fixed reviewer judgements and stratified SRS; it excludes reviewer error and source-population transfer. With unresolved flagged reviews no population point estimate is reported; sample-weighted missing-review bounds are not a population confidence interval."
+      },
+      "FRAUD": {
+        "sampled": 150,
+        "status_counts": {
+          "PENDING": 150
+        },
+        "unresolved_sampled": 150,
+        "unresolved_sample_fraction": 1.0,
+        "flagged_sampled": 74,
+        "flagged_population": 987,
+        "flagged_resolved": 0,
+        "resolved_flagged_weight_fraction": 0.0,
+        "unresolved_flagged_weight_fraction": 1.0,
+        "weighted_anomalous_share_of_resolved_flags": null,
+        "estimated_population_anomaly_precision": null,
+        "conservative_95pct_sampling_interval": null,
+        "approximate_95pct_design_interval": null,
+        "unresolved_review_bounds_on_sample_weighted_anomaly_share": [
+          0.0,
+          1.0
+        ],
+        "nonflag_sampled": 76,
+        "nonflag_resolved": 0,
+        "uncertainty": "The conservative interval uses stratum-wise Hoeffding bounds with Bonferroni correction for 95% sampling coverage and remains nondegenerate for zero observed anomalies. Approximate normal design interval assumes fixed reviewer judgements and stratified SRS; it excludes reviewer error and source-population transfer. With unresolved flagged reviews no population point estimate is reported; sample-weighted missing-review bounds are not a population confidence interval."
+      }
+    },
+    "status_counts": {
+      "PENDING": 300
+    },
+    "provenance": {
+      "packet_manifest_sha256": "48e880ac5abad447d3acc0b71e34b8eb3e9cb45cf7fd631c2d5db15ae2f004df",
+      "responses_sha256": "c01c043c09dd0b4ffb277e7417a57ed73ec1744712b04519eb8f4513029c13cf",
+      "import_code_sha256": "32d0f332d479c0eff3b5e8c5aa4a371252bc643c01493ac2925b446c6ab4434e"
+    }
+  },
+  "fraud_integrity_reproduction": {
+    "authoritative_reproduction": "run_integrity_v2",
+    "current_module_restored_to_authoritative_frozen_bytes": true,
+    "first_frozen_module_path_now_superseded": true,
+    "first_report_sha256": "0ae3fb72a41e5cf7e401423d1313ed597653f8acea1b6fecc1fff0aba5586694",
+    "first_run": "run",
+    "fresh_independent_final_claim": false,
+    "historical_16oct_protected_checks": [
+      {
+        "all_match": true,
+        "manifest": "backend/ml_data/retraining_s20261016/frozen.json",
+        "protected_files": 52
+      },
+      {
+        "all_match": true,
+        "manifest": "backend/ml_data/robustness_s20261016/frozen.json",
+        "protected_files": 35
+      },
+      {
+        "all_match": true,
+        "manifest": "backend/ml_data/aml_network_ibm_amlsim_v21_20261016/benchmark_guarded_v2/frozen.json",
+        "protected_files": 17
+      }
+    ],
+    "metrics_identical": true,
+    "model_bytes_identical": {
+      "peer_2048/model.txt": true,
+      "raw_2048/model.txt": true,
+      "raw_256/model.txt": true
+    },
+    "original_code_snapshot_sha256": "307d5e81b3d1a816fa50ba01fe9e6fd075751fff8eb57528aed6ff8141ba0802",
+    "original_snapshot_matches_first_frozen_module_hash": true,
+    "profile_bytes_identical": true,
+    "reason": "Model/card expected hashes now captured at creation and frozen-manifest own hash checked after final. No hyperparameter, data, feature, threshold or selection-policy change.",
+    "reproduced_report_sha256": "518b45c1d60871de99a14a816b477e735fe87dc69e9192987a7d9e437fcede88",
+    "same_heldout_labels_reused": true,
+    "validation_and_final_scores_exactly_identical": true
+  },
+  "aml_strict_fp_postfreeze_audit": {
+    "audit_kind": "postfreeze stored-validation FP-cap audit; no new fit, score, target parse or final evaluation",
+    "audited_at": "2026-10-20T13:47:49.580106+00:00",
+    "run_frozen_at": "2026-10-20T13:39:45.736674+00:00",
+    "disclosure": "Explicit FP cap was requested after this run completed. It was absent from its frozen choose() implementation; this audit is not retrospective predeclaration.",
+    "source_report_sha256": "7ff256ddcb9ee5fb434cdf2c91a51c07d6b29b9b9ba372b60bf831ba8a1ba914",
+    "strict_selection": {
+      "reference": "graph256__auto",
+      "selected": "graph256__auto",
+      "eligible": [
+        "graph256__auto"
+      ],
+      "rejected": {
+        "graph256__train_q90": [
+          "overall_true_positive_loss",
+          "recipe_true_positive_loss"
+        ],
+        "graph256__train_q95": [
+          "overall_true_positive_loss",
+          "recipe_true_positive_loss"
+        ],
+        "graph256__train_q99": [
+          "overall_true_positive_loss",
+          "recipe_true_positive_loss",
+          "observed_pattern_or_fragment_loss"
+        ],
+        "graph2048__auto": [
+          "overall_true_positive_loss",
+          "recipe_true_positive_loss"
+        ],
+        "graph2048__train_q90": [
+          "overall_true_positive_loss",
+          "recipe_true_positive_loss"
+        ],
+        "graph2048__train_q95": [
+          "overall_true_positive_loss",
+          "recipe_true_positive_loss",
+          "observed_pattern_or_fragment_loss"
+        ],
+        "graph2048__train_q99": [
+          "overall_true_positive_loss",
+          "recipe_true_positive_loss",
+          "observed_pattern_or_fragment_loss"
+        ],
+        "peer2048__auto": [
+          "overall_true_positive_loss",
+          "recipe_true_positive_loss"
+        ],
+        "peer2048__train_q90": [
+          "overall_true_positive_loss",
+          "recipe_true_positive_loss"
+        ],
+        "peer2048__train_q95": [
+          "overall_true_positive_loss",
+          "recipe_true_positive_loss",
+          "observed_pattern_or_fragment_loss"
+        ],
+        "peer2048__train_q99": [
+          "overall_true_positive_loss",
+          "recipe_true_positive_loss",
+          "observed_pattern_or_fragment_loss"
+        ]
+      },
+      "coverage_floor": 1.0,
+      "guards": [
+        "overall TP >= reference",
+        "low-amount positive TP >= reference",
+        "every observed recipe TP >= reference",
+        "every observed pattern/fragment type detected count >= reference",
+        "overall FP <= reference"
+      ],
+      "selection_uses_validation_labels": true,
+      "fit_uses_targets": false,
+      "false_positive_cap": 21863
+    },
+    "stored_selection": "graph256__auto",
+    "selected_option_unchanged": true,
+    "eligible_options_unchanged": true,
+    "options_exceeding_reference_fp": [],
+    "actual_selected_validation_fp_nonincrease": true,
+    "final_retuned": false,
+    "new_target_reads": 0,
+    "new_model_fits": 0,
+    "no_database_registration_or_promotion": true,
+    "integrity": {
+      "files": {
+        "backend/ml_data/aml_network_ibm_amlsim_v21_20261016/raw/README.md": "5bf77a9d74d1399f4e696047571fcc3c47762c1a305b837a0672069a09191b21",
+        "backend/ml_data/aml_network_ibm_amlsim_v21_20261016/raw/paramFiles/bank_mixed/conf.json": "fc75dc0f87a1444831ea83249e9d0985ed0a156522d4cf4079ebf50b7192a0de",
+        "backend/ml_data/aml_network_ibm_amlsim_v21_20261016/raw/paramFiles/bank_mixed/schema.json": "a5b955b0edb164b5b23fa792b035aed70eee87489476869c93ed61e8ee9b49ce",
+        "backend/ml_data/aml_network_ibm_amlsim_v21_20261016/raw/paramFiles/bank_mixed/alertPatterns.csv": "ad3bbe7a62165bf5b87bb59e29592bfbe8aca101ee1314a99dbaf8c37e3e68e9",
+        "backend/ml_data/aml_network_ibm_amlsim_v21_20261016/raw/data/bank_mixed/transactions.csv.gz": "d32cd92994941ae61128a29e1d59ca828ae389d9a90aef962f281d450e676d08",
+        "backend/ml_data/aml_network_ibm_amlsim_v21_20261016/raw/data/bank_mixed/accounts.csv.gz": "c07436098bc13d345d52b9c063dbe08e674adf71b955c95c8907a1e3e54a602f",
+        "backend/ml_data/aml_network_ibm_amlsim_v21_20261016/raw/data/bank_mixed/alert_transactions.csv.gz": "d32d38c93ec32c2fa38f3d55fbb4e8907811e61e3a1a8a438540fd37ef964336",
+        "backend/ml_data/aml_network_ibm_amlsim_v21_20261016/raw/data/bank_mixed/alert_accounts.csv.gz": "a17be41c7db8cfe78a9a28a1d38a48bfa91058bd4a7af72ee0661d473b16cbbb",
+        "backend/ml_data/aml_network_ibm_amlsim_v21_20261016/raw/v2.1.zip": "e36015be8c728dc0acdc437aa7ab494fdc24d3289c0090673b07de31ac12a5fa",
+        "backend/ml_data/aml_network_ibm_amlsim_v21_20261016/raw/repository_LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+        "backend/ml_data/aml_network_ibm_amlsim_v21_20261016/raw/repository_README.md": "3672e53c602026f4fb7ef99218ba07e3a41ecae6d14176c0984bd8e9f2543101",
+        "backend/ml_data/aml_network_ibm_amlsim_v21_20261016/raw/provenance.json": "09c68a9d3e42f3255efe4c93d017efa540470490b0272c354b76dbe5bbf037bb",
+        "backend/app/ml/behavioral/aml_temporal.py": "d40b883fa0788a58190eb732e91f5ca0f8e26853092d5f36f89dd607d9979d89",
+        "backend/app/ml/behavioral/aml_network_benchmark.py": "5c8eb1c81d62a87ce069f6b00b0e0f7892206d819aeb2363a416de927f4cc531",
+        "backend/app/ml/behavioral/model.py": "2853c51580e6ebc563bd5ad14f03ab88c57ff48a523e5ea1cbcf31c5e9429a41",
+        "backend/ml_data/aml_temporal_s20261020/protocol.json": "355c91b60033d7a2856fa626676c70bbc6a44153c6130c466bb5fd242717b8ae",
+        "backend/ml_data/aml_temporal_s20261020/peer_profile.json": "239f81e9ce315c7eefbb43ca2a403cea134dc9bdd4c942d9c0571b5930435794",
+        "backend/ml_data/aml_temporal_s20261020/graph256.json": "007d72b4f28030894065392ff9b86e0e3dde315b480e971763fa8ea06d2ce3d8",
+        "backend/ml_data/aml_temporal_s20261020/graph256_card.json": "90a185967106f38120744b58efd5382b8baad4a42c20ec10c676ac347bcc268e",
+        "backend/ml_data/aml_temporal_s20261020/graph2048.json": "3f6204b378eb218a3dfd4ddba512fed5e0d6076b667216279a3b2ee85704aa4c",
+        "backend/ml_data/aml_temporal_s20261020/graph2048_card.json": "4e582ae41c64ff1f95e489caf172a076c21529e68919cc02a7bd1786ca25d1a5",
+        "backend/ml_data/aml_temporal_s20261020/peer2048.json": "57c4c66ebf857d3fe68d9c8403a32ce242021f9c417bf147d38d3703bd6b9e80",
+        "backend/ml_data/aml_temporal_s20261020/peer2048_card.json": "0abe890fe939685accee76400caa73a15660b96c0cfa95b915818d01b17bf4a6",
+        "backend/ml_data/aml_temporal_s20261020/fitted.json": "99bc5e2b372739bfe0e03de6a42ea4f59f5c622d7c846091818bec34673f9356",
+        "backend/ml_data/aml_temporal_s20261020/validation.json": "41962e24d615dc8c2d26e32f17895522fde66036b163a1f5b14d0efefecab93c",
+        "backend/ml_data/aml_temporal_s20261020/selection.json": "b2ec004377b8cb4e2aa5379028236049a77db70aa354b54339adcd8d888df043",
+        "backend/ml_data/aml_temporal_s20261020/report.json": "7ff256ddcb9ee5fb434cdf2c91a51c07d6b29b9b9ba372b60bf831ba8a1ba914",
+        "backend/ml_data/aml_temporal_s20261020/frozen.json": "30d355e507ee17983fe4237d9246081598fae5f8cf7afd38021e05189e89bc72",
+        "backend/app/ml/behavioral/aml_temporal_selection.py": "5b96745133953d3ab69a96ea3f2d66b989fbf0e6c7b5d77475c9c8691fc933cc"
+      }
+    }
+  },
+  "aml_pattern_workload_diagnostic": {
+    "kind": "uniform random flags at identical account-window workload",
+    "population_size": 117039,
+    "flagged_count": 21708,
+    "complete_patterns": 27,
+    "expected_complete_patterns_hit": 21.97005450643707,
+    "pattern_hit_probabilities": {
+      "cycle:12": 0.8062665065863154,
+      "cycle:18": 0.8062665065863154,
+      "cycle:19": 0.6414833899449568,
+      "cycle:2": 0.6414833899449568,
+      "cycle:3": 0.7079826856289023,
+      "cycle:8": 0.7079826856289023,
+      "gather_scatter:52": 0.7621478515254254,
+      "gather_scatter:53": 0.8953130535230884,
+      "gather_scatter:60": 0.842201999532836,
+      "gather_scatter:61": 0.9147318612795297,
+      "gather_scatter:66": 0.842201999532836,
+      "gather_scatter:67": 0.8062665065863154,
+      "gather_scatter:72": 0.8714720926212851,
+      "gather_scatter:74": 0.842201999532836,
+      "gather_scatter:79": 0.8953130535230884,
+      "gather_scatter:82": 0.7621478515254254,
+      "gather_scatter:85": 0.8062665065863154,
+      "gather_scatter:87": 0.9147318612795297,
+      "gather_scatter:94": 0.8714720926212851,
+      "gather_scatter:98": 0.8062665065863154,
+      "scatter_gather:21": 0.8714720926212851,
+      "scatter_gather:23": 0.8062665065863154,
+      "scatter_gather:25": 0.8062665065863154,
+      "scatter_gather:29": 0.9147318612795297,
+      "scatter_gather:36": 0.9434317493093727,
+      "scatter_gather:42": 0.6414833899449568,
+      "scatter_gather:48": 0.842201999532836
+    },
+    "after_freeze_diagnostic_only": true,
+    "caveat": "Expected hits under uniform random flags, not a fitted detector or evidence of early interception. Not used for selection or a hypothesis test.",
+    "actual_complete_patterns_detected": 27,
+    "by_pattern_type": {
+      "cycle": {
+        "complete_patterns": 6,
+        "expected_hits": 4.3114651643203485
+      },
+      "gather_scatter": {
+        "complete_patterns": 14,
+        "expected_hits": 11.83273523625611
+      },
+      "scatter_gather": {
+        "complete_patterns": 7,
+        "expected_hits": 5.825854105860612
+      }
+    }
+  },
+  "historical_frozen_checks": {
+    "ml_data/retraining_s20261016/frozen.json": 52,
+    "ml_data/robustness_s20261016/frozen.json": 35,
+    "ml_data/aml_network_ibm_amlsim_v21_20261016/benchmark_guarded_v2/frozen.json": 17
+  },
+  "source_report_sha256": {
+    "backend/ml_data/aml_temporal_s20261020/report.json": "7ff256ddcb9ee5fb434cdf2c91a51c07d6b29b9b9ba372b60bf831ba8a1ba914",
+    "backend/ml_data/fraud_public_s20261020/run_integrity_v2/report.json": "518b45c1d60871de99a14a816b477e735fe87dc69e9192987a7d9e437fcede88",
+    "backend/ml_data/review_s20261020_pending_status/report.json": "141a951ca19cb27d670e99ceae1c0672097700819ccd7374a77afaea9db89815",
+    "backend/ml_data/fraud_public_s20261020/reproduction_note.json": "7d4b377ec4eee5da572a95c875e5423bcea4ea1e235819dc165e3227b688cd72"
+  },
+  "reporting_code_sha256": "5971b434da80beb422629243cf57770b7d89ba8fe95d8ace0d6c65453823a7c9",
+  "limits": [
+    "No improvement can be inferred by comparing precision across different source populations.",
+    "AML complete pattern hit means any endpoint flag at window end; graph account-window precision remains low.",
+    "FRAUD precision rose but strict final TP guards failed; no post-final threshold changes.",
+    "Review labels are all pending; observed anomaly agreement and crime precision remain unavailable."
+  ],
+  "aml": {
+    "version": "aml_temporal_full_edges_v1",
+    "completed_at": "2026-10-20T13:39:47.960849+00:00",
+    "state": "DRAFT",
+    "source": {
+      "source": "IBM AMLSim published bank_mixed v2.1",
+      "documentation_url": "https://github.com/IBM/AMLSim/wiki/Download-Example-Data-Set",
+      "download_url": "https://www.dropbox.com/sh/l3grpumqfgbxqak/AAAj0fIjtJI6n9fdIBy2V7Lia/banks/v2.1?dl=1",
+      "archive_sha256": "e36015be8c728dc0acdc437aa7ab494fdc24d3289c0090673b07de31ac12a5fa",
+      "archive_bytes": 25061861,
+      "reference_repository": "https://github.com/IBM/AMLSim",
+      "reference_repository_commit": "7338a4bcb1af9bcfea2201ad7daccfe2a4d569ca",
+      "generation_commit": null,
+      "license": {
+        "reference_repository": "Apache-2.0",
+        "external_archive_data": "Not separately stated in archive README or linked wiki; do not infer a separate data licence from the repository licence."
+      },
+      "downloaded_at": "2026-10-16T08:48:32.635748+00:00",
+      "excluded_provided_features": "The features/ directory includes SAR-dependent GPML features and is never loaded.",
+      "files": {
+        "README.md": "5bf77a9d74d1399f4e696047571fcc3c47762c1a305b837a0672069a09191b21",
+        "paramFiles/bank_mixed/conf.json": "fc75dc0f87a1444831ea83249e9d0985ed0a156522d4cf4079ebf50b7192a0de",
+        "paramFiles/bank_mixed/schema.json": "a5b955b0edb164b5b23fa792b035aed70eee87489476869c93ed61e8ee9b49ce",
+        "paramFiles/bank_mixed/alertPatterns.csv": "ad3bbe7a62165bf5b87bb59e29592bfbe8aca101ee1314a99dbaf8c37e3e68e9",
+        "data/bank_mixed/transactions.csv.gz": "d32cd92994941ae61128a29e1d59ca828ae389d9a90aef962f281d450e676d08",
+        "data/bank_mixed/accounts.csv.gz": "c07436098bc13d345d52b9c063dbe08e674adf71b955c95c8907a1e3e54a602f",
+        "data/bank_mixed/alert_transactions.csv.gz": "d32d38c93ec32c2fa38f3d55fbb4e8907811e61e3a1a8a438540fd37ef964336",
+        "data/bank_mixed/alert_accounts.csv.gz": "a17be41c7db8cfe78a9a28a1d38a48bfa91058bd4a7af72ee0661d473b16cbbb",
+        "v2.1.zip": "e36015be8c728dc0acdc437aa7ab494fdc24d3289c0090673b07de31ac12a5fa",
+        "repository_LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+        "repository_README.md": "3672e53c602026f4fb7ef99218ba07e3a41ecae6d14176c0984bd8e9f2543101"
+      }
+    },
+    "partition": {
+      "policy": "Full supplied directed network; label-blind nonoverlapping time windows; no account-edge partitioning",
+      "base_date": "2017-01-01T00:00:00+00:00",
+      "window_days": 30,
+      "windows": 24,
+      "train_windows": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "validation_windows": [
+        12,
+        13,
+        14,
+        15,
+        16,
+        17
+      ],
+      "final_windows": [
+        18,
+        19,
+        20,
+        21,
+        22,
+        23
+      ],
+      "source_transactions": 885744,
+      "excluded_transactions": 0,
+      "excluded_cross_group_edges": 0,
+      "excluded_warmup_transactions": 0,
+      "partial_last_window": false,
+      "unit": "one account per non-overlapping observation window; inactive account windows absent",
+      "evaluation_scope": "known-account future chronology; new account diagnostics separately reported",
+      "splits": {
+        "train": {
+          "transactions": 444325,
+          "accounts": 20000,
+          "known_train_accounts": 20000,
+          "unseen_train_accounts": 0,
+          "first_timestamp": "2017-01-01T00:00:00+00:00",
+          "last_timestamp": "2017-12-26T00:00:00+00:00",
+          "period_start": "2017-01-01T00:00:00+00:00",
+          "period_end_exclusive": "2017-12-27T00:00:00+00:00"
+        },
+        "validation": {
+          "transactions": 220467,
+          "accounts": 19999,
+          "known_train_accounts": 19999,
+          "unseen_train_accounts": 0,
+          "first_timestamp": "2017-12-27T00:00:00+00:00",
+          "last_timestamp": "2018-06-24T00:00:00+00:00",
+          "period_start": "2017-12-27T00:00:00+00:00",
+          "period_end_exclusive": "2018-06-25T00:00:00+00:00"
+        },
+        "final": {
+          "transactions": 220952,
+          "accounts": 19999,
+          "known_train_accounts": 19999,
+          "unseen_train_accounts": 0,
+          "first_timestamp": "2018-06-25T00:00:00+00:00",
+          "last_timestamp": "2018-12-21T00:00:00+00:00",
+          "period_start": "2018-06-25T00:00:00+00:00",
+          "period_end_exclusive": "2018-12-22T00:00:00+00:00"
+        }
+      }
+    },
+    "fit_uses_targets": false,
+    "selection_uses_validation_labels": true,
+    "no_database_registration_or_promotion": true,
+    "low_amount_cutoff_evaluation_only": 47.83,
+    "validation": {
+      "graph256__auto": {
+        "units": 117105,
+        "positive_units": 245,
+        "tp": 142,
+        "fp": 21863,
+        "fn": 103,
+        "tn": 94997,
+        "precision": 0.006453078845716883,
+        "recall": 0.5795918367346938,
+        "flag_rate": 0.18790828743435378,
+        "average_precision": 0.02046448063963054,
+        "roc_auc": 0.7422167288959054,
+        "low_amount_positive_tp": 0,
+        "low_amount_positive_units": 0,
+        "recipe_tp": {
+          "cycle": 8,
+          "gather_scatter": 87,
+          "scatter_gather": 47
+        },
+        "recipe_positive_units": {
+          "cycle": 14,
+          "gather_scatter": 137,
+          "scatter_gather": 94
+        },
+        "pattern_or_fragment_tp": {
+          "cycle": 2,
+          "gather_scatter": 15,
+          "scatter_gather": 11
+        },
+        "pattern_or_fragment_positive_counts": {
+          "cycle": 3,
+          "gather_scatter": 17,
+          "scatter_gather": 11
+        },
+        "completeness_scope": "Within-split observed pattern/fragment coverage; exact whole-source completeness computed after final freeze only"
+      },
+      "graph256__train_q90": {
+        "units": 117105,
+        "positive_units": 245,
+        "tp": 116,
+        "fp": 12071,
+        "fn": 129,
+        "tn": 104789,
+        "precision": 0.009518339213916469,
+        "recall": 0.47346938775510206,
+        "flag_rate": 0.10406899790786046,
+        "average_precision": 0.02046448063963054,
+        "roc_auc": 0.7422167288959054,
+        "low_amount_positive_tp": 0,
+        "low_amount_positive_units": 0,
+        "recipe_tp": {
+          "cycle": 5,
+          "gather_scatter": 73,
+          "scatter_gather": 38
+        },
+        "recipe_positive_units": {
+          "cycle": 14,
+          "gather_scatter": 137,
+          "scatter_gather": 94
+        },
+        "pattern_or_fragment_tp": {
+          "cycle": 2,
+          "gather_scatter": 15,
+          "scatter_gather": 11
+        },
+        "pattern_or_fragment_positive_counts": {
+          "cycle": 3,
+          "gather_scatter": 17,
+          "scatter_gather": 11
+        },
+        "completeness_scope": "Within-split observed pattern/fragment coverage; exact whole-source completeness computed after final freeze only"
+      },
+      "graph256__train_q95": {
+        "units": 117105,
+        "positive_units": 245,
+        "tp": 82,
+        "fp": 5883,
+        "fn": 163,
+        "tn": 110977,
+        "precision": 0.01374685666387259,
+        "recall": 0.3346938775510204,
+        "flag_rate": 0.05093719311728791,
+        "average_precision": 0.02046448063963054,
+        "roc_auc": 0.7422167288959054,
+        "low_amount_positive_tp": 0,
+        "low_amount_positive_units": 0,
+        "recipe_tp": {
+          "cycle": 3,
+          "gather_scatter": 54,
+          "scatter_gather": 25
+        },
+        "recipe_positive_units": {
+          "cycle": 14,
+          "gather_scatter": 137,
+          "scatter_gather": 94
+        },
+        "pattern_or_fragment_tp": {
+          "cycle": 2,
+          "gather_scatter": 15,
+          "scatter_gather": 11
+        },
+        "pattern_or_fragment_positive_counts": {
+          "cycle": 3,
+          "gather_scatter": 17,
+          "scatter_gather": 11
+        },
+        "completeness_scope": "Within-split observed pattern/fragment coverage; exact whole-source completeness computed after final freeze only"
+      },
+      "graph256__train_q99": {
+        "units": 117105,
+        "positive_units": 245,
+        "tp": 30,
+        "fp": 1180,
+        "fn": 215,
+        "tn": 115680,
+        "precision": 0.024793388429752067,
+        "recall": 0.12244897959183673,
+        "flag_rate": 0.010332607489005594,
+        "average_precision": 0.02046448063963054,
+        "roc_auc": 0.7422167288959054,
+        "low_amount_positive_tp": 0,
+        "low_amount_positive_units": 0,
+        "recipe_tp": {
+          "cycle": 1,
+          "gather_scatter": 20,
+          "scatter_gather": 9
+        },
+        "recipe_positive_units": {
+          "cycle": 14,
+          "gather_scatter": 137,
+          "scatter_gather": 94
+        },
+        "pattern_or_fragment_tp": {
+          "cycle": 1,
+          "gather_scatter": 13,
+          "scatter_gather": 7
+        },
+        "pattern_or_fragment_positive_counts": {
+          "cycle": 3,
+          "gather_scatter": 17,
+          "scatter_gather": 11
+        },
+        "completeness_scope": "Within-split observed pattern/fragment coverage; exact whole-source completeness computed after final freeze only"
+      },
+      "graph2048__auto": {
+        "units": 117105,
+        "positive_units": 245,
+        "tp": 123,
+        "fp": 14682,
+        "fn": 122,
+        "tn": 102178,
+        "precision": 0.008308004052684904,
+        "recall": 0.5020408163265306,
+        "flag_rate": 0.1264250032022544,
+        "average_precision": 0.016881474310479302,
+        "roc_auc": 0.7387424338210382,
+        "low_amount_positive_tp": 0,
+        "low_amount_positive_units": 0,
+        "recipe_tp": {
+          "cycle": 6,
+          "gather_scatter": 76,
+          "scatter_gather": 41
+        },
+        "recipe_positive_units": {
+          "cycle": 14,
+          "gather_scatter": 137,
+          "scatter_gather": 94
+        },
+        "pattern_or_fragment_tp": {
+          "cycle": 2,
+          "gather_scatter": 15,
+          "scatter_gather": 11
+        },
+        "pattern_or_fragment_positive_counts": {
+          "cycle": 3,
+          "gather_scatter": 17,
+          "scatter_gather": 11
+        },
+        "completeness_scope": "Within-split observed pattern/fragment coverage; exact whole-source completeness computed after final freeze only"
+      },
+      "graph2048__train_q90": {
+        "units": 117105,
+        "positive_units": 245,
+        "tp": 118,
+        "fp": 12021,
+        "fn": 127,
+        "tn": 104839,
+        "precision": 0.00972073482164923,
+        "recall": 0.4816326530612245,
+        "flag_rate": 0.10365910934631314,
+        "average_precision": 0.016881474310479302,
+        "roc_auc": 0.7387424338210382,
+        "low_amount_positive_tp": 0,
+        "low_amount_positive_units": 0,
+        "recipe_tp": {
+          "cycle": 5,
+          "gather_scatter": 76,
+          "scatter_gather": 37
+        },
+        "recipe_positive_units": {
+          "cycle": 14,
+          "gather_scatter": 137,
+          "scatter_gather": 94
+        },
+        "pattern_or_fragment_tp": {
+          "cycle": 2,
+          "gather_scatter": 15,
+          "scatter_gather": 11
+        },
+        "pattern_or_fragment_positive_counts": {
+          "cycle": 3,
+          "gather_scatter": 17,
+          "scatter_gather": 11
+        },
+        "completeness_scope": "Within-split observed pattern/fragment coverage; exact whole-source completeness computed after final freeze only"
+      },
+      "graph2048__train_q95": {
+        "units": 117105,
+        "positive_units": 245,
+        "tp": 97,
+        "fp": 5993,
+        "fn": 148,
+        "tn": 110867,
+        "precision": 0.01592775041050903,
+        "recall": 0.39591836734693875,
+        "flag_rate": 0.05200461124631741,
+        "average_precision": 0.016881474310479302,
+        "roc_auc": 0.7387424338210382,
+        "low_amount_positive_tp": 0,
+        "low_amount_positive_units": 0,
+        "recipe_tp": {
+          "cycle": 5,
+          "gather_scatter": 65,
+          "scatter_gather": 27
+        },
+        "recipe_positive_units": {
+          "cycle": 14,
+          "gather_scatter": 137,
+          "scatter_gather": 94
+        },
+        "pattern_or_fragment_tp": {
+          "cycle": 2,
+          "gather_scatter": 15,
+          "scatter_gather": 10
+        },
+        "pattern_or_fragment_positive_counts": {
+          "cycle": 3,
+          "gather_scatter": 17,
+          "scatter_gather": 11
+        },
+        "completeness_scope": "Within-split observed pattern/fragment coverage; exact whole-source completeness computed after final freeze only"
+      },
+      "graph2048__train_q99": {
+        "units": 117105,
+        "positive_units": 245,
+        "tp": 33,
+        "fp": 1217,
+        "fn": 212,
+        "tn": 115643,
+        "precision": 0.0264,
+        "recall": 0.1346938775510204,
+        "flag_rate": 0.010674181290295034,
+        "average_precision": 0.016881474310479302,
+        "roc_auc": 0.7387424338210382,
+        "low_amount_positive_tp": 0,
+        "low_amount_positive_units": 0,
+        "recipe_tp": {
+          "cycle": 2,
+          "gather_scatter": 23,
+          "scatter_gather": 8
+        },
+        "recipe_positive_units": {
+          "cycle": 14,
+          "gather_scatter": 137,
+          "scatter_gather": 94
+        },
+        "pattern_or_fragment_tp": {
+          "cycle": 1,
+          "gather_scatter": 12,
+          "scatter_gather": 6
+        },
+        "pattern_or_fragment_positive_counts": {
+          "cycle": 3,
+          "gather_scatter": 17,
+          "scatter_gather": 11
+        },
+        "completeness_scope": "Within-split observed pattern/fragment coverage; exact whole-source completeness computed after final freeze only"
+      },
+      "peer2048__auto": {
+        "units": 117105,
+        "positive_units": 245,
+        "tp": 118,
+        "fp": 10263,
+        "fn": 127,
+        "tn": 106597,
+        "precision": 0.01136692033522782,
+        "recall": 0.4816326530612245,
+        "flag_rate": 0.0886469407796422,
+        "average_precision": 0.01684409076445255,
+        "roc_auc": 0.7663490064860448,
+        "low_amount_positive_tp": 0,
+        "low_amount_positive_units": 0,
+        "recipe_tp": {
+          "cycle": 6,
+          "gather_scatter": 70,
+          "scatter_gather": 42
+        },
+        "recipe_positive_units": {
+          "cycle": 14,
+          "gather_scatter": 137,
+          "scatter_gather": 94
+        },
+        "pattern_or_fragment_tp": {
+          "cycle": 2,
+          "gather_scatter": 15,
+          "scatter_gather": 11
+        },
+        "pattern_or_fragment_positive_counts": {
+          "cycle": 3,
+          "gather_scatter": 17,
+          "scatter_gather": 11
+        },
+        "completeness_scope": "Within-split observed pattern/fragment coverage; exact whole-source completeness computed after final freeze only"
+      },
+      "peer2048__train_q90": {
+        "units": 117105,
+        "positive_units": 245,
+        "tp": 119,
+        "fp": 10650,
+        "fn": 126,
+        "tn": 106210,
+        "precision": 0.011050236790788374,
+        "recall": 0.4857142857142857,
+        "flag_rate": 0.09196020665214978,
+        "average_precision": 0.01684409076445255,
+        "roc_auc": 0.7663490064860448,
+        "low_amount_positive_tp": 0,
+        "low_amount_positive_units": 0,
+        "recipe_tp": {
+          "cycle": 6,
+          "gather_scatter": 71,
+          "scatter_gather": 42
+        },
+        "recipe_positive_units": {
+          "cycle": 14,
+          "gather_scatter": 137,
+          "scatter_gather": 94
+        },
+        "pattern_or_fragment_tp": {
+          "cycle": 2,
+          "gather_scatter": 15,
+          "scatter_gather": 11
+        },
+        "pattern_or_fragment_positive_counts": {
+          "cycle": 3,
+          "gather_scatter": 17,
+          "scatter_gather": 11
+        },
+        "completeness_scope": "Within-split observed pattern/fragment coverage; exact whole-source completeness computed after final freeze only"
+      },
+      "peer2048__train_q95": {
+        "units": 117105,
+        "positive_units": 245,
+        "tp": 85,
+        "fp": 5833,
+        "fn": 160,
+        "tn": 111027,
+        "precision": 0.014362960459614734,
+        "recall": 0.3469387755102041,
+        "flag_rate": 0.05053584390077281,
+        "average_precision": 0.01684409076445255,
+        "roc_auc": 0.7663490064860448,
+        "low_amount_positive_tp": 0,
+        "low_amount_positive_units": 0,
+        "recipe_tp": {
+          "cycle": 3,
+          "gather_scatter": 52,
+          "scatter_gather": 30
+        },
+        "recipe_positive_units": {
+          "cycle": 14,
+          "gather_scatter": 137,
+          "scatter_gather": 94
+        },
+        "pattern_or_fragment_tp": {
+          "cycle": 2,
+          "gather_scatter": 15,
+          "scatter_gather": 10
+        },
+        "pattern_or_fragment_positive_counts": {
+          "cycle": 3,
+          "gather_scatter": 17,
+          "scatter_gather": 11
+        },
+        "completeness_scope": "Within-split observed pattern/fragment coverage; exact whole-source completeness computed after final freeze only"
+      },
+      "peer2048__train_q99": {
+        "units": 117105,
+        "positive_units": 245,
+        "tp": 31,
+        "fp": 1244,
+        "fn": 214,
+        "tn": 115616,
+        "precision": 0.02431372549019608,
+        "recall": 0.12653061224489795,
+        "flag_rate": 0.010887664916100935,
+        "average_precision": 0.01684409076445255,
+        "roc_auc": 0.7663490064860448,
+        "low_amount_positive_tp": 0,
+        "low_amount_positive_units": 0,
+        "recipe_tp": {
+          "cycle": 0,
+          "gather_scatter": 16,
+          "scatter_gather": 15
+        },
+        "recipe_positive_units": {
+          "cycle": 14,
+          "gather_scatter": 137,
+          "scatter_gather": 94
+        },
+        "pattern_or_fragment_tp": {
+          "cycle": 0,
+          "gather_scatter": 13,
+          "scatter_gather": 9
+        },
+        "pattern_or_fragment_positive_counts": {
+          "cycle": 3,
+          "gather_scatter": 17,
+          "scatter_gather": 11
+        },
+        "completeness_scope": "Within-split observed pattern/fragment coverage; exact whole-source completeness computed after final freeze only"
+      }
+    },
+    "selection": {
+      "reference": "graph256__auto",
+      "selected": "graph256__auto",
+      "eligible": [
+        "graph256__auto"
+      ],
+      "rejected": {
+        "graph256__train_q90": [
+          "overall_true_positive_loss",
+          "recipe_true_positive_loss"
+        ],
+        "graph256__train_q95": [
+          "overall_true_positive_loss",
+          "recipe_true_positive_loss"
+        ],
+        "graph256__train_q99": [
+          "overall_true_positive_loss",
+          "recipe_true_positive_loss",
+          "observed_pattern_or_fragment_loss"
+        ],
+        "graph2048__auto": [
+          "overall_true_positive_loss",
+          "recipe_true_positive_loss"
+        ],
+        "graph2048__train_q90": [
+          "overall_true_positive_loss",
+          "recipe_true_positive_loss"
+        ],
+        "graph2048__train_q95": [
+          "overall_true_positive_loss",
+          "recipe_true_positive_loss",
+          "observed_pattern_or_fragment_loss"
+        ],
+        "graph2048__train_q99": [
+          "overall_true_positive_loss",
+          "recipe_true_positive_loss",
+          "observed_pattern_or_fragment_loss"
+        ],
+        "peer2048__auto": [
+          "overall_true_positive_loss",
+          "recipe_true_positive_loss"
+        ],
+        "peer2048__train_q90": [
+          "overall_true_positive_loss",
+          "recipe_true_positive_loss"
+        ],
+        "peer2048__train_q95": [
+          "overall_true_positive_loss",
+          "recipe_true_positive_loss",
+          "observed_pattern_or_fragment_loss"
+        ],
+        "peer2048__train_q99": [
+          "overall_true_positive_loss",
+          "recipe_true_positive_loss",
+          "observed_pattern_or_fragment_loss"
+        ]
+      },
+      "coverage_floor": 1.0,
+      "guards": [
+        "overall TP >= reference",
+        "low-amount positive TP >= reference",
+        "every observed recipe TP >= reference",
+        "every observed pattern/fragment type detected count >= reference"
+      ],
+      "selection_uses_validation_labels": true,
+      "fit_uses_targets": false,
+      "options": {
+        "graph256__auto": {
+          "model": "graph256",
+          "threshold": 0.5
+        },
+        "graph256__train_q90": {
+          "model": "graph256",
+          "threshold": 0.5292032492072531
+        },
+        "graph256__train_q95": {
+          "model": "graph256",
+          "threshold": 0.5570219376528217
+        },
+        "graph256__train_q99": {
+          "model": "graph256",
+          "threshold": 0.6096539380254566
+        },
+        "graph2048__auto": {
+          "model": "graph2048",
+          "threshold": 0.5
+        },
+        "graph2048__train_q90": {
+          "model": "graph2048",
+          "threshold": 0.5148393362972242
+        },
+        "graph2048__train_q95": {
+          "model": "graph2048",
+          "threshold": 0.5434492345176186
+        },
+        "graph2048__train_q99": {
+          "model": "graph2048",
+          "threshold": 0.605928956731927
+        },
+        "peer2048__auto": {
+          "model": "peer2048",
+          "threshold": 0.5
+        },
+        "peer2048__train_q90": {
+          "model": "peer2048",
+          "threshold": 0.49840739952973195
+        },
+        "peer2048__train_q95": {
+          "model": "peer2048",
+          "threshold": 0.5278079727774629
+        },
+        "peer2048__train_q99": {
+          "model": "peer2048",
+          "threshold": 0.587852558146511
+        }
+      }
+    },
+    "final_started_at": "2026-10-20T13:39:45.736863+00:00",
+    "frozen_at": "2026-10-20T13:39:45.736674+00:00",
+    "frozen_manifest_sha256": "30d355e507ee17983fe4237d9246081598fae5f8cf7afd38021e05189e89bc72",
+    "final": {
+      "graph256__auto": {
+        "account_window": {
+          "units": 117039,
+          "positive_units": 253,
+          "tp": 147,
+          "fp": 21561,
+          "fn": 106,
+          "tn": 95225,
+          "precision": 0.006771697070204533,
+          "recall": 0.5810276679841897,
+          "flag_rate": 0.1854766359931305,
+          "average_precision": 0.01834217289362479,
+          "roc_auc": 0.736928745520082,
+          "low_amount_positive_tp": 0,
+          "low_amount_positive_units": 0,
+          "recipe_tp": {
+            "cycle": 22,
+            "gather_scatter": 90,
+            "scatter_gather": 35
+          },
+          "recipe_positive_units": {
+            "cycle": 38,
+            "gather_scatter": 144,
+            "scatter_gather": 71
+          }
+        },
+        "patterns": {
+          "cycle": {
+            "published_patterns": 20,
+            "observed_patterns_or_fragments": 6,
+            "complete_patterns": 6,
+            "boundary_fragments": 0,
+            "detected_complete_patterns": 6,
+            "complete_pattern_recall": 1.0,
+            "detected_observed_patterns_or_fragments": 6,
+            "observed_fragment_recall": 1.0,
+            "complete_patterns_spanning_multiple_feature_windows": 4
+          },
+          "gather_scatter": {
+            "published_patterns": 50,
+            "observed_patterns_or_fragments": 16,
+            "complete_patterns": 14,
+            "boundary_fragments": 2,
+            "detected_complete_patterns": 14,
+            "complete_pattern_recall": 1.0,
+            "detected_observed_patterns_or_fragments": 16,
+            "observed_fragment_recall": 1.0,
+            "complete_patterns_spanning_multiple_feature_windows": 7
+          },
+          "scatter_gather": {
+            "published_patterns": 30,
+            "observed_patterns_or_fragments": 8,
+            "complete_patterns": 7,
+            "boundary_fragments": 1,
+            "detected_complete_patterns": 7,
+            "complete_pattern_recall": 1.0,
+            "detected_observed_patterns_or_fragments": 7,
+            "observed_fragment_recall": 0.875,
+            "complete_patterns_spanning_multiple_feature_windows": 4
+          }
+        },
+        "account_scope_diagnostics": {
+          "known_train_accounts": {
+            "units": 117039,
+            "positive_units": 253,
+            "tp": 147,
+            "fp": 21561,
+            "fn": 106,
+            "tn": 95225,
+            "precision": 0.006771697070204533,
+            "recall": 0.5810276679841897,
+            "flag_rate": 0.1854766359931305,
+            "average_precision": 0.01834217289362479,
+            "roc_auc": 0.736928745520082
+          },
+          "unseen_train_accounts": {
+            "units": 0,
+            "positive_units": 0,
+            "tp": 0,
+            "fp": 0,
+            "fn": 0,
+            "tn": 0,
+            "precision": null,
+            "recall": null,
+            "flag_rate": null,
+            "average_precision": null,
+            "roc_auc": null
+          }
+        }
+      }
+    },
+    "final_coverage_guards_passed": true,
+    "final_coverage_guards": {
+      "overall_tp": true,
+      "low_amount_tp": true,
+      "per_recipe_tp": true,
+      "complete_pattern_detection": true
+    },
+    "final_retuned": false,
+    "limitations": [
+      "Previously inspected published AMLSim simulation; SAR indicators are simulator labels, not verified financial crime.",
+      "Full-edge chronological evaluation primarily measures future behavior of known accounts, not unseen-account generalization.",
+      "The external archive has no separately stated data licence; the reference repository is Apache-2.0, which does not establish archive licensing.",
+      "Account-window scores are available only at window end; endpoint transaction support is not real-time detection.",
+      "Complete patterns and observed boundary fragments have separate denominators; a detected fragment is not complete-pattern recall.",
+      "Three models fit without labels; validation-based threshold/model selection is label-informed and explicitly not unsupervised evaluation."
+    ],
+    "frozen": {
+      "frozen_at": "2026-10-20T13:39:45.736674+00:00",
+      "files": {
+        "backend/ml_data/aml_network_ibm_amlsim_v21_20261016/raw/README.md": "5bf77a9d74d1399f4e696047571fcc3c47762c1a305b837a0672069a09191b21",
+        "backend/ml_data/aml_network_ibm_amlsim_v21_20261016/raw/paramFiles/bank_mixed/conf.json": "fc75dc0f87a1444831ea83249e9d0985ed0a156522d4cf4079ebf50b7192a0de",
+        "backend/ml_data/aml_network_ibm_amlsim_v21_20261016/raw/paramFiles/bank_mixed/schema.json": "a5b955b0edb164b5b23fa792b035aed70eee87489476869c93ed61e8ee9b49ce",
+        "backend/ml_data/aml_network_ibm_amlsim_v21_20261016/raw/paramFiles/bank_mixed/alertPatterns.csv": "ad3bbe7a62165bf5b87bb59e29592bfbe8aca101ee1314a99dbaf8c37e3e68e9",
+        "backend/ml_data/aml_network_ibm_amlsim_v21_20261016/raw/data/bank_mixed/transactions.csv.gz": "d32cd92994941ae61128a29e1d59ca828ae389d9a90aef962f281d450e676d08",
+        "backend/ml_data/aml_network_ibm_amlsim_v21_20261016/raw/data/bank_mixed/accounts.csv.gz": "c07436098bc13d345d52b9c063dbe08e674adf71b955c95c8907a1e3e54a602f",
+        "backend/ml_data/aml_network_ibm_amlsim_v21_20261016/raw/data/bank_mixed/alert_transactions.csv.gz": "d32d38c93ec32c2fa38f3d55fbb4e8907811e61e3a1a8a438540fd37ef964336",
+        "backend/ml_data/aml_network_ibm_amlsim_v21_20261016/raw/data/bank_mixed/alert_accounts.csv.gz": "a17be41c7db8cfe78a9a28a1d38a48bfa91058bd4a7af72ee0661d473b16cbbb",
+        "backend/ml_data/aml_network_ibm_amlsim_v21_20261016/raw/v2.1.zip": "e36015be8c728dc0acdc437aa7ab494fdc24d3289c0090673b07de31ac12a5fa",
+        "backend/ml_data/aml_network_ibm_amlsim_v21_20261016/raw/repository_LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+        "backend/ml_data/aml_network_ibm_amlsim_v21_20261016/raw/repository_README.md": "3672e53c602026f4fb7ef99218ba07e3a41ecae6d14176c0984bd8e9f2543101",
+        "backend/ml_data/aml_network_ibm_amlsim_v21_20261016/raw/provenance.json": "09c68a9d3e42f3255efe4c93d017efa540470490b0272c354b76dbe5bbf037bb",
+        "backend/app/ml/behavioral/aml_temporal.py": "d40b883fa0788a58190eb732e91f5ca0f8e26853092d5f36f89dd607d9979d89",
+        "backend/app/ml/behavioral/aml_network_benchmark.py": "5c8eb1c81d62a87ce069f6b00b0e0f7892206d819aeb2363a416de927f4cc531",
+        "backend/app/ml/behavioral/model.py": "2853c51580e6ebc563bd5ad14f03ab88c57ff48a523e5ea1cbcf31c5e9429a41",
+        "backend/ml_data/aml_temporal_s20261020/protocol.json": "355c91b60033d7a2856fa626676c70bbc6a44153c6130c466bb5fd242717b8ae",
+        "backend/ml_data/aml_temporal_s20261020/peer_profile.json": "239f81e9ce315c7eefbb43ca2a403cea134dc9bdd4c942d9c0571b5930435794",
+        "backend/ml_data/aml_temporal_s20261020/graph256.json": "007d72b4f28030894065392ff9b86e0e3dde315b480e971763fa8ea06d2ce3d8",
+        "backend/ml_data/aml_temporal_s20261020/graph256_card.json": "90a185967106f38120744b58efd5382b8baad4a42c20ec10c676ac347bcc268e",
+        "backend/ml_data/aml_temporal_s20261020/graph2048.json": "3f6204b378eb218a3dfd4ddba512fed5e0d6076b667216279a3b2ee85704aa4c",
+        "backend/ml_data/aml_temporal_s20261020/graph2048_card.json": "4e582ae41c64ff1f95e489caf172a076c21529e68919cc02a7bd1786ca25d1a5",
+        "backend/ml_data/aml_temporal_s20261020/peer2048.json": "57c4c66ebf857d3fe68d9c8403a32ce242021f9c417bf147d38d3703bd6b9e80",
+        "backend/ml_data/aml_temporal_s20261020/peer2048_card.json": "0abe890fe939685accee76400caa73a15660b96c0cfa95b915818d01b17bf4a6",
+        "backend/ml_data/aml_temporal_s20261020/fitted.json": "99bc5e2b372739bfe0e03de6a42ea4f59f5c622d7c846091818bec34673f9356",
+        "backend/ml_data/aml_temporal_s20261020/validation.json": "41962e24d615dc8c2d26e32f17895522fde66036b163a1f5b14d0efefecab93c",
+        "backend/ml_data/aml_temporal_s20261020/selection.json": "b2ec004377b8cb4e2aa5379028236049a77db70aa354b54339adcd8d888df043"
+      },
+      "final_targets_not_yet_parsed": true
+    }
+  },
+  "fraud": {
+    "completed_at_utc": "2026-10-20T13:41:30.895326+00:00",
+    "final": {
+      "reference": {
+        "candidate": "raw_256__auto",
+        "slices": {
+          "all": {
+            "average_precision": 0.041691564373721714,
+            "flagged": 6053,
+            "fn": 9,
+            "fp": 5987,
+            "positives": 75,
+            "precision": 0.010903684123575086,
+            "recall": 0.88,
+            "rows": 56962,
+            "tn": 50900,
+            "tp": 66
+          },
+          "relative_time_block:0": {
+            "average_precision": 0.05986229395801165,
+            "flagged": 2177,
+            "fn": 3,
+            "fp": 2148,
+            "positives": 32,
+            "precision": 0.0133210840606339,
+            "recall": 0.90625,
+            "rows": 18989,
+            "tn": 16809,
+            "tp": 29
+          },
+          "relative_time_block:1": {
+            "average_precision": 0.07350970803065023,
+            "flagged": 1873,
+            "fn": 3,
+            "fp": 1845,
+            "positives": 31,
+            "precision": 0.014949279231179925,
+            "recall": 0.9032258064516129,
+            "rows": 18990,
+            "tn": 17114,
+            "tp": 28
+          },
+          "relative_time_block:2": {
+            "average_precision": 0.010362307704927905,
+            "flagged": 2003,
+            "fn": 3,
+            "fp": 1994,
+            "positives": 12,
+            "precision": 0.0044932601098352475,
+            "recall": 0.75,
+            "rows": 18983,
+            "tn": 16977,
+            "tp": 9
+          },
+          "small_amount": {
+            "average_precision": 0.0871862946641971,
+            "flagged": 1577,
+            "fn": 2,
+            "fp": 1539,
+            "positives": 40,
+            "precision": 0.024096385542168676,
+            "recall": 0.95,
+            "rows": 15704,
+            "tn": 14125,
+            "tp": 38
+          }
+        },
+        "threshold": 0.5
+      },
+      "selected": {
+        "candidate": "peer_2048__train_q0.95",
+        "slices": {
+          "all": {
+            "average_precision": 0.06527516692438096,
+            "flagged": 3221,
+            "fn": 10,
+            "fp": 3156,
+            "positives": 75,
+            "precision": 0.020180068301769636,
+            "recall": 0.8666666666666667,
+            "rows": 56962,
+            "tn": 53731,
+            "tp": 65
+          },
+          "relative_time_block:0": {
+            "average_precision": 0.0751755929638309,
+            "flagged": 1231,
+            "fn": 3,
+            "fp": 1202,
+            "positives": 32,
+            "precision": 0.023558082859463852,
+            "recall": 0.90625,
+            "rows": 18989,
+            "tn": 17755,
+            "tp": 29
+          },
+          "relative_time_block:1": {
+            "average_precision": 0.10791280497583898,
+            "flagged": 958,
+            "fn": 4,
+            "fp": 931,
+            "positives": 31,
+            "precision": 0.028183716075156576,
+            "recall": 0.8709677419354839,
+            "rows": 18990,
+            "tn": 18028,
+            "tp": 27
+          },
+          "relative_time_block:2": {
+            "average_precision": 0.025821756012098993,
+            "flagged": 1032,
+            "fn": 3,
+            "fp": 1023,
+            "positives": 12,
+            "precision": 0.00872093023255814,
+            "recall": 0.75,
+            "rows": 18983,
+            "tn": 17948,
+            "tp": 9
+          },
+          "small_amount": {
+            "average_precision": 0.2229883010105182,
+            "flagged": 799,
+            "fn": 3,
+            "fp": 762,
+            "positives": 40,
+            "precision": 0.04630788485607009,
+            "recall": 0.925,
+            "rows": 15704,
+            "tn": 14902,
+            "tp": 37
+          }
+        },
+        "threshold": 0.486403008203426
+      }
+    },
+    "final_guard_failures": [
+      "all: fewer reference true positives",
+      "small_amount: fewer reference true positives",
+      "relative_time_block:1: fewer reference true positives"
+    ],
+    "final_labels_first_parsed_at_utc": "2026-10-20T13:41:30.514681+00:00",
+    "final_reference_retention_passes": false,
+    "fit_uses_targets": false,
+    "freeze_precedes_final_labels": true,
+    "frozen": {
+      "files": {
+        "backend/app/ml/behavioral/fraud_public.py": "30302cca7d20a9c1e53f796d97dcf667f38409ffc63268219b4aff664457c790",
+        "backend/app/ml/behavioral/model.py": "2853c51580e6ebc563bd5ad14f03ab88c57ff48a523e5ea1cbcf31c5e9429a41",
+        "backend/ml_data/fraud_public_s20261020/run_integrity_v2/models/peer_2048/model.txt": "c539e781d0719734dd8a7485511e7d19ccf133d0bc6aab543251ddd733c87f70",
+        "backend/ml_data/fraud_public_s20261020/run_integrity_v2/models/peer_2048/model_card.json": "a1a2a5195d14156c6146c239a69e159573430cca24ecd681be71fd9fd942d85d",
+        "backend/ml_data/fraud_public_s20261020/run_integrity_v2/models/raw_2048/model.txt": "c074aca59dbf3691cf6fb69ea00223b24b2bdb402e105d7f8e4a6bf1d2409e87",
+        "backend/ml_data/fraud_public_s20261020/run_integrity_v2/models/raw_2048/model_card.json": "f38769602b2221e888618b7b5b65d96b7e5cde1d454857269b70a85c7275cf4e",
+        "backend/ml_data/fraud_public_s20261020/run_integrity_v2/models/raw_256/model.txt": "22136fbd1b7811ddc3f110a447cc2d154b519e8b24f49b78e5e36798e65f8147",
+        "backend/ml_data/fraud_public_s20261020/run_integrity_v2/models/raw_256/model_card.json": "1cc6ad5b523e83253fa59137fc258114b8143fd742837fbc2f9a752673fd7580",
+        "backend/ml_data/fraud_public_s20261020/run_integrity_v2/peer_profile.json": "8e466c0a13388cbb39118671dce300333ecb9d72cd0ec4b3e96d7a39db4c4876",
+        "backend/ml_data/fraud_public_s20261020/run_integrity_v2/protocol.json": "e1548ee8be8dff8b0202cfaf53290649deb4092bebd46c68a6e93abaff3f8d83",
+        "backend/ml_data/fraud_public_s20261020/run_integrity_v2/selection.json": "2a41cc99780e4f983f7adb0f2243583cdc60cdb9dca3f9f1eeba791d67e99f56",
+        "backend/ml_data/fraud_public_s20261020/run_integrity_v2/validation.json": "25e6ecf04bc0693cd607c485189c97e40c9ef49650831d6b2368d7dacbedd5cd",
+        "backend/ml_data/fraud_public_s20261020/run_integrity_v2/validation_scores.parquet": "a461fa5dcb7a9fdef6a64f4a7acbd0d403fe14def5ea4f62745fe0de23702135",
+        "backend/ml_data/fraud_public_s20261020/source/creditcard_1597_v1.parquet": "b7efcb35a428bbe22347a05d2437d9177bab07ce61e51214a17bec584ad9496d",
+        "backend/ml_data/fraud_public_s20261020/source/openml_1597.json": "fc60f3270694b4238601694e1c777ff278abef800d899168b735c70134976d12"
+      },
+      "frozen_at_utc": "2026-10-20T13:41:30.488573+00:00"
+    },
+    "frozen_manifest_sha256": "53fa0a665bc604408b5378f380d6f39565165290d36c3e5a59d8f3944d43a417",
+    "no_database_registration_or_promotion": true,
+    "protocol": {
+      "all_fits_before_validation_labels": true,
+      "candidates": [
+        {
+          "max_samples": 256,
+          "name": "raw_256",
+          "view": "raw"
+        },
+        {
+          "max_samples": 2048,
+          "name": "raw_2048",
+          "view": "raw"
+        },
+        {
+          "max_samples": 2048,
+          "name": "peer_2048",
+          "view": "peer"
+        }
+      ],
+      "creator_page": "https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud",
+      "currency": "source units unknown; no conversion or USD/EUR assumption",
+      "dataset_id": 1597,
+      "dataset_version": 1,
+      "download_url": "https://data.openml.org/datasets/0000/1597/dataset_1597.pq",
+      "estimators": 100,
+      "excluded": [
+        "Class",
+        "Time",
+        "row index",
+        "absolute date",
+        "account/device/counterparty inventions"
+      ],
+      "feature_names": {
+        "peer": [
+          "V1",
+          "V2",
+          "V3",
+          "V4",
+          "V5",
+          "V6",
+          "V7",
+          "V8",
+          "V9",
+          "V10",
+          "V11",
+          "V12",
+          "V13",
+          "V14",
+          "V15",
+          "V16",
+          "V17",
+          "V18",
+          "V19",
+          "V20",
+          "V21",
+          "V22",
+          "V23",
+          "V24",
+          "V25",
+          "V26",
+          "V27",
+          "V28",
+          "Amount",
+          "peer_distance",
+          "peer_component_excess",
+          "peer_amount_excess"
+        ],
+        "raw": [
+          "V1",
+          "V2",
+          "V3",
+          "V4",
+          "V5",
+          "V6",
+          "V7",
+          "V8",
+          "V9",
+          "V10",
+          "V11",
+          "V12",
+          "V13",
+          "V14",
+          "V15",
+          "V16",
+          "V17",
+          "V18",
+          "V19",
+          "V20",
+          "V21",
+          "V22",
+          "V23",
+          "V24",
+          "V25",
+          "V26",
+          "V27",
+          "V28",
+          "Amount"
+        ]
+      },
+      "fits_use_targets": false,
+      "label_provenance": "Supplied Class fraud labels for real anonymized European-card transactions; not FCIP reviewer decisions or synthetic injections. Independent adjudication is unavailable.",
+      "licence_limitation": "OpenML says Public; exact reusable licence is not established. Raw data stays ignored and is not redistributed.",
+      "licence_metadata_verbatim": "Public",
+      "limitations": [
+        "Public historical benchmark, not unseen production data or fraud-probability calibration.",
+        "No account identity: customer-disjoint splitting and behavioural history are impossible.",
+        "PCA was supplied upstream; its fit population/time scope is unknown and cannot be reconstructed.",
+        "Only two days of relative time; no long-term drift or AML-network claim."
+      ],
+      "metadata_sha256": "fc60f3270694b4238601694e1c777ff278abef800d899168b735c70134976d12",
+      "partition": {
+        "clock": "elapsed seconds since first observation; absolute date/timezone unknown",
+        "row_counts": {
+          "final": 56962,
+          "train": 170888,
+          "validation": 56957
+        },
+        "rule": "Time<=train_upper; train_upper<Time<=validation_upper; Time>validation_upper",
+        "target_used": false,
+        "ties_kept_together": true,
+        "train_upper_inclusive": 120396.0,
+        "validation_upper_inclusive": 145247.0
+      },
+      "peer_fit": "TRAIN-only robust median/IQR scaling of opaque PCA components; MiniBatchKMeans16, n_init5, batch2048, max_iter100; fixed seed. No customer identity claim.",
+      "seed": 20261020,
+      "selection": "precision with TP>=reference in all/small/three relative-time blocks, FP<=reference; fallback allowed",
+      "small_amount_cutoff_train_q25": 5.48,
+      "source_api": "https://www.openml.org/api/v1/json/data/1597",
+      "source_sha256": "b7efcb35a428bbe22347a05d2437d9177bab07ce61e51214a17bec584ad9496d",
+      "started_at_utc": "2026-10-20T13:41:27.284126+00:00",
+      "thresholds": [
+        "auto_0.5",
+        "train_q0.90",
+        "train_q0.95",
+        "train_q0.99"
+      ],
+      "version": "public_creditcard_unsupervised_v1"
+    },
+    "selection": {
+      "excluded": {
+        "peer_2048__auto": [
+          "all: fewer reference true positives",
+          "relative_time_block:1: fewer reference true positives"
+        ],
+        "peer_2048__train_q0.90": [
+          "all: more false positives"
+        ],
+        "peer_2048__train_q0.99": [
+          "all: fewer reference true positives",
+          "small_amount: fewer reference true positives",
+          "relative_time_block:0: fewer reference true positives",
+          "relative_time_block:1: fewer reference true positives",
+          "relative_time_block:2: fewer reference true positives"
+        ],
+        "raw_2048__auto": [
+          "all: fewer reference true positives",
+          "relative_time_block:1: fewer reference true positives"
+        ],
+        "raw_2048__train_q0.90": [
+          "all: more false positives"
+        ],
+        "raw_2048__train_q0.95": [
+          "all: fewer reference true positives",
+          "relative_time_block:1: fewer reference true positives"
+        ],
+        "raw_2048__train_q0.99": [
+          "all: fewer reference true positives",
+          "small_amount: fewer reference true positives",
+          "relative_time_block:0: fewer reference true positives",
+          "relative_time_block:1: fewer reference true positives",
+          "relative_time_block:2: fewer reference true positives"
+        ],
+        "raw_256__train_q0.90": [
+          "all: more false positives"
+        ],
+        "raw_256__train_q0.95": [
+          "all: fewer reference true positives",
+          "relative_time_block:0: fewer reference true positives",
+          "relative_time_block:1: fewer reference true positives"
+        ],
+        "raw_256__train_q0.99": [
+          "all: fewer reference true positives",
+          "small_amount: fewer reference true positives",
+          "relative_time_block:0: fewer reference true positives",
+          "relative_time_block:1: fewer reference true positives",
+          "relative_time_block:2: fewer reference true positives"
+        ]
+      },
+      "improvement_found": true,
+      "reference": "raw_256__auto",
+      "required_reference_tp_retention": 1.0,
+      "selected": "peer_2048__train_q0.95",
+      "slices_guarded": [
+        "all",
+        "small_amount",
+        "relative_time_block:0",
+        "relative_time_block:1",
+        "relative_time_block:2"
+      ],
+      "source": "held-out supplied validation labels only"
+    },
+    "selection_uses_supplied_validation_labels": true,
+    "validation_reference": {
+      "all": {
+        "average_precision": 0.023746272377555538,
+        "flagged": 6989,
+        "fn": 7,
+        "fp": 6939,
+        "positives": 57,
+        "precision": 0.007154099298898269,
+        "recall": 0.8771929824561403,
+        "rows": 56957,
+        "tn": 49961,
+        "tp": 50
+      },
+      "relative_time_block:0": {
+        "average_precision": 0.013088301301076175,
+        "flagged": 2259,
+        "fn": 1,
+        "fp": 2250,
+        "positives": 10,
+        "precision": 0.00398406374501992,
+        "recall": 0.9,
+        "rows": 18986,
+        "tn": 16726,
+        "tp": 9
+      },
+      "relative_time_block:1": {
+        "average_precision": 0.024273225637388436,
+        "flagged": 2278,
+        "fn": 2,
+        "fp": 2256,
+        "positives": 24,
+        "precision": 0.009657594381035996,
+        "recall": 0.9166666666666666,
+        "rows": 18986,
+        "tn": 16706,
+        "tp": 22
+      },
+      "relative_time_block:2": {
+        "average_precision": 0.04521181883340994,
+        "flagged": 2452,
+        "fn": 4,
+        "fp": 2433,
+        "positives": 23,
+        "precision": 0.007748776508972268,
+        "recall": 0.8260869565217391,
+        "rows": 18985,
+        "tn": 16529,
+        "tp": 19
+      },
+      "small_amount": {
+        "average_precision": 0.04061019326255186,
+        "flagged": 1488,
+        "fn": 5,
+        "fp": 1471,
+        "positives": 22,
+        "precision": 0.0114247311827957,
+        "recall": 0.7727272727272727,
+        "rows": 12114,
+        "tn": 10621,
+        "tp": 17
+      }
+    },
+    "validation_selected": {
+      "all": {
+        "average_precision": 0.03309409143100419,
+        "flagged": 3967,
+        "fn": 7,
+        "fp": 3917,
+        "positives": 57,
+        "precision": 0.012603982858583312,
+        "recall": 0.8771929824561403,
+        "rows": 56957,
+        "tn": 52983,
+        "tp": 50
+      },
+      "relative_time_block:0": {
+        "average_precision": 0.022623569527585707,
+        "flagged": 1244,
+        "fn": 1,
+        "fp": 1235,
+        "positives": 10,
+        "precision": 0.007234726688102894,
+        "recall": 0.9,
+        "rows": 18986,
+        "tn": 17741,
+        "tp": 9
+      },
+      "relative_time_block:1": {
+        "average_precision": 0.038109449417778316,
+        "flagged": 1291,
+        "fn": 2,
+        "fp": 1269,
+        "positives": 24,
+        "precision": 0.017041053446940357,
+        "recall": 0.9166666666666666,
+        "rows": 18986,
+        "tn": 17693,
+        "tp": 22
+      },
+      "relative_time_block:2": {
+        "average_precision": 0.050111426767162896,
+        "flagged": 1432,
+        "fn": 4,
+        "fp": 1413,
+        "positives": 23,
+        "precision": 0.013268156424581005,
+        "recall": 0.8260869565217391,
+        "rows": 18985,
+        "tn": 17549,
+        "tp": 19
+      },
+      "small_amount": {
+        "average_precision": 0.08605444706605522,
+        "flagged": 783,
+        "fn": 5,
+        "fp": 766,
+        "positives": 22,
+        "precision": 0.021711366538952746,
+        "recall": 0.7727272727272727,
+        "rows": 12114,
+        "tn": 11326,
+        "tp": 17
+      }
+    },
+    "version": "public_creditcard_unsupervised_v1"
+  },
+  "review_packet": {
+    "version": "blinded_validation_review_v1",
+    "sampled_units": 300,
+    "pending": 300,
+    "completed": 0,
+    "files": {
+      "protocol.json": "efbfabb3b87c4765a765935900ede543255cb32f678a8d9268e7d43028c76396",
+      "packet.jsonl": "20becb4bf16f0ad37a1780eac4ff72957bffc183478c1191521abfa4584eb1cd",
+      "annotations_template.csv": "c01c043c09dd0b4ffb277e7417a57ed73ec1744712b04519eb8f4513029c13cf",
+      "sealed_mapping.csv": "3acd52e027fa97fe2a3a3a64a3f293d276ccb1ad90f973837599d5e4b35f19a5",
+      "sealed_population.parquet": "49d0d6dc9e2a29b824ce883cb5abf9bbf455634850d8e7d7e73734535dcb1c5b",
+      "REVIEW_INSTRUCTIONS.md": "e56566688eebc80faa6238873cf8c43c726d39a19e2b4463bc78496d89b1f6c3"
+    },
+    "input_sha256": {
+      "source": "c4c44ae11496e31f6dea5126322463af719c0f175c6c2f7f0abbc15f96575b2a",
+      "frozen_manifest": "75c3cc7ebec8ef77f8f5578d1eb2fbfd13b2b3c5c2da87b7f7970c430537fe69",
+      "AML_model": "e24790a38a575d04994306c7674b56573af804b5e074fbc38d59fb0ddfddc38d",
+      "AML_card": "0c5af1ca20264d18d9621cadd5f1b1bc328525d07f091815b06b39d7a4b0848c",
+      "FRAUD_model": "f0f33f88a8d68a83db3626cc4e0bfd1e6cf5b2d9459d5279b5d1fa68171763c6",
+      "FRAUD_card": "8d1eb37acd48d7cb611e7190226a2118dcaea5b399864cae05580dcb88d9306d"
+    },
+    "code_sha256": "32d0f332d479c0eff3b5e8c5aa4a371252bc643c01493ac2925b446c6ab4434e",
+    "caveat": "Reviewer agreement concerns visible anomalies, not verified fraud, money laundering, or production accuracy. Unreviewed and insufficient-evidence cases are unresolved, never normal labels. This validation population has already been used in research; it is not a new final holdout."
+  },
+  "review_ui": {
+    "version": "offline_blinded_review_html_v1",
+    "cases": 300,
+    "completed_reviews": 0,
+    "packet_manifest_sha256": "48e880ac5abad447d3acc0b71e34b8eb3e9cb45cf7fd631c2d5db15ae2f004df",
+    "visible_input_sha256": {
+      "packet.jsonl": "20becb4bf16f0ad37a1780eac4ff72957bffc183478c1191521abfa4584eb1cd",
+      "annotations_template.csv": "c01c043c09dd0b4ffb277e7417a57ed73ec1744712b04519eb8f4513029c13cf"
+    },
+    "code_sha256": "4d377bf1beeaa2aa163d3223309266b08344637c7d2c09fb3f04150030ef318e",
+    "review_html_sha256": "e9edbc58c2dfef02bd81f978cda43b9bd879b5a217acd6837efbd47abaaebe57",
+    "data_scope": "Reviewer-visible cases and blank annotation template only; no sealed score, flag, stratum or population mapping embedded.",
+    "network": "None; external assets and connections blocked by CSP.",
+    "persistence": "Tab memory only; CSV export requires a user click. Closing or reloading loses in-tab annotations.",
+    "label_scope": "Human observational anomaly review only; no verified fraud or money-laundering targets. All cases initially PENDING/UNKNOWN."
+  },
+  "verification": {
+    "new_tests": 95,
+    "related_existing_tests": 159,
+    "full_app_database_suite_rerun": false,
+    "frontend_build_rerun": false,
+    "human_reviews_completed": 0,
+    "focused_total_passed": 254
+  }
+}

@@ -7,7 +7,16 @@ stage: entity resolution, risk scoring, watchlist/PEP screening, graph
 investigation, AI narrative, maker-checker approval, dashboards, and
 additional detection patterns — these come in later iterations.
 
-## Current data and ML workflow — 16 October 2026
+## Current data and ML workflow — 20 October 2026
+
+**Latest precision stage:** the [20 October report](docs/ml/precision_20261020.md)
+preserves whole AML networks, runs a separate public FRAUD benchmark and
+prepares 300 blinded cases in an offline reviewer page. Matched FRAUD precision
+rises **1.09% → 2.02%**, with one extra miss, so the strict final guard fails.
+AML account-window precision remains **0.677%**; complete-pattern hit counts
+do not establish useful precision. All research stays DRAFT; human reviews
+are PENDING. **254 focused ML checks pass.** Existing app/demo models and data
+remain unchanged; current research is not automatically compatible with serving.
 
 **Latest follow-up:** the [source-cadence robustness report](docs/ml/robustness_20261016.md)
 records the validation audit, repaired generator, six unsupervised fits,

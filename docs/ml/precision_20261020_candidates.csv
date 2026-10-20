@@ -1,0 +1,25 @@
+source,option,tp,fp,fn,tn,precision,recall,selected,eligible,exclusion
+AMLSim,graph256__auto,142,21863,103,94997,0.006453078845716883,0.5795918367346938,True,True,
+AMLSim,graph256__train_q90,116,12071,129,104789,0.009518339213916469,0.47346938775510206,False,False,"overall_true_positive_loss,recipe_true_positive_loss"
+AMLSim,graph256__train_q95,82,5883,163,110977,0.01374685666387259,0.3346938775510204,False,False,"overall_true_positive_loss,recipe_true_positive_loss"
+AMLSim,graph256__train_q99,30,1180,215,115680,0.024793388429752067,0.12244897959183673,False,False,"overall_true_positive_loss,recipe_true_positive_loss,observed_pattern_or_fragment_loss"
+AMLSim,graph2048__auto,123,14682,122,102178,0.008308004052684904,0.5020408163265306,False,False,"overall_true_positive_loss,recipe_true_positive_loss"
+AMLSim,graph2048__train_q90,118,12021,127,104839,0.00972073482164923,0.4816326530612245,False,False,"overall_true_positive_loss,recipe_true_positive_loss"
+AMLSim,graph2048__train_q95,97,5993,148,110867,0.01592775041050903,0.39591836734693875,False,False,"overall_true_positive_loss,recipe_true_positive_loss,observed_pattern_or_fragment_loss"
+AMLSim,graph2048__train_q99,33,1217,212,115643,0.0264,0.1346938775510204,False,False,"overall_true_positive_loss,recipe_true_positive_loss,observed_pattern_or_fragment_loss"
+AMLSim,peer2048__auto,118,10263,127,106597,0.01136692033522782,0.4816326530612245,False,False,"overall_true_positive_loss,recipe_true_positive_loss"
+AMLSim,peer2048__train_q90,119,10650,126,106210,0.011050236790788374,0.4857142857142857,False,False,"overall_true_positive_loss,recipe_true_positive_loss"
+AMLSim,peer2048__train_q95,85,5833,160,111027,0.014362960459614734,0.3469387755102041,False,False,"overall_true_positive_loss,recipe_true_positive_loss,observed_pattern_or_fragment_loss"
+AMLSim,peer2048__train_q99,31,1244,214,115616,0.02431372549019608,0.12653061224489795,False,False,"overall_true_positive_loss,recipe_true_positive_loss,observed_pattern_or_fragment_loss"
+OpenML1597,peer_2048__auto,49,2823,8,54077,0.017061281337047353,0.8596491228070176,False,False,"all: fewer reference true positives,relative_time_block:1: fewer reference true positives"
+OpenML1597,peer_2048__train_q0.90,54,8824,3,48076,0.006082451002478036,0.9473684210526315,False,False,all: more false positives
+OpenML1597,peer_2048__train_q0.95,50,3917,7,52983,0.012603982858583312,0.8771929824561403,True,True,
+OpenML1597,peer_2048__train_q0.99,32,683,25,56217,0.044755244755244755,0.5614035087719298,False,False,"all: fewer reference true positives,small_amount: fewer reference true positives,relative_time_block:0: fewer reference true positives,relative_time_block:1: fewer reference true positives,relative_time_block:2: fewer reference true positives"
+OpenML1597,raw_2048__auto,46,2936,11,53964,0.015425888665325285,0.8070175438596491,False,False,"all: fewer reference true positives,relative_time_block:1: fewer reference true positives"
+OpenML1597,raw_2048__train_q0.90,54,8467,3,48433,0.006337284356296209,0.9473684210526315,False,False,all: more false positives
+OpenML1597,raw_2048__train_q0.95,49,3766,8,53134,0.012844036697247707,0.8596491228070176,False,False,"all: fewer reference true positives,relative_time_block:1: fewer reference true positives"
+OpenML1597,raw_2048__train_q0.99,25,737,32,56163,0.03280839895013123,0.43859649122807015,False,False,"all: fewer reference true positives,small_amount: fewer reference true positives,relative_time_block:0: fewer reference true positives,relative_time_block:1: fewer reference true positives,relative_time_block:2: fewer reference true positives"
+OpenML1597,raw_256__auto,50,6939,7,49961,0.007154099298898269,0.8771929824561403,False,True,
+OpenML1597,raw_256__train_q0.90,51,7769,6,49131,0.006521739130434782,0.8947368421052632,False,False,all: more false positives
+OpenML1597,raw_256__train_q0.95,45,3659,12,53241,0.01214902807775378,0.7894736842105263,False,False,"all: fewer reference true positives,relative_time_block:0: fewer reference true positives,relative_time_block:1: fewer reference true positives"
+OpenML1597,raw_256__train_q0.99,20,685,37,56215,0.028368794326241134,0.3508771929824561,False,False,"all: fewer reference true positives,small_amount: fewer reference true positives,relative_time_block:0: fewer reference true positives,relative_time_block:1: fewer reference true positives,relative_time_block:2: fewer reference true positives"

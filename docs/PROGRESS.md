@@ -1,6 +1,6 @@
 # FCIP — Progress Status
 
-**As of 16 October 2026 · Week 6 of 16 · ~17% of MVP scope** (scope percentage last recounted 29 Sep; not a new scope estimate or model-quality claim)
+**As of 20 October 2026 · ~17% of MVP scope** (scope percentage last recounted 29 Sep; not a new scope estimate or model-quality claim)
 
 Supersedes any earlier progress figure. Scope definitions, architecture and open
 questions are unchanged — see `PROJECT_CONTEXT.md`.
@@ -59,6 +59,19 @@ Partial: FR-306, FR-309, FR-310, FR-1103, FR-808, FR-612.
 ---
 
 ## Built since the last progress report
+
+### 20 October — full-network benchmarks and human-review readiness
+
+AML retains all 885,744 edges and evaluates 27 complete scenarios, but account-window
+precision remains 0.677%. A separate public FRAUD benchmark raises matched final
+precision 1.09%→2.02% while missing one extra positive (66→65); strict coverage
+fails, including low amounts. Six forests fit without targets; no final retuning.
+A blinded offline page and import workflow prepare 300 cases; all are PENDING.
+**254 focused checks pass**, 95 new; historical 52/35/17 protected hashes match.
+**Own decisions:** AS-11 records public-source/peer/chronology choices, strict
+guards, disclosed integrity corrections and unknown human/crime outcomes.
+**Capstone:** Evaluasi dan alat review siap; peningkatan precision belum memenuhi
+syarat recall dan semua model tetap DRAFT. [Evidence](ml/precision_20261020.md).
 
 ### 16 October — source-cadence repair and recall-preserving follow-up
 

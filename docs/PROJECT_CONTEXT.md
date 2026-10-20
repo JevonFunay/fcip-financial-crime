@@ -4,10 +4,10 @@
 Intelligence Platform capstone: what the project is, what the spec demands, what
 is actually built, what is deliberately not built, and what is still undecided.
 
-Last updated: **16 October 2026** · Week 6 of 16 · ~17% of MVP scope
+Last updated: **20 October 2026** · ~17% of MVP scope
 (scope percentage last recounted 29 September)
 
-**Current handoff:** §14–16 and [ML_DATA_ENGINE.md](ML_DATA_ENGINE.md) supersede
+**Current handoff:** §14–17 and [ML_DATA_ENGINE.md](ML_DATA_ENGINE.md) supersede
 the old dataset/training instructions below. The USD pipeline is unsupervised;
 the initial replacement verified 1,400,000 generated rows and an actual
 200,000-row upload (§14). The new offline follow-up creates another 1,400,000
@@ -18,6 +18,12 @@ but loses AML coverage (§15). The subsequent source-cadence follow-up (§16)
 finds no alternative retaining coverage/workload, so both units fall back to
 the reference; synthetic precision remains poor. All candidates stay DRAFT.
 Do not read the historical supervised results as current quality.
+
+The 20 October follow-up (§17) retains full AML graphs, evaluates a separate
+public FRAUD source and prepares 300 blinded human-review cases. FRAUD precision
+improves against its matched reference but loses one additional positive and
+fails the strict final guard. AML quality remains poor; reviews are all PENDING.
+All new models remain offline DRAFT.
 
 ---
 
@@ -612,6 +618,39 @@ its published labels describe simulator SARs, not proven laundering. Report
 licence/provenance, account/time exclusions and pattern retention. Its graph
 is never merged into the Kaggle observations. This authorisation does not
 approve deployment, model registration, changes to P02 or CF-05 activation.
+
+**AS-11 — approved precision experiments and review readiness (20 Oct):**
+Jevon approved the proposed benchmark repair, distinguishing evidence, peer
+comparisons and recall-constrained threshold selection. Keep the observationally
+equivalent generator controls and historical evidence unchanged; extra dummy
+copies cannot reveal missing intent. Use the full published AMLSim network in
+12/6/6 chronological 30-day windows with known-account scope, not account-edge
+removal. Compare graph IF256/2048 and a TRAIN-only activity-quartile peer view;
+disclose absent low-amount SAR positives and complete-pattern versus fragment
+denominators. Complete hits are any endpoint flag at window end.
+
+For an independent FRAUD arm, use OpenML 1597 v1's explicit numeric adapter,
+opaque V1–V28 and Amount. Currency remains unknown source units; the prior USD
+confirmation belongs to the original bank dataset. Preserve whole Time ties
+in 60/20/20 chronological row targets; exclude Time/Class/IDs from predictors.
+Compare raw IF256/2048 and a TRAIN-only 16-cluster PCA peer view, without claiming
+customer identity or upstream PCA isolation. Six forests use 100 trees and
+fixed 0.5/TRAIN q90/q95/q99 options. These numbers, peer floors and grouping
+choices are research parameters, not FRD operating points or mentor approval.
+Validation labels can select after all unsupervised fits; no final retuning.
+The original final FP-cap omission and FRAUD integrity reproduction are
+disclosed in §17, with unchanged selection/scores verified rather than
+misrepresenting a new independent final.
+
+Create a 300-case stratified blinded review packet (150 per unit), including
+flagged/nonflagged and low/other-amount observations from source validation.
+Keep actual human judgements PENDING until supplied; observed NORMAL/ANOMALOUS
+is not confirmed legitimacy/crime. Missing/insufficient review remains unresolved,
+not a zero label. Sampling-weighted anomaly agreement is distinct from fraud
+precision. An offline HTML view and immutable CSV import do not modify live
+alert dispositions. Review blinding is logical file separation, not encryption.
+All source licensing/clock/identity limitations persist; no promotion or CF-05
+change follows from this approval.
 
 ### TRD §1.5 — conflicts still open
 
@@ -1607,3 +1646,66 @@ local under ignored ml_data/ml_models roots; tracked evidence is aggregated.
 recall-preserving fallback, unchanged old evidence, and graph partition limits.
 **Capstone:** Evaluasi lebih ketat dan data lebih sesuai sumber, tetapi belum
 ada model yang memenuhi peningkatan kualitas; semua kandidat tetap DRAFT.
+
+---
+
+## 17. Precision experiments and human-review readiness — 20 October 2026
+
+[Report](ml/precision_20261020.md), [aggregated results/hashes](ml/precision_20261020.json)
+and [24 validation options](ml/precision_20261020_candidates.csv) record this stage.
+Six forests fit without targets; validation labels select candidates. No final
+retuning, app/DB write, registration, promotion or CF-05 change occurs.
+
+**AML:** All 885,744 supplied directed edges are retained in 12/6/6 chronological
+30-day windows (444,325/220,467/220,952 transactions). This fixes the earlier
+edge-cutting benchmark; all 19,999 final accounts were seen in TRAIN, so it is
+known-account future evaluation. Only the reference retains validation coverage.
+Final 117,039 account-windows: TP147 / FP21,561 / FN106 / TN95,225;
+precision 0.677%, recall 58.10%. Complete pattern hits are 6/6 cycles, 14/14 gather-
+scatter and 7/7 scatter-gather, meaning any endpoint flag at window end, not all
+SAR edges caught or immediate interception. Uniform random flags at the same
+workload expect 21.97/27 pattern hits; high pattern recall does not fix low
+precision. Three boundary fragments are separate. There are zero low-amount
+SAR positives at TRAIN q25 USD 47.83; that effectiveness remains unassessed.
+
+The frozen selector omitted an explicit FP cap. A disclosed additive
+post-freeze validation-only audit proves all 12 options already satisfy it;
+eligibility/winner are unchanged. Frozen code remains intact; the audit does
+not fit models or read new targets. All 26 protected hashes match.
+
+**FRAUD:** Independent OpenML 1597 v1 supplies 284,807 published anonymized card
+observations, opaque PCA components and supplied Class labels. Exact currency,
+customer independence and upstream PCA fit scope are unknown. Metadata says
+licence `Public` without a verified precise grant; raw data remains ignored.
+The chronological 170,888/56,957/56,962 split preserves Time ties; Time and Class
+are not predictors. Raw IF256/2048 and TRAIN-only population-peer IF2048 are
+compared; no customer identities or fraud typologies are invented.
+
+The selected peer model improves final precision 1.090%→2.018% and reduces FP
+5,987→3,156, but TP66→65 and recall 88%→86.67%; low-amount TP38→37 at 5.48 unknown
+source units also fails. Thus strict final coverage fails and all remain DRAFT.
+An integrity-only reproduction corrects missing early model/card hashes,
+explicitly reusing the same final. Model/profile/score bytes, selection and
+metrics are identical; no changed fitting or threshold choice is hidden.
+Initial code is archived and matches its original hash; its live module path
+is superseded. The authoritative run verifies 15 files plus its frozen manifest.
+
+**Review:** 300 blinded source-validation cases (150/unit; 74 flags + 76 nonflags per
+unit), with inclusion probabilities, unresolved handling and UNKNOWN crime
+outcomes. The offline HTML viewer exports the exact annotation CSV schema.
+All 300 remain PENDING; anomaly-agreement and crime precision are unavailable.
+Logical sealed-file separation is not encryption; no score/flag/stratum enters
+the reviewer HTML. Day/minute precision and complete prior boundary ties remain
+visible. Human labels must come from actual review, never model predictions.
+
+**254 focused tests pass**, 95 new. Independent cross-reviews verify chronology,
+metrics, blinding, exact score parity, both disclosed integrity corrections,
+and historical 52/35/17 protected hashes. No full DB-backed app suite/frontend
+build or visual browser QA is claimed; actual JavaScript and 300-row CSV import
+round trip pass. Reproduce only in fresh ignored roots.
+
+**Own decisions:** AS-11 covers temporal/public-source adapters, TRAIN-only peers,
+strict recall guard, honest unknown outcomes and an offline reviewer workflow.
+**Capstone:** Pipeline evaluasi dan alat review selesai, tetapi peningkatan
+precision belum menjaga seluruh cakupan final; model tetap DRAFT dan review
+manusia masih menunggu 300 penilaian.
