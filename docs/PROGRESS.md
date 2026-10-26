@@ -60,6 +60,45 @@ Partial: FR-306, FR-309, FR-310, FR-1103, FR-808, FR-612.
 
 ## Built since the last progress report
 
+### 27 October — Foundation & End-to-End Investigation Chain (GATE 3 Unblocked)
+
+Completed the 5 missing core RBAC roles, alert assignment, complete case lifecycle,
+insert-only evidence repository, and maker-checker closure flow, unblocking GATE 3:
+- **RBAC Roles (FR-1103, FRD §4.1):** Added `ROLE_SENIOR_INVESTIGATOR`, `ROLE_MLRO`,
+  `ROLE_AUDITOR`, `ROLE_MANAGEMENT`, `ROLE_ADMIN` across backend enum, migration 0010,
+  frontend types, and seed logins. All 9 personas now exist.
+- **Alert Assignment (FR-603):** `POST /alerts/{id}/assign` allows assigning alerts to
+  investigators/analysts with audit trail logging.
+- **Case Lifecycle & Queue (FR-804, FR-808):** Paged filterable case queue (`GET /cases`),
+  `POST /cases/{id}/start` (`OPEN` → `IN_PROGRESS`), and case assignment (`POST /cases/{id}/assign`).
+- **Evidence Management (FR-708, FR-811–813):** `evidence` table with database-enforced
+  immutability trigger, SHA-256 content hashing, `POST /cases/{id}/evidence` upload,
+  and `GET /cases/{id}/evidence`. Closed-case mutation is strictly rejected.
+- **Maker-Checker Case Decisions (FR-814–816):** Four-eyes segregation of duties enforced.
+  Maker submits closure with substantive reason (`POST /cases/{id}/submit-closure` → `PENDING_CLOSURE`).
+  Checker (Senior Investigator / MLRO) approves (`POST /cases/{id}/approve-closure` → `CLOSED`)
+  or rejects with feedback (`POST /cases/{id}/reject-closure` → `IN_PROGRESS`). Self-approval
+  is rejected.
+- **Rules API & Simulation (FR-301–303):** Mounted rules router (`GET /rules`, `GET /rules/{ref}`,
+  `POST /rules/{ref}/versions/{v}/simulate`) with constraint handling.
+
+**Verification:** All 735 regular backend tests pass (`pytest -m "not slow"` in docker: 735 passed,
+8 skipped, 5 deselected, 0 failed). Frontend production build and TypeScript check pass (`npm run build`).
+
+**Own decisions:**
+1. Stored evidence URI using internal reference scheme `evidence://{case_id}/{sha256}` pending MinIO wiring.
+2. Minimum 10 characters required for case closure and rejection reasons.
+3. Maker cannot approve their own case closure (enforced in application layer and audit log).
+4. Alert assignment restricted to roles with analytical/investigative scope.
+
+**Ringkasan capstone (Indonesia):**
+Pada 27 Oktober 2026, fondasi investigasi dan alur maker-checker diselesaikan. Lima role
+tersisa (Admin, MLRO, Auditor, Management, Senior Investigator) ditambahkan ke database,
+backend, dan frontend. Antrean case, transisi lifecycle, penugasan alert/case, serta upload
+evidence dengan hash SHA-256 yang immutable telah aktif. Alur persetujuan penutupan case
+menerapkan prinsip four-eyes (pembuat rekomendasi tidak dapat menyetujui sendiri). Sebanyak
+735 tes backend dan build frontend berhasil tanpa kesalahan, membuka pencapaian GATE 3.
+
 ### 20 October — full-network benchmarks and human-review readiness
 
 AML retains all 885,744 edges and evaluates 27 complete scenarios, but account-window

@@ -6,6 +6,7 @@ from sqlalchemy import select
 from app.models.audit_log import AuditLog
 from app.models.enums import AlertStatus, UserRole
 from app.models.transaction import Transaction
+from app.models.user import User
 
 VALID_REASON = "Pattern matches known payroll batching, confirmed with branch."
 ALL_ROLES = list(UserRole)
@@ -213,3 +214,30 @@ def test_alert_can_only_be_disposed_once(client, db, auth_headers, sample_alerts
 
 def test_dispose_unknown_alert_is_404(client, auth_headers):
     assert _dispose(client, auth_headers(UserRole.ROLE_TRIAGE), uuid.uuid4()).status_code == 404
+
+
+# --- POST /alerts/{id}/assign (FR-603) ---------------------------------------------------
+
+
+def test_assign_alert_to_investigator(client, db, auth_headers, sample_alerts):
+    alert = sample_alerts["CUST-001"]
+    inv = User(
+        email="inv-alert-test@example.com",
+        hashed_password="hash",
+        full_name="Investigator Test",
+        role=UserRole.ROLE_INVESTIGATOR,
+    )
+    db.add(inv)
+    db.commit()
+
+    res = client.post(
+        f"/alerts/{alert.id}/assign",
+        headers=auth_headers(UserRole.ROLE_TRIAGE),
+        json={"assignee_id": str(inv.id)},
+    )
+    assert res.status_code == 200
+    assert res.json()["assigned_to"] == str(inv.id)
+
+    db.refresh(alert)
+    assert alert.assigned_to == inv.id
+

@@ -4,6 +4,7 @@ from app.models.audit_log import AuditLog
 from app.models.case import Case
 from app.models.customer import Customer
 from app.models.device import Device
+from app.models.evidence import Evidence
 from app.models.ingestion_batch import IngestionBatch
 from app.models.merchant import Merchant
 from app.models.ml import MlScore, ModelVersion
@@ -22,6 +23,7 @@ __all__ = [
     "Case",
     "Customer",
     "Device",
+    "Evidence",
     "IngestionBatch",
     "Merchant",
     "MlScore",

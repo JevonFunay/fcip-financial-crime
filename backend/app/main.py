@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import get_settings
-from app.routers import alerts, audit, auth, cases, detection, ingestion, ml, overview, transactions
+from app.routers import alerts, audit, auth, cases, detection, evidence, ingestion, ml, overview, rules, transactions
 
 app = FastAPI(title="Financial Crime Intelligence Platform API")
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
@@ -14,6 +14,8 @@ app.include_router(detection.router, prefix="/detection", tags=["detection"])
 app.include_router(ml.router, prefix="/ml", tags=["ml"])
 app.include_router(alerts.router, prefix="/alerts", tags=["alerts"])
 app.include_router(cases.router, prefix="/cases", tags=["cases"])
+app.include_router(evidence.router, prefix="/cases", tags=["evidence"])
+app.include_router(rules.router, prefix="/rules", tags=["rules"])
 
 # The Vite dev server runs on a different origin than the API, so the browser
 # needs an explicit CORS allow (CORS_ORIGINS in .env).

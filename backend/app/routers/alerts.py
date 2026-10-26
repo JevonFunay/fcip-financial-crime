@@ -15,6 +15,7 @@ from app.models.rule import Rule, RuleVersion
 from app.models.transaction import Transaction
 from app.models.user import User
 from app.schemas.alert import (
+    AlertAssignRequest,
     AlertDetail,
     AlertListResponse,
     AlertRule,
@@ -46,6 +47,7 @@ def _summary(alert: Alert, customer: Customer, model_score: float | None = None)
         customer_name=customer.full_name,
         reason=alert.reason,
         case_id=alert.case_id,
+        assigned_to=alert.assigned_to,
         created_at=alert.created_at,
         model_score=model_score,
     )
@@ -180,3 +182,52 @@ def dispose_alert(
     )
     db.commit()
     return _detail(db, alert.id)
+
+
+@router.post("/{alert_id}/assign", response_model=AlertDetail)
+def assign_alert(
+    alert_id: uuid.UUID,
+    payload: AlertAssignRequest,
+    user: User = Depends(
+        require_role(
+            UserRole.ROLE_TRIAGE,
+            UserRole.ROLE_SENIOR_INVESTIGATOR,
+            UserRole.ROLE_MLRO,
+            UserRole.ROLE_ADMIN,
+        )
+    ),
+    db: Session = Depends(get_db),
+) -> AlertDetail:
+    """FR-603: assign an alert to an investigator for investigation."""
+    alert = db.get(Alert, alert_id)
+    if alert is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Alert not found")
+    assignee = db.get(User, payload.assignee_id)
+    if assignee is None or not assignee.is_active:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Assignee not found")
+    allowed_assignee_roles = {
+        UserRole.ROLE_INVESTIGATOR,
+        UserRole.ROLE_SENIOR_INVESTIGATOR,
+        UserRole.ROLE_ANALYST,
+    }
+    if assignee.role not in allowed_assignee_roles:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            f"Cannot assign to role {assignee.role.value}",
+        )
+    alert.assigned_to = assignee.id
+    record_transition(
+        db,
+        correlation_id=alert.correlation_id,
+        actor=user,
+        object_type=OBJECT_ALERT,
+        object_id=alert.id,
+        from_state=alert.status.value,
+        to_state=alert.status.value,
+        action="ALERT_ASSIGNED",
+        reason=f"Assigned to {assignee.email}",
+        details={"assignee_id": str(assignee.id), "assignee_email": assignee.email},
+    )
+    db.commit()
+    return _detail(db, alert.id)
+

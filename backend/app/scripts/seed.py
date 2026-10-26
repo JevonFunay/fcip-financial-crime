@@ -3,7 +3,7 @@
 Run via: docker compose exec backend python -m app.scripts.seed
 Users only: docker compose exec backend python -m app.scripts.seed --users-only
 """
-
+import os
 import argparse
 from datetime import date
 
@@ -16,6 +16,8 @@ from app.models.customer import Customer
 from app.models.enums import EntityType, UserRole
 from app.models.user import User
 
+print("DATABASE_URL YANG DIBACA:", os.getenv("DATABASE_URL"))
+
 DEV_PASSWORD = "DevPassword123!"
 
 SEED_USERS = [
@@ -23,6 +25,11 @@ SEED_USERS = [
     ("analyst@fcip.internal", "Analyst User", UserRole.ROLE_ANALYST),
     ("triage@fcip.internal", "Triage User", UserRole.ROLE_TRIAGE),
     ("investigator@fcip.internal", "Investigator User", UserRole.ROLE_INVESTIGATOR),
+    ("senior-investigator@fcip.internal", "Senior Investigator User", UserRole.ROLE_SENIOR_INVESTIGATOR),
+    ("mlro@fcip.internal", "MLRO User", UserRole.ROLE_MLRO),
+    ("auditor@fcip.internal", "Auditor User", UserRole.ROLE_AUDITOR),
+    ("management@fcip.internal", "Management User", UserRole.ROLE_MANAGEMENT),
+    ("admin@fcip.internal", "Admin User", UserRole.ROLE_ADMIN),
 ]
 
 # customer_ref, full_name, entity_type, id_number, date_of_birth, country

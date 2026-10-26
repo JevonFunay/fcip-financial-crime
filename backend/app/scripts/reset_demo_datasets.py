@@ -19,7 +19,7 @@ from sqlalchemy.engine import make_url
 
 from app.config import Settings
 
-DATA_TABLES = ("alert_transaction", "case", "alert", "ml_score", "transaction", "processing_log",
+DATA_TABLES = ("evidence", "alert_transaction", "case", "alert", "ml_score", "transaction", "processing_log",
                "quarantine_item", "ingestion_batch", "account", "merchant", "device", "customer")
 KNOWN_DEMOS = {"fcip", "fcip_demo_s20261007"}
 KEPT_TABLES = ("users", "sessions", "audit_log", "model_version", "rule", "rule_version", "simulation_result")
