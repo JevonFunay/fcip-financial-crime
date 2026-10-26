@@ -22,19 +22,23 @@ def list_models(db: Session = Depends(get_db)) -> list[ModelVersionOut]:
         card = version.model_card
         gbm = card.get("validation", {}).get("gbm", {})
         behavioral = version.artefact_type == "ISOLATION_FOREST_JSON"
+        # Model lab drafts carry their own card shape (app/services/lab.py).
+        lab = version.artefact_type.startswith("LAB_")
+        own_card = behavioral or lab
         out.append(ModelVersionOut(
             id=version.id, version=version.version, unit=version.unit, state=version.state,
             artefact_type=version.artefact_type, definition_hash=version.definition_hash,
             feature_set_version=version.feature_set_version, threshold=version.threshold,
-            trained_on=(card.get("training_data", {}) if behavioral else
+            trained_on=(card.get("training_data", {}) if own_card else
                         {k: card.get("training_data", {}).get(k) for k in ("generator_version", "profile", "seed")}),
-            validation=(card.get("validation", {}) if behavioral else
+            validation=(card.get("validation", {}) if own_card else
                         {k: gbm.get(k) for k in ("average_precision", "precision", "recall", "f1")}),
             created_at=version.created_at, synthetic_notice=SYNTHETIC_NOTICE,
             explanation_method=card.get("model", {}).get("explanation_method", "tree_shap_log_odds"),
             score_kind=card.get("model", {}).get("score_kind", "supervised_score"),
-            training_kind="unsupervised" if behavioral else "supervised",
-            currency=card.get("feature_set", {}).get("vocabulary", {}).get("currency", "IDR" if not behavioral else None),
+            training_kind=(card.get("model", {}).get("training_kind", "supervised") if lab
+                           else "unsupervised" if behavioral else "supervised"),
+            currency=card.get("feature_set", {}).get("vocabulary", {}).get("currency", "IDR" if not own_card else None),
         ))
     return out
 

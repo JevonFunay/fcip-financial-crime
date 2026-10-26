@@ -15,6 +15,9 @@ OBJECT_AUDIT_EXPORT = "AUDIT_EXPORT"
 OBJECT_RULE_VERSION = "RULE_VERSION"
 # FR-405: a model version's lifecycle, like a rule version's.
 OBJECT_MODEL_VERSION = "MODEL_VERSION"
+# Model lab prototype: a labelled training dataset and a training run.
+OBJECT_LAB_DATASET = "LAB_DATASET"
+OBJECT_LAB_RUN = "LAB_RUN"
 
 OBJECT_TYPES = (
     OBJECT_ALERT,
@@ -24,6 +27,8 @@ OBJECT_TYPES = (
     OBJECT_AUDIT_EXPORT,
     OBJECT_RULE_VERSION,
     OBJECT_MODEL_VERSION,
+    OBJECT_LAB_DATASET,
+    OBJECT_LAB_RUN,
 )
 
 

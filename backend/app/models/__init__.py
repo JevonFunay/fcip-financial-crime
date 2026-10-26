@@ -5,6 +5,7 @@ from app.models.case import Case
 from app.models.customer import Customer
 from app.models.device import Device
 from app.models.ingestion_batch import IngestionBatch
+from app.models.lab import LabDataset, LabModel, LabRun
 from app.models.merchant import Merchant
 from app.models.ml import MlScore, ModelVersion
 from app.models.processing_log import ProcessingLog
@@ -23,6 +24,9 @@ __all__ = [
     "Customer",
     "Device",
     "IngestionBatch",
+    "LabDataset",
+    "LabModel",
+    "LabRun",
     "Merchant",
     "MlScore",
     "ModelVersion",

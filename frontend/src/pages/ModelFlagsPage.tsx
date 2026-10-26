@@ -31,9 +31,12 @@ function validationPercent(value: unknown): string {
 
 function ModelCard({ model }: { model: ModelVersionOut }) {
   const isWeekly = model.unit === "AML";
+  // Lab drafts are measured against labels whatever their learning type.
+  const lab = model.artefact_type.startsWith("LAB_");
   const unsupervised =
-    model.training_kind === "unsupervised" ||
-    model.score_kind === "anomaly_score";
+    !lab &&
+    (model.training_kind === "unsupervised" ||
+      model.score_kind === "anomaly_score");
   const stress = model.validation.synthetic_stress;
   return (
     <article className="card analysis-model-card">
@@ -65,6 +68,8 @@ function ModelCard({ model }: { model: ModelVersionOut }) {
           : "Satu skor per transaksi, menggunakan riwayat yang tersedia."}
         {unsupervised &&
           " Isolation Forest tanpa label; skor mengukur keterisolasian, bukan probabilitas fraud."}
+        {lab &&
+          ` Dibuat di Lab model dari dataset berlabel (${model.training_kind === "unsupervised" ? "fit tanpa label, threshold dari label validasi" : "supervised"}).`}
       </p>
       {model.state === "DRAFT" && (
         <p className="analysis-model-description">
@@ -119,7 +124,9 @@ function ModelCard({ model }: { model: ModelVersionOut }) {
           <p>
             {model.state === "RETIRED"
               ? "Historical validation"
-              : "Internal validation"}{" "}
+              : lab
+                ? "Lab validation · at saved threshold"
+                : "Internal validation"}{" "}
             <span>· synthetic data</span>
           </p>
           <dl>

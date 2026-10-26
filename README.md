@@ -7,6 +7,14 @@ stage: entity resolution, risk scoring, watchlist/PEP screening, graph
 investigation, AI narrative, maker-checker approval, dashboards, and
 additional detection patterns — these come in later iterations.
 
+## Model lab prototype — branch `lab-thin-slice`, 26 October 2026
+
+A **Lab model** page lets Data Ops/Analysts upload a labelled CSV, map its
+columns, choose feature groups and models, compare them on a held-out period,
+pick a threshold and save the chosen model as a DRAFT model version. It is a
+proposal for the mentors' "framework" direction and activates no scoring. See
+[docs/LAB_THIN_SLICE.md](docs/LAB_THIN_SLICE.md) for how to run and demo it.
+
 ## Current data and ML workflow — 20 October 2026
 
 **Latest precision stage:** the [20 October report](docs/ml/precision_20261020.md)

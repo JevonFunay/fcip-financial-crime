@@ -6,6 +6,7 @@ import { AlertDetailPage } from "./pages/AlertDetailPage";
 import { AlertQueuePage } from "./pages/AlertQueuePage";
 import { AuditPage } from "./pages/AuditPage";
 import { CaseDetailPage } from "./pages/CaseDetailPage";
+import { LabPage } from "./pages/LabPage";
 import { LoginPage } from "./pages/LoginPage";
 import { ModelFlagsPage } from "./pages/ModelFlagsPage";
 import { OverviewPage } from "./pages/OverviewPage";
@@ -21,6 +22,7 @@ export default function App() {
           <Route path="/alerts/:id" element={<AlertDetailPage />} />
           <Route path="/cases/:id" element={<CaseDetailPage />} />
           <Route path="/model-flags" element={<ModelFlagsPage />} />
+          <Route path="/lab" element={<LabPage />} />
           <Route path="/audit" element={<AuditPage />} />
         </Route>
       </Route>
