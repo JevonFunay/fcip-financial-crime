@@ -2,10 +2,17 @@ import enum
 
 
 class UserRole(str, enum.Enum):
+    # FRD §4.1 — all 9 roles.  The first four existed since migration 0001;
+    # the remaining five are added in migration 0010.
     ROLE_DATA_OPS = "ROLE_DATA_OPS"
     ROLE_ANALYST = "ROLE_ANALYST"
     ROLE_TRIAGE = "ROLE_TRIAGE"
     ROLE_INVESTIGATOR = "ROLE_INVESTIGATOR"
+    ROLE_SENIOR_INVESTIGATOR = "ROLE_SENIOR_INVESTIGATOR"
+    ROLE_MLRO = "ROLE_MLRO"
+    ROLE_AUDITOR = "ROLE_AUDITOR"
+    ROLE_MANAGEMENT = "ROLE_MANAGEMENT"
+    ROLE_ADMIN = "ROLE_ADMIN"
 
 
 class EntityType(str, enum.Enum):
@@ -40,9 +47,23 @@ class AlertStatus(str, enum.Enum):
 
 
 class CaseStatus(str, enum.Enum):
+    """FRD §9 / FR-804 — all seven case lifecycle states."""
     OPEN = "OPEN"
     IN_PROGRESS = "IN_PROGRESS"
+    PENDING_CLOSURE = "PENDING_CLOSURE"   # awaiting maker-checker (FR-814)
     CLOSED = "CLOSED"
+    REOPENED = "REOPENED"
+    ESCALATED = "ESCALATED"
+    REFERRED = "REFERRED"
+
+
+class EvidenceType(str, enum.Enum):
+    """FR-811: types of evidence that can be attached to a case."""
+    DOCUMENT = "DOCUMENT"
+    SCREENSHOT = "SCREENSHOT"
+    NOTE = "NOTE"
+    EXTERNAL_LINK = "EXTERNAL_LINK"
+    OTHER = "OTHER"
 
 
 class RuleState(str, enum.Enum):

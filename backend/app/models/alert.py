@@ -41,6 +41,10 @@ class Alert(Base):
     detection_details: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
 
     case_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("case.id"), nullable=True)
+    # FR-603: alert assignment to an investigator.
+    assigned_to: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True
+    )
     disposed_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
     )

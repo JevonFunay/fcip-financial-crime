@@ -12,6 +12,7 @@ MIN_DISPOSITION_REASON_LENGTH = 20
 
 __all__ = [
     "MIN_DISPOSITION_REASON_LENGTH",
+    "AlertAssignRequest",
     "AlertDetail",
     "AlertListResponse",
     "AlertRule",
@@ -31,10 +32,16 @@ class AlertSummary(BaseModel):
     customer_name: str
     reason: str
     case_id: uuid.UUID | None
+    assigned_to: uuid.UUID | None = None
     created_at: datetime
     # The highest stored model score for the alert's entity over its window
     # (CF-05 option a: a supporting signal); None when no model has scored it.
     model_score: float | None = None
+
+
+class AlertAssignRequest(BaseModel):
+    """FR-603: assign an alert to an investigator."""
+    assignee_id: uuid.UUID
 
 
 class AlertRule(BaseModel):

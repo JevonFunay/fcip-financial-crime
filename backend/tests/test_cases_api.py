@@ -6,6 +6,7 @@ import pytest
 from app.models.audit_log import AuditLog
 from app.models.case import Case
 from app.models.enums import CaseStatus, UserRole
+from app.models.user import User
 
 ESCALATION_REASON = "Multiple sub-threshold cash deposits across two accounts in 6 days."
 CASE_NUMBER = re.compile(r"^CASE-\d{6}$")
@@ -173,3 +174,125 @@ def test_get_requires_authentication(client):
 
 def test_get_unknown_case_is_404(client, auth_headers):
     assert client.get(f"/cases/{uuid.uuid4()}", headers=auth_headers(UserRole.ROLE_ANALYST)).status_code == 404
+
+
+# --- GET /cases (FR-808) -----------------------------------------------------------------
+
+
+def test_list_cases_empty(client, auth_headers):
+    res = client.get("/cases", headers=auth_headers(UserRole.ROLE_INVESTIGATOR))
+    assert res.status_code == 200
+    assert res.json()["total"] == 0
+    assert res.json()["items"] == []
+
+
+def test_list_cases_with_data(client, auth_headers, escalated_alert):
+    created = client.post(
+        "/cases", headers=auth_headers(UserRole.ROLE_TRIAGE), json={"alert_id": str(escalated_alert.id)}
+    ).json()
+
+    res = client.get("/cases", headers=auth_headers(UserRole.ROLE_INVESTIGATOR))
+    assert res.status_code == 200
+    data = res.json()
+    assert data["total"] == 1
+    assert data["items"][0]["id"] == created["id"]
+    assert data["items"][0]["status"] == "OPEN"
+    assert data["items"][0]["alert_count"] == 1
+
+
+# --- Case Lifecycle & Maker-Checker (FR-804, FR-814-816) ---------------------------------
+
+
+def test_case_lifecycle_start_investigation(client, auth_headers, escalated_alert):
+    created = client.post(
+        "/cases", headers=auth_headers(UserRole.ROLE_TRIAGE), json={"alert_id": str(escalated_alert.id)}
+    ).json()
+
+    # Move to IN_PROGRESS
+    res = client.post(f"/cases/{created['id']}/start", headers=auth_headers(UserRole.ROLE_INVESTIGATOR))
+    assert res.status_code == 200
+    assert res.json()["status"] == "IN_PROGRESS"
+
+
+def test_maker_checker_closure_flow(client, auth_headers, escalated_alert):
+    created = client.post(
+        "/cases", headers=auth_headers(UserRole.ROLE_TRIAGE), json={"alert_id": str(escalated_alert.id)}
+    ).json()
+
+    # 1. Start investigation
+    client.post(f"/cases/{created['id']}/start", headers=auth_headers(UserRole.ROLE_INVESTIGATOR))
+
+    # 2. Maker submits closure (needs >= 10 chars reason)
+    maker_headers = auth_headers(UserRole.ROLE_INVESTIGATOR)
+    sub_res = client.post(
+        f"/cases/{created['id']}/submit-closure",
+        headers=maker_headers,
+        json={"reason": "Investigation completed: no illicit structuring verified upon source checking."},
+    )
+    assert sub_res.status_code == 200
+    assert sub_res.json()["status"] == "PENDING_CLOSURE"
+
+    # 3. Segregation of duties: Maker cannot approve their own closure
+    self_approve = client.post(
+        f"/cases/{created['id']}/approve-closure",
+        headers=maker_headers,
+    )
+    assert self_approve.status_code in (403, 409)
+
+    # 4. Checker (Senior Investigator or MLRO) approves closure
+    checker_headers = auth_headers(UserRole.ROLE_MLRO)
+    app_res = client.post(
+        f"/cases/{created['id']}/approve-closure",
+        headers=checker_headers,
+    )
+    assert app_res.status_code == 200
+    assert app_res.json()["status"] == "CLOSED"
+    assert app_res.json()["closure_approved_by"] is not None
+
+
+def test_checker_can_reject_closure(client, auth_headers, escalated_alert):
+    created = client.post(
+        "/cases", headers=auth_headers(UserRole.ROLE_TRIAGE), json={"alert_id": str(escalated_alert.id)}
+    ).json()
+
+    maker_headers = auth_headers(UserRole.ROLE_INVESTIGATOR)
+    client.post(
+        f"/cases/{created['id']}/submit-closure",
+        headers=maker_headers,
+        json={"reason": "Requesting closure due to lack of evidence."},
+    )
+
+    checker_headers = auth_headers(UserRole.ROLE_SENIOR_INVESTIGATOR)
+    rej_res = client.post(
+        f"/cases/{created['id']}/reject-closure",
+        headers=checker_headers,
+        json={"reason": "Need additional transaction documentation from source account."},
+    )
+    assert rej_res.status_code == 200
+    assert rej_res.json()["status"] == "IN_PROGRESS"
+    assert rej_res.json()["closed_reason"] is None
+
+
+def test_case_assignment(client, db, auth_headers, escalated_alert):
+    created = client.post(
+        "/cases", headers=auth_headers(UserRole.ROLE_TRIAGE), json={"alert_id": str(escalated_alert.id)}
+    ).json()
+
+    inv = User(
+        email="assignee-inv@example.com",
+        hashed_password="hash",
+        full_name="Assignee Investigator",
+        role=UserRole.ROLE_INVESTIGATOR,
+    )
+    db.add(inv)
+    db.commit()
+
+    res = client.post(
+        f"/cases/{created['id']}/assign",
+        headers=auth_headers(UserRole.ROLE_TRIAGE),
+        json={"assignee_id": str(inv.id)},
+    )
+    assert res.status_code == 200
+    assert res.json()["assigned_to"] == str(inv.id)
+    assert res.json()["assigned_to_email"] == "assignee-inv@example.com"
+

@@ -2,9 +2,21 @@ export type UserRole =
   | "ROLE_DATA_OPS"
   | "ROLE_ANALYST"
   | "ROLE_TRIAGE"
-  | "ROLE_INVESTIGATOR";
+  | "ROLE_INVESTIGATOR"
+  | "ROLE_SENIOR_INVESTIGATOR"
+  | "ROLE_MLRO"
+  | "ROLE_AUDITOR"
+  | "ROLE_MANAGEMENT"
+  | "ROLE_ADMIN";
 export type AlertStatus = "OPEN" | "DISPOSED" | "ESCALATED";
-export type CaseStatus = "OPEN" | "IN_PROGRESS" | "CLOSED";
+export type CaseStatus =
+  | "OPEN"
+  | "IN_PROGRESS"
+  | "PENDING_CLOSURE"
+  | "CLOSED"
+  | "REOPENED"
+  | "ESCALATED"
+  | "REFERRED";
 export type DispositionDecision = "false_positive" | "escalate";
 export type RuleState =
   | "DRAFT"

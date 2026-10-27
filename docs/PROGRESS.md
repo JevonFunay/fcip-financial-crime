@@ -1,6 +1,6 @@
 # FCIP — Progress Status
 
-**As of 20 October 2026 · ~17% of MVP scope** (scope percentage last recounted 29 Sep; not a new scope estimate or model-quality claim)
+**As of 27 October 2026 · roughly 18% of MVP scope (estimate)**
 
 Supersedes any earlier progress figure. Scope definitions, architecture and open
 questions are unchanged — see `PROJECT_CONTEXT.md`.
@@ -13,6 +13,14 @@ questions are unchanged — see `PROJECT_CONTEXT.md`.
 > pass (684 + 14 new); frontend build passes. Details, demo script, decisions
 > and open questions: [LAB_THIN_SLICE.md](LAB_THIN_SLICE.md). The figures in
 > this file are not recounted for it.
+**How to read the numbers.** Counts below are *full-equivalent* (a partial
+requirement counts half). "Done" means the requirement's observable behaviour
+exists in code; it does **not** mean every FRD acceptance criterion has its own
+passing test. A requirement is only listed as Done if the FRD's own meaning of
+that FR ID matches what was built — several IDs in the previous revision of this
+file were attached to different functionality and have been corrected.
+The percentage is an estimate, not a measurement; neither the FRD nor the TRD
+assigns effort weights.
 
 ---
 
@@ -20,54 +28,199 @@ questions are unchanged — see `PROJECT_CONTEXT.md`.
 
 | Dimension | Built | % |
 |---|---|---|
-| Functional requirements (full-equivalent) | ~16 of 120 | 13% |
-| FR priority **Must** only | ~15 of 84 | 18% |
-| Detection patterns | 1 of 12 (P02) | 8% |
-| Database tables | 19 of ~90 | 21% |
-| API endpoints | 20 of 80 | 25% |
-| RBAC roles | 4 of 9 | 44% |
+| Functional requirements (full-equivalent) | ~22 of 120 (16 done + 12 partial at half credit) | ~18% |
+| Detection patterns implemented as app rules | 1 of 12 (P02) | 8% |
+| Database tables | ~20 of ~90 | ~22% |
+| API route handlers (all routers, incl. auth/health) | ~34, against ~80 in the TRD catalogue | not comparable 1:1 |
+| RBAC roles defined | 9 of 9 | 100% (definition only — see D15) |
 | NFRs proven by measurement | 3 of 18 | 17% |
-| TRD components | ~6 full + ~5 partial of 30 | ~25% |
+| Demo-relevant UAT scenarios runnable end to end | 3 of 15 (UAT-01, 04, 05 are plausible; others blocked) | ~20% |
 
-**Preceding app baseline: 492 regular backend tests pass:** 485 in the full Docker run, three added
-reset checks, one amount-boundary check and two source-clock cases in focused runs, plus the
-container-excluded documentation check on the host. The five slow checks and
-frontend TypeScript/Vite build pass. Technical correctness does not establish
-useful detection quality; the current candidate quality gate remains unmet.
-The 16 October offline stage adds 42 passing feature/workflow/integrity checks
-and reruns 62 related pure ML checks (104 focused checks across runs); it does
-not claim a fresh full application-suite or frontend run.
-
-Pure FR counting gives ~10%; ~17% weights the foundation work already done.
-Neither document assigns effort weights, so the percentage is an estimate — the
-counts underneath it are not.
+**Test status (be precise about what was verified):**
+- Core application suites (alerts, cases, evidence, rules, auth, RBAC, audit, P02
+  detection, rule schema): **203 passed, 0 failed**, run 27 Oct against PostgreSQL 16.
+- The earlier claim of "735 passed, 8 skipped, 5 deselected" (`pytest -m "not slow"`
+  in Docker) has **not been independently reproduced**; the ML suites are slow and
+  were not completed in the verification run. Re-run in Docker and record the
+  command and output date before quoting that number.
+- Frontend `npm run build` was not re-run in the verification pass.
+- Passing tests establish technical correctness only; they do not establish
+  detection quality. The ML quality gate is still unmet and every model is DRAFT.
 
 ---
 
-## Completed requirements
+## Requirement status
+
+### Done (behaviour matches the FRD meaning of the ID)
 
 | FR | What works |
 |---|---|
-| FR-101 | Ingestion batch registration — `BAT-000001` sequence, SHA-256 checksum, source system, business date, expected records. Duplicate file for the same (source, business date) → `409` |
-| FR-102 | Record validation against schema and business rules |
+| FR-101 | Ingestion batch registration — `BAT-` sequence, SHA-256 checksum, duplicate file for same (source, business date) → `409` |
+| FR-102 | Record validation against schema and business rules, quarantine |
 | FR-105 | Per-batch processing log with end-of-batch reconciliation |
-| FR-307 | Correct entity-level aggregation window, reproducible from stored bounds |
-| FR-308 | Reason code + 8 contributing factors on every alert |
+| FR-307 | Entity-level aggregation window reproducible from stored bounds |
+| FR-308 | Reason code and contributing factors on every alert |
 | FR-601 | Filterable, paged alert queue |
 | FR-602 | Full alert detail with explanation payload |
+| FR-603 | Alert assignment with audit event |
 | FR-604 | Disposition with mandatory reason (≥ 20 chars) |
 | FR-605 | Escalate alert for investigation |
 | FR-608 | Link alert to a case |
 | FR-801 | Create case from an escalated alert |
-| FR-1101 | Authentication — argon2id, JWT, rotating refresh in HttpOnly cookie, idle/absolute timeout, lockout |
-| FR-1104 | Immutable audit events for material actions, written in the business transaction |
-| FR-1105 | Audit trail search and CSV export, with the export itself audited |
+| FR-813 | Evidence immutability enforced by database trigger, SHA-256 hash |
+| FR-1101 | Authentication — argon2id, JWT, rotating refresh cookie, idle/absolute timeout, lockout |
+| FR-1104 | Immutable audit events written in the business transaction |
+| FR-1105 | Audit search and CSV export, export itself audited |
 
-Partial: FR-306, FR-309, FR-310, FR-1103, FR-808, FR-612.
+### Partial (exists, but a named part of the FR is missing)
+
+| FR | Built | Missing |
+|---|---|---|
+| FR-301 | Rule list and detail (read) | Creating a draft rule, reason-code uniqueness, plain-language description guard |
+| FR-302 | Immutable versions viewable | New version created on change; `RULE_VERSION_IMMUTABLE` error; version diff |
+| FR-303 | Simulation endpoint | Not verified against ACs: 7-day freshness guard, ≤ 6-month period, overlap report, sample of 20 |
+| FR-306 / 309 / 310 | Detection run for P02 (+ ML rule DRAFT); structural no-write role | Only one pattern runs; dedupe/suppression and priority scoring incomplete |
+| FR-612 | Related-alert context partly shown | Case history and false-positive-in-30-days context |
+| FR-804 | Case transitions `OPEN → IN_PROGRESS → PENDING_CLOSURE → CLOSED` | FRD vocabulary (`IN_INVESTIGATION`, `PENDING_DECISION`, `PENDING_APPROVAL`, `RETURNED_FOR_REWORK`, `APPROVED_CLOSED`); reopen flow |
+| FR-808 | Case queue and assignment | Case detail completeness, SLA status, unauthorised-URL behaviour |
+| FR-811 | Upload of evidence with hash and size check | MIME/magic-byte allow-list verification, mandatory description, synthetic-content confirmation, MinIO storage (currently an internal `evidence://` reference) |
+| FR-814 | Maker submits closure with a reason | Decision type, reasons that reference evidence items, completeness check (FR-805) |
+| FR-815 | Checker approve/reject; maker ≠ checker checked in application code | `403 SEGREGATION_OF_DUTIES_VIOLATION`, DENIED audit event, database CHECK, routing of `DRAFT_REPORT_RECOMMENDED` to MLRO only |
+| FR-1103 | Nine roles defined, `require_role` on endpoints | Deny-by-default startup assertion, generated role × endpoint × state matrix test, object-level access |
+
+### Previously listed as complete but not built (corrected 27 Oct)
+
+| Previous claim | Reality |
+|---|---|
+| FR-708 "Evidence attachment" | FR-708 is capture of an investigation view (timeline/graph/Entity 360) as evidence. Only file upload (FR-811) exists |
+| FR-816 "Checker approval or rejection" | FR-816 is the approval queue and workload view. Approve/reject is FR-815; the queue is not built |
+| "GATE 3 unblocked" | Gate 3 requires the full chain to a decision with SM-06 green. Screening, decision types, narrative and several guards are absent |
 
 ---
 
 ## Built since the last progress report
+
+### 27 October — Investigation chain skeleton (partial; GATE 3 not reached)
+
+- **Roles:** `ROLE_SENIOR_INVESTIGATOR`, `ROLE_MLRO`, `ROLE_AUDITOR`, `ROLE_MANAGEMENT`,
+  `ROLE_ADMIN` added (enum, migration 0010, frontend types, seed logins). The roles
+  exist; the FRD §4.2 permission matrix is not yet fully enforced or tested.
+- **Alert assignment (FR-603):** `POST /alerts/{id}/assign` with audit event.
+- **Case queue and transitions (FR-808 partial, FR-804 partial):** `GET /cases`,
+  `POST /cases/{id}/start`, `/assign`, `/submit-closure`, `/approve-closure`, `/reject-closure`.
+- **Evidence (FR-811 partial, FR-813):** insert-only table with trigger, SHA-256 hash,
+  upload and list endpoints; mutation of closed cases rejected.
+- **Maker-checker on case closure (FR-814/815 partial):** closing requires a second user;
+  self-approval is refused in application code with HTTP 409.
+- **Rules API (FR-301/302 read-only, FR-303 simulation):** `GET /rules`, `GET /rules/{ref}`,
+  version read, `POST /rules/{ref}/versions/{v}/simulate`. No create, submit, approve or activate.
+
+**Known divergences from the FRD/TRD introduced or left open here:**
+1. State vocabulary: alerts use `OPEN/DISPOSED/ESCALATED` (contract has 10 states);
+   cases use `OPEN/IN_PROGRESS/PENDING_CLOSURE/CLOSED/REOPENED/ESCALATED/REFERRED`
+   (contract has 7 different states). The `CaseStatus` docstring says "all seven FRD
+   states", which is not accurate. Evidence types also differ from FRD §5.10.
+2. Closure is not guarded by the completeness check (evidence present, alerts
+   dispositioned, screening resolved), so a case with no evidence can be submitted.
+3. Segregation of duties is enforced in application code only, returns 409, and does
+   not write a DENIED audit event.
+4. Minimum reason length for closure is 10 characters (own decision); the FRD universal
+   rule is 20.
+
+**Own decisions:**
+1. Evidence URI scheme `evidence://{case_id}/{sha256}` until MinIO is wired.
+2. Closure/rejection reason minimum 10 characters (conflicts with FRD §5 universal rule — to be aligned).
+3. Alert assignment restricted to roles with analytical/investigative scope.
+
+**Ringkasan capstone (Indonesia):**
+Pada 27 Oktober 2026, kerangka rantai investigasi dibangun: sembilan role didefinisikan,
+antrean dan transisi case, penugasan alert, unggah evidence dengan hash SHA-256 dan
+trigger imutabilitas, serta persetujuan penutupan case oleh orang kedua. Pekerjaan ini
+masih parsial: kosakata state belum sesuai kontrak FRD/TRD, pemeriksaan kelengkapan case,
+jenis keputusan dan penegakan pemisahan tugas di level database belum ada, sehingga
+GATE 3 belum tercapai. Pattern deteksi baru 1 dari 12. Tes inti aplikasi (203) lulus;
+angka suite penuh perlu diverifikasi ulang.
+
+## Per domain
+
+Percentages are rough, based on the status tables above.
+
+| Domain | % | Note |
+|---|---|---|
+| D1 Ingestion | ~40% | Batch, checksum, log, reconciliation done. DQ metrics (FR-108), late-arrival (FR-106), reprocessing (FR-107) not built |
+| D2 Entity Resolution | 0% | `customer_id` still stands in for `entity_id` |
+| D3 Risk Scoring | 0% | |
+| D4 Rules Engine + Detection | ~25% | P02 as data; rule read + simulation; no create/submit/approve; 11 patterns missing |
+| D5 Anomaly + Graph | ~5% | ML signal shown on alerts (supervised, DRAFT); graph and FR-401 baseline not in the app |
+| D6 Screening | 0% | Generator produces watchlist; no engine, no review flow |
+| D7 Alert & Triage | ~45% | Strongest domain; state vocabulary still narrower than contract; no SLA, bulk, reopen |
+| D8 Entity 360 / Timeline / Graph | ~2% | |
+| D9 Case Management | ~30% | Create, queue, assign, transitions; notes, completeness check, merge, reopen missing |
+| D10 Evidence + Maker-Checker | ~25% | Upload, hash, immutability; capture of views, decision types, SoD error/audit missing |
+| D11 AI Narrative | 0% | |
+| D12 Regulator Reporting | 0% | |
+| D13 Rule/Model Monitoring | 0% | |
+| D14 Dashboards | ~3% | Overview only |
+| D15 Governance/RBAC/Audit | ~45% | Roles, audit, auth done; deny-by-default assertion, role matrix tests, config governance missing |
+
+---
+
+## Against the 16-week backlog (FRD §14.3)
+
+Calendar position is about **week 8 of 16** (handoff dated 7 October = week 5; verify the
+project start date). Feature freeze (Gate 5) is week 14, so roughly six weeks remain.
+
+| Gate | Status |
+|---|---|
+| GATE 1 (week 4) — FRD v1.0 frozen, integration contract signed | **Not formally closed.** FRD still v0.9, MQ-01…MQ-10 unanswered, A/B split never happened |
+| GATE 2 (week 7) — first real alert in the queue | Reached (P02) |
+| GATE 3 (week 10) — chain ingestion → alert → case → decision, SM-06 green | **Not reached.** Missing: decision types, completeness check, screening, narrative |
+| GATE 4+ | Not started |
+
+---
+
+## Next (priority order)
+
+0. **Mentor, this week (no code):** written answers to MQ-01, MQ-02, MQ-04, MQ-05, CF-01, CF-05;
+   a one-page parameter sheet for the 12 patterns (default value, keep/change column); ruling on the
+   A/B split and a cut list for the 84 Must requirements (FRD §14.6 C2).
+1. **Align state vocabulary** to TRD §17.2 (alert, case, evidence, decision types) with migration and tests.
+2. **Complete the decision workflow:** decision type, evidence-referencing rationale, completeness
+   check returning all unmet conditions at once, `403 SEGREGATION_OF_DUTIES_VIOLATION` + DENIED audit,
+   database CHECK `checker_id <> maker_id`.
+3. **Patterns P01, P03–P10 as rule-as-data** (logic exists offline in `app/ml/comparators.py`), each with
+   positive / negative / boundary / explanation / sufficiency tests and the control-cohort test.
+4. **Rule maker-checker** (FR-301 create, FR-304, FR-305), MLRO as checker.
+5. **Entity 360 and timeline** with evidence capture (FR-701, 702, 708).
+6. **Screening engine + minimal entity resolution** (P12, SM-06 database guarantees).
+7. **AI narrative, template provider first**, then grounding check and usage log.
+8. **Draft report and watermarked export** (FR-911…914).
+9. **DQ metrics, rule metrics, basic dashboards** (FR-108, 1001, 1011–1013).
+10. Risk scoring (minimal), P11/graph — cut first if time runs out.
+
+**Freeze, do not extend:** further ML research, live monitoring, and any `ML_SCORE` activation
+until CF-05 is confirmed in writing.
+
+---
+
+## Still open
+
+- **MQ-01…MQ-10** unanswered past their week-3 deadline (DEP-11). MQ-02's default is already
+  implemented in P02; the other answer means redesigning the detector.
+- **CF-01 and CF-05** (TRD §1.5) open.
+- **The A/B split never happened.** FRD §13, TRD §17, interfaces I-01…I-11 and Gate 1 have no counterparty.
+- **FRD §14.6 C2** ("the Must set is achievable") has never been ticked.
+- **ML quality gate unmet:** best AML account-window precision 0.677%; all models DRAFT.
+- **State vocabulary divergence** (see 27 October entry) — needs a decision: align to contract, or
+  record a documented ADR and get mentor sign-off.
+- **TRD §11.1 vs §11.5:** "~600" vs 820 entity-resolution duplicates; generator follows §11.5.
+- **UAT-12:** one correlation ID from batch to report is not well defined because an alert's window can
+  span several batches; batch and alert currently chain separately.
+- **Unreproduced test count:** the full-suite figure needs a recorded Docker run.
+
+---
+
+## Earlier progress entries
 
 ### 20 October — full-network benchmarks and human-review readiness
 
@@ -667,63 +820,3 @@ hits on entities labelled P07 or P08, whose values step into P02's band. Those
 are genuinely suspicious entities, not false positives on clean ones.
 
 ---
-
-## Per domain
-
-| Domain | % | Note |
-|---|---|---|
-| D1 Ingestion | **~40%** | was ~15%. Batch, checksum, processing log, reconciliation added |
-| D2 Entity Resolution | 0% | `customer_id` still stands in for `entity_id` |
-| D3 Risk Scoring | 0% | |
-| D4 Rules Engine + Detection | ~26% | rules are data (P02 = RUL-0001 v1); endpoints + simulation deferred |
-| D5 Anomaly + Graph | 0% | |
-| D6 Screening | 0% | |
-| D7 Alert & Triage | ~35% | strongest domain |
-| D8 Entity 360 / Timeline / Graph | ~2% | |
-| D9 Case Management | ~14% | create + detail only |
-| D10 Evidence + Maker-Checker | 0% | |
-| D11 AI Narrative | 0% | |
-| D12 Regulator Reporting | 0% | |
-| D13 Rule/Model Monitoring | 0% | |
-| D14 Dashboards | ~3% | |
-| D15 Governance/RBAC/Audit | **~40%** | was ~23%. Audit search/export added |
-
----
-
-## Against the 16-week backlog (FRD §14.3)
-
-- **Group B side: ~Week 6–7** — alert queue and detail (W4), lifecycle and disposition (W5), case creation and detail (W6)
-- **Group A side: ~Week 3–4** — ingestion complete; entity resolution (W4), risk scoring (W5) and rules engine (W6) not started
-- **GATE 2** (Week 7, "first end-to-end alert in the queue from a real detection run") — **demonstrable now**
-- **GATE 3** (Week 10, full chain through to a *decision*) — not reachable; maker-checker and evidence are at zero
-
-Calendar position ≈ Week 4–5 of 16 (~28%), ahead of scope completion (~17%)
-because Weeks 8–14 carry the heaviest work: 11 more patterns, graph, screening,
-AI, maker-checker, dashboards.
-
----
-
-## Next
-
-**Safe to build now** — independent of the unanswered MQ-01…MQ-10:
-
-0. **ML quality gate** — replacement engineering is implemented, but current candidates remain DRAFT because measured quality is inadequate. Diagnose source shift and obtain independently reviewed evaluation evidence before claiming detection precision or proposing activation. FR-405 approval, live mode and any `ML_SCORE` activation remain separate future work; CF-05 is unconfirmed
-1. **Rule as data, stages 3–4** (rule endpoints FR-301/302, simulation FR-303) — deferred for the ML pipeline; schema already in place
-2. **Case lifecycle** (FR-804) and case queue (FR-808) — columns exist, endpoints don't
-3. **Alert assignment** (FR-603) and SLA tracking (FR-607)
-4. **Data quality metrics** (FR-108) — the generator already produces the defects to measure
-
-**Blocked on a mentor decision:** maker-checker (MQ-04 + 5 unbuilt roles,
-prerequisite for GATE 3 and UAT-03/09/10/11), patterns P01 and P03–P12, AI
-narrative (MQ-05), graph (MQ-06), screening review.
-
----
-
-## Still open
-
-- **MQ-01…MQ-10** (FRD §1.7) unanswered past their Week-3 deadline (DEP-11). **MQ-02 is the urgent one** — its proposed default is already implemented in P02, so the other choice means redesigning the detector
-- **CF-01 and CF-05** (TRD §1.5) still marked open
-- **The A/B split never happened.** Each group builds both engine and UI, so FRD §6's ownership column, FRD §13, TRD §17, the 11 interfaces and GATE 1 have no counterparty. Due now — GATE 1 falls in Week 4
-- **FRD §14.6 item C2** ("the Must set is achievable") has never been ticked. 84 Must requirements were scoped across two groups
-- **New spec inconsistency found:** TRD §11.1 says "~600 duplicate source records" for entity resolution; the §11.5 table sums to 820. The generator follows §11.5 as the more specific. Flagged, not silently resolved
-- **Undecided design point:** UAT-12 asks for one correlation ID from batch to report, but an alert's evidence window can span several batches, so a single chain isn't well defined. Batch and alert currently chain separately, linked via `transaction.ingestion_batch_id`
