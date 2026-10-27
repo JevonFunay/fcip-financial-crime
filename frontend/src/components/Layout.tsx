@@ -30,6 +30,12 @@ const navigation: {
     caption: "Observasi AML & Fraud",
   },
   {
+    path: "/lab",
+    label: "Lab model",
+    icon: "scan",
+    caption: "Latih & bandingkan (prototipe)",
+  },
+  {
     path: "/audit",
     label: "Audit trail",
     icon: "history",

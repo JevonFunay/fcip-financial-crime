@@ -5,6 +5,14 @@
 Supersedes any earlier progress figure. Scope definitions, architecture and open
 questions are unchanged — see `PROJECT_CONTEXT.md`.
 
+> **26 October, branch `lab-thin-slice` only (fork, not `main`):** a model-lab
+> prototype of the mentors' "framework" direction — upload a labelled dataset,
+> map columns, choose feature groups and models (Logistic Regression, LightGBM,
+> Isolation Forest), compare on a chronological test period, pick a threshold,
+> save as a DRAFT `model_version`. No scoring is activated. 698 backend tests
+> pass (684 + 14 new); frontend build passes. Details, demo script, decisions
+> and open questions: [LAB_THIN_SLICE.md](LAB_THIN_SLICE.md). The figures in
+> this file are not recounted for it.
 **How to read the numbers.** Counts below are *full-equivalent* (a partial
 requirement counts half). "Done" means the requirement's observable behaviour
 exists in code; it does **not** mean every FRD acceptance criterion has its own
