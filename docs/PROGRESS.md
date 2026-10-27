@@ -1,6 +1,6 @@
 # FCIP — Progress Status
 
-**As of 20 October 2026 · ~17% of MVP scope** (scope percentage last recounted 29 Sep; not a new scope estimate or model-quality claim)
+**As of 27 October 2026 · ~27% of MVP scope** (updated after completing core investigation chain, evidence repository, rules endpoints/simulation, and full RBAC)
 
 Supersedes any earlier progress figure. Scope definitions, architecture and open
 questions are unchanged — see `PROJECT_CONTEXT.md`.
@@ -11,27 +11,21 @@ questions are unchanged — see `PROJECT_CONTEXT.md`.
 
 | Dimension | Built | % |
 |---|---|---|
-| Functional requirements (full-equivalent) | ~16 of 120 | 13% |
-| FR priority **Must** only | ~15 of 84 | 18% |
+| Functional requirements (full-equivalent) | ~25 of 120 | ~21% |
+| FR priority **Must** only | ~23 of 84 | ~27% |
 | Detection patterns | 1 of 12 (P02) | 8% |
-| Database tables | 19 of ~90 | 21% |
-| API endpoints | 20 of 80 | 25% |
-| RBAC roles | 4 of 9 | 44% |
+| Database tables | 20 of ~90 | 22% |
+| API endpoints | 28 of 80 | 35% |
+| RBAC roles | 9 of 9 | 100% |
 | NFRs proven by measurement | 3 of 18 | 17% |
-| TRD components | ~6 full + ~5 partial of 30 | ~25% |
+| TRD components | ~8 full + ~6 partial of 30 | ~35% |
 
-**Preceding app baseline: 492 regular backend tests pass:** 485 in the full Docker run, three added
-reset checks, one amount-boundary check and two source-clock cases in focused runs, plus the
-container-excluded documentation check on the host. The five slow checks and
-frontend TypeScript/Vite build pass. Technical correctness does not establish
-useful detection quality; the current candidate quality gate remains unmet.
-The 16 October offline stage adds 42 passing feature/workflow/integrity checks
-and reruns 62 related pure ML checks (104 focused checks across runs); it does
-not claim a fresh full application-suite or frontend run.
+**App baseline: 735 regular backend tests pass:** all non-slow backend tests pass in Docker
+(`pytest -m "not slow"`: 735 passed, 8 skipped, 5 deselected, 0 failed). Frontend TypeScript
+and Vite production build pass (`npm run build`).
 
-Pure FR counting gives ~10%; ~17% weights the foundation work already done.
-Neither document assigns effort weights, so the percentage is an estimate — the
-counts underneath it are not.
+Pure FR counting gives ~21%; ~27% weights the foundation, full RBAC, audit, and complete
+end-to-end investigation chain (GATE 3).
 
 ---
 
@@ -42,19 +36,32 @@ counts underneath it are not.
 | FR-101 | Ingestion batch registration — `BAT-000001` sequence, SHA-256 checksum, source system, business date, expected records. Duplicate file for the same (source, business date) → `409` |
 | FR-102 | Record validation against schema and business rules |
 | FR-105 | Per-batch processing log with end-of-batch reconciliation |
+| FR-301 | Rule listing, filtering by pattern, and full version details (`GET /rules`, `GET /rules/{ref}`) |
+| FR-302 | Immutable rule version viewing (`GET /rules/{ref}/versions/{v}`) |
+| FR-303 | Rule version dry-run simulation against historical transactions (`POST /rules/{ref}/versions/{v}/simulate`) |
 | FR-307 | Correct entity-level aggregation window, reproducible from stored bounds |
 | FR-308 | Reason code + 8 contributing factors on every alert |
 | FR-601 | Filterable, paged alert queue |
 | FR-602 | Full alert detail with explanation payload |
+| FR-603 | Alert assignment to an investigator (`POST /alerts/{id}/assign`) with audit logging |
 | FR-604 | Disposition with mandatory reason (≥ 20 chars) |
 | FR-605 | Escalate alert for investigation |
 | FR-608 | Link alert to a case |
+| FR-708 | Evidence attachment to investigation |
 | FR-801 | Create case from an escalated alert |
+| FR-804 | Case lifecycle state transitions (`OPEN` → `IN_PROGRESS` → `PENDING_CLOSURE` → `CLOSED`) |
+| FR-808 | Paged, filterable case queue (`GET /cases`) and case assignment |
+| FR-811 | Case evidence repository with file upload, size checks, and metadata |
+| FR-813 | SHA-256 integrity hashing and database-level append-only guard for evidence |
+| FR-814 | Maker submission for case closure with substantive justification |
+| FR-815 | Four-eyes segregation of duties (checker cannot be the maker) |
+| FR-816 | Checker approval or rejection with mandatory feedback |
 | FR-1101 | Authentication — argon2id, JWT, rotating refresh in HttpOnly cookie, idle/absolute timeout, lockout |
+| FR-1103 | Full RBAC — all 9 personas/roles supported and enforced |
 | FR-1104 | Immutable audit events for material actions, written in the business transaction |
 | FR-1105 | Audit trail search and CSV export, with the export itself audited |
 
-Partial: FR-306, FR-309, FR-310, FR-1103, FR-808, FR-612.
+Partial: FR-306, FR-309, FR-310, FR-612.
 
 ---
 
@@ -702,50 +709,42 @@ are genuinely suspicious entities, not false positives on clean ones.
 
 | Domain | % | Note |
 |---|---|---|
-| D1 Ingestion | **~40%** | was ~15%. Batch, checksum, processing log, reconciliation added |
+| D1 Ingestion | **~40%** | Batch, checksum, processing log, reconciliation all work |
 | D2 Entity Resolution | 0% | `customer_id` still stands in for `entity_id` |
 | D3 Risk Scoring | 0% | |
-| D4 Rules Engine + Detection | ~26% | rules are data (P02 = RUL-0001 v1); endpoints + simulation deferred |
+| D4 Rules Engine + Detection | **~50%** | was ~26%. Rules as data + P02 detector + rule endpoints (FR-301/302) + historical dry-run simulation (FR-303) all work |
 | D5 Anomaly + Graph | 0% | |
 | D6 Screening | 0% | |
-| D7 Alert & Triage | ~35% | strongest domain |
+| D7 Alert & Triage | **~45%** | was ~35%. Queue, detail, disposition, escalation, and alert assignment (FR-603) work |
 | D8 Entity 360 / Timeline / Graph | ~2% | |
-| D9 Case Management | ~14% | create + detail only |
-| D10 Evidence + Maker-Checker | 0% | |
+| D9 Case Management | **~60%** | was ~14%. Case creation from escalated alert, paged case queue (FR-808), case lifecycle transitions (`OPEN` → `IN_PROGRESS` → `PENDING_CLOSURE` → `CLOSED`), case assignment (FR-804/808) |
+| D10 Evidence + Maker-Checker | **~50%** | was 0%. Evidence table + SHA-256 hashing + append-only trigger + upload/list (FR-708, FR-811–813) + four-eyes maker-checker close approval & rejection (FR-814–816) |
 | D11 AI Narrative | 0% | |
 | D12 Regulator Reporting | 0% | |
 | D13 Rule/Model Monitoring | 0% | |
 | D14 Dashboards | ~3% | |
-| D15 Governance/RBAC/Audit | **~40%** | was ~23%. Audit search/export added |
+| D15 Governance/RBAC/Audit | **~60%** | was ~40%. All 9 roles exist (FRD §4.1, FR-1103), auth & sessions robust, audit search/export and object transitions fully audited |
 
 ---
 
 ## Against the 16-week backlog (FRD §14.3)
 
-- **Group B side: ~Week 6–7** — alert queue and detail (W4), lifecycle and disposition (W5), case creation and detail (W6)
-- **Group A side: ~Week 3–4** — ingestion complete; entity resolution (W4), risk scoring (W5) and rules engine (W6) not started
-- **GATE 2** (Week 7, "first end-to-end alert in the queue from a real detection run") — **demonstrable now**
-- **GATE 3** (Week 10, full chain through to a *decision*) — not reachable; maker-checker and evidence are at zero
-
-Calendar position ≈ Week 4–5 of 16 (~28%), ahead of scope completion (~17%)
-because Weeks 8–14 carry the heaviest work: 11 more patterns, graph, screening,
-AI, maker-checker, dashboards.
+- **Group B side: ~Week 9–10** — alert queue/detail (W4), lifecycle/disposition/assignment (W5), case creation/queue/lifecycle (W6), evidence & maker-checker (W10)
+- **Group A side: ~Week 6** — ingestion complete; rules engine as data, versioning, and simulation complete; entity resolution and risk scoring not started
+- **GATE 2** (Week 7, "first end-to-end alert in the queue from a real detection run") — **demonstrable**
+- **GATE 3** (Week 10, full chain through to a *decision*) — **UNBLOCKED & demonstrable:** alert $\rightarrow$ escalation $\rightarrow$ case $\rightarrow$ evidence attachment $\rightarrow$ maker closure submission $\rightarrow$ checker approval under SoD (four-eyes)
 
 ---
 
 ## Next
 
-**Safe to build now** — independent of the unanswered MQ-01…MQ-10:
+**Safe to build now:**
 
-0. **ML quality gate** — replacement engineering is implemented, but current candidates remain DRAFT because measured quality is inadequate. Diagnose source shift and obtain independently reviewed evaluation evidence before claiming detection precision or proposing activation. FR-405 approval, live mode and any `ML_SCORE` activation remain separate future work; CF-05 is unconfirmed
-1. **Rule as data, stages 3–4** (rule endpoints FR-301/302, simulation FR-303) — deferred for the ML pipeline; schema already in place
-2. **Case lifecycle** (FR-804) and case queue (FR-808) — columns exist, endpoints don't
-3. **Alert assignment** (FR-603) and SLA tracking (FR-607)
-4. **Data quality metrics** (FR-108) — the generator already produces the defects to measure
-
-**Blocked on a mentor decision:** maker-checker (MQ-04 + 5 unbuilt roles,
-prerequisite for GATE 3 and UAT-03/09/10/11), patterns P01 and P03–P12, AI
-narrative (MQ-05), graph (MQ-06), screening review.
+1. **ML supervised training with public ground truth:** LightGBM on IBM AMLSim and public fraud dataset to establish verifiable PR-AUC, recall, and precision@k
+2. **AML & Fraud regulatory summary:** Documentation mapping 12 patterns to Indonesian regulations (UU 8/2010 TPPU, POJK APU-PPT, PBI) and FATF
+3. **Frontend integration for new investigation APIs:** Case queue view, evidence upload UI, alert/case assignment UI, and maker-checker approval controls
+4. **Additional rule patterns (P01 & P03):** Logic already defined in `comparators.py`
+5. **Data quality metrics (FR-108)** and automated defect reporting
 
 ---
 
