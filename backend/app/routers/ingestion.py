@@ -21,6 +21,7 @@ from app.schemas.ingestion import (
 )
 from app.schemas.quarantine import QuarantineListResponse, QuarantineOut
 from app.services.audit import OBJECT_BATCH, record_transition
+from app.services.tabular import FORMAT_PARQUET, TableFileError, detect_format, parquet_to_csv_text
 from app.services.ingestion import (
     DuplicateBatchError,
     IngestionFileError,
@@ -121,12 +122,20 @@ def upload_transactions(
     except DuplicateBatchError as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
 
-    try:
-        content = raw_bytes.decode("utf-8-sig")
-    except UnicodeDecodeError:
-        reason = "File must be UTF-8 encoded CSV"
-        _fail_batch(db, batch.id, actor=user, reason=reason)
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, reason) from None
+    if detect_format(raw_bytes) == FORMAT_PARQUET:
+        # Same text cells a CSV would hold, so validation and quarantine are unchanged.
+        try:
+            content = parquet_to_csv_text(raw_bytes)
+        except TableFileError as exc:
+            _fail_batch(db, batch.id, actor=user, reason=str(exc))
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+    else:
+        try:
+            content = raw_bytes.decode("utf-8-sig")
+        except UnicodeDecodeError:
+            reason = "File must be UTF-8 encoded CSV or Parquet"
+            _fail_batch(db, batch.id, actor=user, reason=reason)
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, reason) from None
     if "\x00" in content:
         reason = "File contains NUL bytes and is not a valid CSV"
         _fail_batch(db, batch.id, actor=user, reason=reason)

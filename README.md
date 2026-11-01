@@ -7,13 +7,17 @@ stage: entity resolution, risk scoring, watchlist/PEP screening, graph
 investigation, AI narrative, maker-checker approval, dashboards, and
 additional detection patterns — these come in later iterations.
 
-## Model lab prototype — branch `lab-thin-slice`, 26 October 2026
+## Model lab: train, approve, monitor — 27 October 2026
 
-A **Lab model** page lets Data Ops/Analysts upload a labelled CSV, map its
-columns, choose feature groups and models, compare them on a held-out period,
-pick a threshold and save the chosen model as a DRAFT model version. It is a
-proposal for the mentors' "framework" direction and activates no scoring. See
-[docs/LAB_THIN_SLICE.md](docs/LAB_THIN_SLICE.md) for how to run and demo it.
+The **Lab model** page is the detection framework the mentors confirmed: upload a
+labelled CSV or Parquet file, map its columns, compare Logistic Regression,
+LightGBM and Isolation Forest on a held-out period, pick a threshold and save a
+DRAFT. An Analyst submits it, a different MLRO approves it, and from then on new
+data uploaded in the same layout is scored by it; scores at or above its
+threshold raise alerts without a pattern rule firing (CF-05 (b), switched on by
+the MLRO). Every score lists the features behind it. See
+[docs/LAB_THIN_SLICE.md](docs/LAB_THIN_SLICE.md) for the steps, demo script and
+limits. The regular transaction upload accepts Parquet too.
 
 ## Current data and ML workflow — 20 October 2026
 

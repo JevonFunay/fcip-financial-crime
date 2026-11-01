@@ -1,35 +1,68 @@
-"""Model lab service: store a labelled dataset, validate its mapping, train, save a DRAFT.
+"""Model lab service: dataset, mapping, training, DRAFT, approval, monitoring.
 
 Every step writes an audit event under the dataset's correlation ID, so one
-correlation search shows the dataset, its runs and any model version saved
-from them. Saving copies a candidate into the existing `model_version`
-registry as DRAFT: the registry's immutability and lifecycle rules apply, and
-a DRAFT never scores anything (no FR-405 approval flow exists yet).
+correlation search shows the dataset, its runs, any model version saved from
+them and its approval. Saving copies a candidate into the existing
+`model_version` registry as DRAFT; the registry's immutability and lifecycle
+rules apply.
+
+Approval follows FR-405 ("sama seperti FR-204"): an Analyst submits a DRAFT
+with a justification, an MLRO other than the submitter approves it, and only
+then does it become ACTIVE, for the next detection run only. The previously
+ACTIVE model for the same unit is RETIRED and points to its successor.
+
+Model alerts (CF-05, answered by the mentors on 27 Oct 2026): a score at or
+above an ACTIVE model's threshold raises an alert without any pattern rule
+firing, through the seeded ML_SCORE rule (RUL-0002). Only an MLRO switches
+that rule on or off (FR-304 BR-304.1); the switch is recorded like any rule
+state change.
 """
 
 from __future__ import annotations
 
+import csv
 import hashlib
-import json
+import io
 import time
 import uuid
+from datetime import datetime, timezone
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.ml.lab.features import FEATURE_SET_VERSION, UNIT, definition
-from app.ml.lab.mapping import apply_mapping, read_csv_bytes, suggest
+from app.ml.lab.features import UNIT, definition
+from app.ml.lab.mapping import LabDataError, apply_mapping, map_for_monitoring, read_table_bytes, suggest
+from app.ml.lab.scoring import (
+    EXPLANATION_METHOD,
+    LAB_ARTEFACTS,
+    LAB_FEATURE_SET_VERSION,
+    SCORE_KIND,
+    definition_hash as lab_definition_hash,
+)
 from app.ml.lab.trainer import MODELS, SEED, train_run
-from app.models.enums import RuleState
+from app.models.account import Account
+from app.models.audit_log import AuditLog
+from app.models.customer import Customer
+from app.models.enums import AccountStatus, EntityType, RuleState
 from app.models.lab import LAB_DATASET_MAPPED, LAB_DATASET_UPLOADED, LabDataset, LabModel, LabRun
 from app.models.ml import ModelVersion
+from app.models.rule import Rule, RuleVersion
 from app.models.user import User
-from app.services.audit import OBJECT_LAB_DATASET, OBJECT_LAB_RUN, OBJECT_MODEL_VERSION, record_transition
-from app.services.ml_scoring import SIGNAL_NOTICE, SYNTHETIC_NOTICE
+from app.services.audit import (
+    OBJECT_LAB_DATASET,
+    OBJECT_LAB_RUN,
+    OBJECT_MODEL_VERSION,
+    OBJECT_RULE_VERSION,
+    record_transition,
+)
+from app.services.ml_scoring import ML_PATTERN_CODE, SIGNAL_NOTICE, SYNTHETIC_NOTICE
 
-LAB_FEATURE_SET_VERSION = f"lab:{FEATURE_SET_VERSION}"
-APPROVAL_NOTE = ("DRAFT from the model lab. FR-405's approval flow (analyst submits, MLRO approves) is not built, "
-                 "so this version cannot become ACTIVE through the app and never scores uploads.")
+APPROVAL_NOTE = ("DRAFT from the model lab. It scores nothing until an Analyst submits it and an MLRO other than "
+                 "the submitter approves it (FR-405).")
+MIN_JUSTIFICATION = 20
+CF05_DECISION = ("CF-05 answered by the V-TEKI mentors on 27 Oct 2026 (relayed by the team): a model score at or "
+                 "above its approved threshold may raise an alert without a pattern rule firing, so detection is "
+                 "not only rule-dependent. Reason code RC-ML-01 and severity MEDIUM remain the team's proposal.")
 
 
 class LabConflict(Exception):
@@ -41,13 +74,14 @@ def _sha256(data: bytes) -> str:
 
 
 def create_dataset(db: Session, *, actor: User, file_name: str, raw_bytes: bytes, name: str | None) -> LabDataset:
-    frame = read_csv_bytes(raw_bytes)
+    frame, file_format = read_table_bytes(raw_bytes)
     dataset = LabDataset(
         name=(name or "").strip() or file_name,
         file_name=file_name,
         file_sha256=_sha256(raw_bytes),
         file_size_bytes=len(raw_bytes),
-        raw_csv=raw_bytes,
+        raw_file=raw_bytes,
+        file_format=file_format,
         row_count=len(frame),
         columns=[str(c) for c in frame.columns],
         preview=frame.head(8).to_dict("records"),
@@ -60,15 +94,17 @@ def create_dataset(db: Session, *, actor: User, file_name: str, raw_bytes: bytes
     db.flush()
     record_transition(db, correlation_id=dataset.correlation_id, actor=actor, object_type=OBJECT_LAB_DATASET,
                       object_id=dataset.id, from_state=None, to_state=LAB_DATASET_UPLOADED,
-                      reason=f"Lab dataset {file_name} uploaded: {len(frame):,} rows, {len(frame.columns)} columns",
-                      details={"file_sha256": dataset.file_sha256, "file_size_bytes": len(raw_bytes)})
+                      reason=(f"Lab dataset {file_name} uploaded ({file_format}): {len(frame):,} rows, "
+                              f"{len(frame.columns)} columns"),
+                      details={"file_sha256": dataset.file_sha256, "file_size_bytes": len(raw_bytes),
+                               "file_format": file_format})
     db.commit()
     db.refresh(dataset)
     return dataset
 
 
 def map_dataset(db: Session, dataset: LabDataset, mapping: dict, *, actor: User) -> LabDataset:
-    raw = read_csv_bytes(dataset.raw_csv)
+    raw, _ = read_table_bytes(dataset.raw_file)
     mapped = apply_mapping(raw, mapping)
     previous = dataset.status
     dataset.mapping = mapping
@@ -88,7 +124,7 @@ def train(db: Session, dataset: LabDataset, config: dict, *, actor: User) -> Lab
     if dataset.mapping is None:
         raise LabConflict("Petakan dan validasi kolom dataset ini sebelum melatih model.")
     started = time.perf_counter()
-    raw = read_csv_bytes(dataset.raw_csv)
+    raw, _ = read_table_bytes(dataset.raw_file)
     mapped = apply_mapping(raw, dataset.mapping)
     if not mapped.report["ready"]:
         raise LabConflict("Dataset belum memenuhi syarat minimal baris positif dan negatif.")
@@ -121,10 +157,6 @@ def saved_versions(db: Session, run: LabRun) -> list[ModelVersion]:
                            .order_by(ModelVersion.created_at)))
 
 
-def _canonical(value) -> str:
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False)
-
-
 def save_draft(db: Session, run: LabRun, *, model_key: str, threshold_index: int,
                actor: User) -> tuple[ModelVersion, bool]:
     """The DRAFT model version, and whether it already existed (saving is idempotent)."""
@@ -144,10 +176,7 @@ def save_draft(db: Session, run: LabRun, *, model_key: str, threshold_index: int
     validation_point = summary["validation_curve"][threshold_index]
     test_point = candidate.test_curve[threshold_index]
     spec = MODELS[model_key]
-    definition_hash = hashlib.sha256("\n".join((
-        candidate.model_text, _canonical(candidate.features), _canonical(candidate.vocabulary),
-        LAB_FEATURE_SET_VERSION, repr(threshold),
-    )).encode()).hexdigest()
+    definition_hash = lab_definition_hash(candidate.model_text, candidate.features, candidate.vocabulary, threshold)
     report = dataset.validation or {}
     card = {
         "version": version_name,
@@ -156,8 +185,9 @@ def save_draft(db: Session, run: LabRun, *, model_key: str, threshold_index: int
         "state": RuleState.DRAFT.value,
         "definition_hash": definition_hash,
         "model": {
-            "algorithm": spec["name"], "training_kind": spec["kind"], "score_kind": spec["score_kind"],
-            "explanation_method": "none", "unit": UNIT, "threshold": threshold,
+            "algorithm": spec["name"], "training_kind": spec["kind"],
+            "score_kind": SCORE_KIND[candidate.artefact_type],
+            "explanation_method": EXPLANATION_METHOD[candidate.artefact_type], "unit": UNIT, "threshold": threshold,
             "threshold_rule": ("chosen by the lab user on the validation curve"
                                + (" (validation max-F1 default)" if threshold_index == candidate.default_index else "")),
             "default_threshold": float(candidate.thresholds[candidate.default_index]),
@@ -203,3 +233,302 @@ def save_draft(db: Session, run: LabRun, *, model_key: str, threshold_index: int
     db.commit()
     db.refresh(version)
     return version, False
+
+
+# --- approval (FR-405) and model alerts (CF-05) ------------------------------------------------
+
+
+def lab_versions(db: Session) -> list[ModelVersion]:
+    return list(db.scalars(select(ModelVersion).where(ModelVersion.artefact_type.in_(LAB_ARTEFACTS))
+                           .order_by(ModelVersion.created_at.desc())))
+
+
+def get_lab_version(db: Session, version_id: uuid.UUID) -> ModelVersion | None:
+    version = db.get(ModelVersion, version_id)
+    return version if version is not None and version.artefact_type in LAB_ARTEFACTS else None
+
+
+def version_history(db: Session, version: ModelVersion) -> list[AuditLog]:
+    return list(db.scalars(select(AuditLog).where(AuditLog.object_type == OBJECT_MODEL_VERSION,
+                                                  AuditLog.object_id == version.id)
+                           .order_by(AuditLog.created_at, AuditLog.id)))
+
+
+def _ml_rule(db: Session) -> tuple[Rule, list[RuleVersion]]:
+    rule = db.scalar(select(Rule).where(Rule.pattern_code == ML_PATTERN_CODE).order_by(Rule.rule_ref))
+    if rule is None:
+        raise LabConflict("Rule ML_SCORE (RUL-0002) tidak ditemukan; jalankan migrasi database terbaru.")
+    versions = list(db.scalars(select(RuleVersion).where(RuleVersion.rule_id == rule.id)
+                               .order_by(RuleVersion.version.desc())))
+    return rule, versions
+
+
+def model_alerts_state(db: Session) -> dict:
+    rule, versions = _ml_rule(db)
+    active = next((v for v in versions if v.state == RuleState.ACTIVE), None)
+    shown = active or (versions[0] if versions else None)
+    return {"rule_ref": rule.rule_ref, "version": shown.version if shown else None,
+            "state": shown.state.value if shown else None, "active": active is not None,
+            "reason_code": shown.reason_code if shown else None,
+            "severity": shown.severity.value if shown else None}
+
+
+def set_model_alerts(db: Session, *, actor: User, enabled: bool, reason: str, commit: bool = True) -> dict:
+    """Switch ML_SCORE on or off. Only the state of the existing rule version moves
+    (rule versions are immutable otherwise); the MLRO's reason is recorded."""
+    rule, versions = _ml_rule(db)
+    active = next((v for v in versions if v.state == RuleState.ACTIVE), None)
+    if enabled and active is None:
+        target = next((v for v in versions if v.state in (RuleState.DRAFT, RuleState.SUSPENDED)), None)
+        if target is None:
+            raise LabConflict("Tidak ada versi rule ML_SCORE yang dapat diaktifkan.")
+        previous = target.state
+        target.state = RuleState.ACTIVE
+        record_transition(db, correlation_id=rule.correlation_id, actor=actor, object_type=OBJECT_RULE_VERSION,
+                          object_id=target.id, from_state=previous.value, to_state=RuleState.ACTIVE.value,
+                          reason=f"{reason.strip()} — {CF05_DECISION}", action="RULE_VERSION_ACTIVATED",
+                          details={"rule_ref": rule.rule_ref, "version": target.version, "pattern": ML_PATTERN_CODE,
+                                   "maker_checker": "activated directly by an MLRO; the seeded rule has no maker "
+                                                    "submission, as documented for RUL-0001"})
+    elif not enabled and active is not None:
+        active.state = RuleState.SUSPENDED
+        record_transition(db, correlation_id=rule.correlation_id, actor=actor, object_type=OBJECT_RULE_VERSION,
+                          object_id=active.id, from_state=RuleState.ACTIVE.value,
+                          to_state=RuleState.SUSPENDED.value, reason=reason.strip(),
+                          action="RULE_VERSION_SUSPENDED", details={"rule_ref": rule.rule_ref,
+                                                                    "version": active.version})
+    if commit:
+        db.commit()
+    return model_alerts_state(db)
+
+
+def _require_reason(text: str | None, what: str) -> str:
+    text = (text or "").strip()
+    if len(text) < MIN_JUSTIFICATION:
+        raise LabConflict(f"{what} minimal {MIN_JUSTIFICATION} karakter.")
+    return text
+
+
+def submit_version(db: Session, version: ModelVersion, *, actor: User, justification: str) -> ModelVersion:
+    if version.state != RuleState.DRAFT:
+        raise LabConflict(f"Hanya model berstatus DRAFT yang dapat diajukan (status sekarang {version.state.value}).")
+    justification = _require_reason(justification, "Justifikasi pengajuan")
+    version.state = RuleState.PENDING_APPROVAL
+    version.submitted_by = actor.id
+    version.simulation_reference = f"lab_run:{version.model_card.get('lab_run_id')}"
+    record_transition(db, correlation_id=version.correlation_id, actor=actor, object_type=OBJECT_MODEL_VERSION,
+                      object_id=version.id, from_state=RuleState.DRAFT.value,
+                      to_state=RuleState.PENDING_APPROVAL.value, reason=justification,
+                      action="ANOMALY_MODEL_VERSION_SUBMITTED")
+    db.commit()
+    db.refresh(version)
+    return version
+
+
+def approve_version(db: Session, version: ModelVersion, *, actor: User, note: str,
+                    model_alerts: bool | None) -> ModelVersion:
+    if version.state != RuleState.PENDING_APPROVAL:
+        raise LabConflict(f"Hanya model yang menunggu persetujuan yang dapat disetujui (status {version.state.value}).")
+    note = _require_reason(note, "Catatan persetujuan")
+    if actor.id in {version.submitted_by, version.created_by}:
+        # FR-405 E1 / AC2: self-approval is refused and recorded.
+        record_transition(db, correlation_id=version.correlation_id, actor=actor, object_type=OBJECT_MODEL_VERSION,
+                          object_id=version.id, from_state=version.state.value, to_state=version.state.value,
+                          reason="Self-approval refused (FR-405 E1)", action="ANOMALY_MODEL_SELF_APPROVAL_REFUSED")
+        db.commit()
+        raise LabConflict("Persetujuan atas pengajuan sendiri tidak diizinkan (FR-405).")
+    now = datetime.now(timezone.utc)
+    for previous in db.scalars(select(ModelVersion).where(ModelVersion.unit == version.unit,
+                                                          ModelVersion.state == RuleState.ACTIVE,
+                                                          ModelVersion.id != version.id)):
+        previous.state = RuleState.RETIRED
+        previous.superseded_by = version.id
+        record_transition(db, correlation_id=previous.correlation_id, actor=actor, object_type=OBJECT_MODEL_VERSION,
+                          object_id=previous.id, from_state=RuleState.ACTIVE.value, to_state=RuleState.RETIRED.value,
+                          reason=f"Superseded by {version.version}, approved by the MLRO",
+                          action="ANOMALY_MODEL_VERSION_RETIRED")
+    # uq_model_version_one_active_per_unit (migration 0008): the old version must
+    # leave ACTIVE in the database before the new one enters it.
+    db.flush()
+    version.state = RuleState.ACTIVE
+    version.approved_by = actor.id
+    version.approved_at = now
+    version.effective_from = now
+    record_transition(db, correlation_id=version.correlation_id, actor=actor, object_type=OBJECT_MODEL_VERSION,
+                      object_id=version.id, from_state=RuleState.PENDING_APPROVAL.value,
+                      to_state=RuleState.ACTIVE.value, reason=note, action="ANOMALY_MODEL_VERSION_APPROVED",
+                      details={"effective_from": now.isoformat(), "applies_to": "the next detection run only"})
+    if model_alerts is not None:
+        set_model_alerts(db, actor=actor, enabled=model_alerts, reason=note, commit=False)
+    db.commit()
+    db.refresh(version)
+    return version
+
+
+def return_version(db: Session, version: ModelVersion, *, actor: User, reason: str) -> ModelVersion:
+    if version.state != RuleState.PENDING_APPROVAL:
+        raise LabConflict(f"Hanya model yang menunggu persetujuan yang dapat dikembalikan (status {version.state.value}).")
+    reason = _require_reason(reason, "Alasan pengembalian")
+    version.state = RuleState.DRAFT
+    record_transition(db, correlation_id=version.correlation_id, actor=actor, object_type=OBJECT_MODEL_VERSION,
+                      object_id=version.id, from_state=RuleState.PENDING_APPROVAL.value,
+                      to_state=RuleState.DRAFT.value, reason=reason, action="ANOMALY_MODEL_VERSION_RETURNED")
+    db.commit()
+    db.refresh(version)
+    return version
+
+
+def suspend_version(db: Session, version: ModelVersion, *, actor: User, reason: str) -> ModelVersion:
+    if version.state != RuleState.ACTIVE:
+        raise LabConflict(f"Hanya model ACTIVE yang dapat dinonaktifkan (status {version.state.value}).")
+    reason = _require_reason(reason, "Alasan penonaktifan")
+    version.state = RuleState.SUSPENDED
+    record_transition(db, correlation_id=version.correlation_id, actor=actor, object_type=OBJECT_MODEL_VERSION,
+                      object_id=version.id, from_state=RuleState.ACTIVE.value, to_state=RuleState.SUSPENDED.value,
+                      reason=reason, action="ANOMALY_MODEL_VERSION_SUSPENDED")
+    db.commit()
+    db.refresh(version)
+    return version
+
+
+# --- monitoring new data in a training dataset's layout ----------------------------------------
+
+MONITOR_SOURCE_SYSTEM = "MODEL_LAB"
+CANONICAL_ORDER = (
+    "transaction_ref", "account_number", "transaction_date", "amount", "currency", "direction", "channel",
+    "device_ref", "merchant_ref", "location", "ip_address", "login_attempts", "transaction_duration",
+    "account_balance", "customer_age", "customer_occupation", "timestamp_precision", "source_timezone_known",
+    "counterparty_ref", "source_status", "description", "transaction_type", "counterparty_country",
+)
+
+
+def _cell(value) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, float) and value != value:  # NaN
+        return ""
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if hasattr(value, "isoformat") and hasattr(value, "tzinfo"):
+        return value.isoformat()
+    return str(value)
+
+
+def _canonical_csv(raw, mapping: dict, accepted) -> str:
+    """Every row of the upload in FCIP's canonical columns, in file order.
+
+    Rows that passed validation are written in their validated form; rows that
+    did not are written as mapped, so ingestion quarantines them with a reason
+    and the batch accounts for every row of the file (FR-102, FR-105)."""
+    from app.ml.lab.mapping import DIRECTION_SYNONYMS
+
+    fields = {k: v for k, v in (mapping.get("fields") or {}).items() if v}
+    default_currency = (mapping.get("default_currency") or "XXX").strip().upper()
+    good = {int(row["source_ordinal"]): row for row in accepted.to_dict("records")}
+    out = io.StringIO()
+    writer = csv.writer(out, lineterminator="\n")
+    writer.writerow(CANONICAL_ORDER)
+    for position in range(len(raw)):
+        row = good.get(position + 1)
+        if row is not None:
+            writer.writerow([_cell(row.get(c)) for c in CANONICAL_ORDER])
+            continue
+        source = {key: str(raw[column].iat[position]) for key, column in fields.items()}
+        source.setdefault("transaction_ref", f"ROW-{position + 1:07d}")
+        direction = source.get("direction", "DEBIT").strip().upper()
+        source["direction"] = DIRECTION_SYNONYMS.get(direction, direction)
+        source.setdefault("channel", "UNKNOWN")
+        if not source.get("currency", "").strip():
+            source["currency"] = default_currency
+        writer.writerow([source.get(c, "") for c in CANONICAL_ORDER])
+    return out.getvalue()
+
+
+def _ensure_account_proxies(db: Session, accepted) -> int:
+    """An anonymous observation proxy for every account the platform has not seen,
+    as app/scripts/load_behavioral_dataset.py builds them: no person, no identity
+    facts. Existing accounts — proxies or real master data — are used as they are."""
+    from app.services.ingestion import LOOKUP_CHUNK_SIZE
+
+    currencies = accepted.groupby("account_number").currency.unique()
+    ambiguous = [number for number, values in currencies.items() if len(values) != 1]
+    if ambiguous:
+        raise LabDataError(f"Rekening {', '.join(map(str, ambiguous[:5]))} memakai lebih dari satu mata uang; "
+                           "FCIP tidak mengonversi kurs. Pisahkan file per mata uang.")
+    numbers = [str(n) for n in currencies.index]
+    existing: set[str] = set()
+    for start in range(0, len(numbers), LOOKUP_CHUNK_SIZE):
+        existing.update(db.scalars(select(Account.account_number)
+                                   .where(Account.account_number.in_(numbers[start:start + LOOKUP_CHUNK_SIZE]))))
+    missing = [n for n in numbers if n not in existing]
+    refs = [f"OBS-{n}" for n in missing]
+    customers: dict[str, Customer] = {}
+    for start in range(0, len(refs), LOOKUP_CHUNK_SIZE):
+        customers.update({c.customer_ref: c for c in db.scalars(
+            select(Customer).where(Customer.customer_ref.in_(refs[start:start + LOOKUP_CHUNK_SIZE])))})
+    accounts = []
+    for number in missing:
+        customer = customers.get(f"OBS-{number}")
+        if customer is None:
+            # INDIVIDUAL satisfies the technical schema only; no person is inferred.
+            customer = Customer(id=uuid.uuid4(), customer_ref=f"OBS-{number}", full_name=number,
+                                entity_type=EntityType.INDIVIDUAL)
+            db.add(customer)
+        accounts.append(Account(account_number=number, customer_id=customer.id, account_type="OBSERVATION_PROXY",
+                                currency=str(currencies[number][0]), status=AccountStatus.ACTIVE, opened_date=None))
+    # No ORM relationship orders these inserts, so customers go first (as load_account_proxies does).
+    db.flush()
+    db.add_all(accounts)
+    db.flush()
+    return len(missing)
+
+
+def monitor_upload(db: Session, dataset: LabDataset, *, actor: User, file_name: str, raw_bytes: bytes) -> dict:
+    """Ingest a new file in this dataset's layout as a monitored batch, then run detection:
+    every ACTIVE rule, then every ACTIVE model (and ML_SCORE alerts when switched on)."""
+    from app.services.detection.p02_structuring import run_p02_structuring
+    from app.services.ingestion import DuplicateBatchError, IngestionFileError, ingest_transactions_csv, register_batch
+    from app.services.ml_scoring import run_ml_scoring
+
+    if dataset.mapping is None:
+        raise LabConflict("Petakan kolom dataset ini terlebih dahulu; pemantauan memakai pemetaan yang sama.")
+    started = time.perf_counter()
+    raw, file_format = read_table_bytes(raw_bytes)
+    mapped = map_for_monitoring(raw, dataset.mapping)
+    proxies = _ensure_account_proxies(db, mapped.frame) if len(mapped.frame) else 0
+    content = _canonical_csv(raw, dataset.mapping, mapped.frame)
+    try:
+        batch = register_batch(db, actor=actor, file_name=file_name, raw_bytes=raw_bytes,
+                               source_system=MONITOR_SOURCE_SYSTEM, business_date=datetime.now(timezone.utc).date(),
+                               expected_records=len(raw))
+    except DuplicateBatchError as exc:
+        db.rollback()
+        raise LabConflict(f"File ini sudah pernah diunggah untuk pemantauan hari ini: {exc}") from exc
+    try:
+        summary = ingest_transactions_csv(db, file_name=file_name, content=content, batch=batch, actor=actor)
+    except IngestionFileError as exc:
+        db.rollback()
+        raise LabDataError(f"Ingestion gagal: {exc}") from exc
+    record_transition(db, correlation_id=dataset.correlation_id, actor=actor, object_type=OBJECT_LAB_DATASET,
+                      object_id=dataset.id, from_state=dataset.status, to_state=dataset.status,
+                      action="LAB_MONITOR_UPLOAD",
+                      reason=(f"{file_name} ({file_format}) ingested in this dataset's layout as {summary.batch_ref}: "
+                              f"{summary.accepted:,} accepted, {summary.quarantined:,} quarantined, "
+                              f"{proxies:,} account proxies created"),
+                      details={"batch_ref": summary.batch_ref, "file_format": file_format,
+                               "account_proxies_created": proxies})
+    db.commit()
+    p02 = run_p02_structuring(db, actor=actor)
+    ml = run_ml_scoring(db, actor=actor)
+    return {
+        "file_name": file_name, "file_format": file_format, "mapping_report": mapped.report,
+        "batch_ref": summary.batch_ref, "batch_status": summary.batch_status, "total_rows": summary.total_rows,
+        "accepted": summary.accepted, "quarantined": summary.quarantined,
+        "quarantine_preview": [p.model_dump() for p in summary.quarantine_preview],
+        "account_proxies_created": proxies,
+        "rule_alerts_created": p02.alerts_created,
+        "models": [r.__dict__ for r in ml.models],
+        "model_alerts_created": ml.alerts_created,
+        "model_alerts_active": bool(ml.ml_rule_versions_evaluated),
+        "seconds": round(time.perf_counter() - started, 1),
+    }

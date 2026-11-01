@@ -137,14 +137,14 @@ export function OverviewPage() {
       return;
     }
     if (
-      !file.name.toLowerCase().endsWith(".csv") ||
+      !/\.(csv|parquet)$/i.test(file.name) ||
       file.size > MAX_UPLOAD_BYTES
     ) {
       setSelectedFile(null);
       setFileError(
         file.size > MAX_UPLOAD_BYTES
           ? "File melebihi batas upload 50 MiB. Gunakan bagian CSV yang lebih kecil."
-          : "Pilih file transaksi dengan format .csv.",
+          : "Pilih file transaksi berformat .csv atau .parquet.",
       );
       if (fileInput.current) fileInput.current.value = "";
       return;
@@ -261,7 +261,7 @@ export function OverviewPage() {
                   selesai.
                 </p>
               </div>
-              <span className="badge badge-blue">CSV · 50 MiB</span>
+              <span className="badge badge-blue">CSV / Parquet · 50 MiB</span>
             </div>
             <div className="operation-tabs" aria-label="Urutan pemrosesan">
               <strong>01 Upload & validasi</strong>
@@ -294,12 +294,12 @@ export function OverviewPage() {
                   <strong>
                     {selectedFile
                       ? selectedFile.name
-                      : "Tarik file CSV ke sini"}
+                      : "Tarik file CSV atau Parquet ke sini"}
                   </strong>
                   <p>
                     {selectedFile
                       ? `${(selectedFile.size / (1024 * 1024)).toLocaleString("id-ID", { maximumFractionDigits: 2 })} MiB · Siap diunggah`
-                      : "CSV transaksi · UTF-8 · Maksimal 50 MiB per file"}
+                      : "CSV (UTF-8) atau Parquet · Maksimal 50 MiB per file"}
                   </p>
                   <label htmlFor="csv-file" className="file-select">
                     {selectedFile
@@ -311,8 +311,8 @@ export function OverviewPage() {
                     ref={fileInput}
                     className="sr-only"
                     type="file"
-                    accept=".csv,text/csv"
-                    aria-label="Pilih CSV transaksi"
+                    accept=".csv,text/csv,.parquet"
+                    aria-label="Pilih file transaksi (CSV atau Parquet)"
                     disabled={busy}
                     onChange={(event) => chooseFile(event.target.files?.[0])}
                   />
@@ -360,7 +360,7 @@ export function OverviewPage() {
                 </p>
                 <button type="submit" disabled={busy || !selectedFile}>
                   <Icon name="upload" size={16} />
-                  {upload.isPending ? "Mengunggah..." : "Upload CSV"}
+                  {upload.isPending ? "Mengunggah..." : "Upload file"}
                 </button>
               </div>
               {fileError && (

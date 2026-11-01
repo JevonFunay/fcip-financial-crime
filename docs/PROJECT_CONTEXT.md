@@ -652,10 +652,52 @@ alert dispositions. Review blinding is logical file separation, not encryption.
 All source licensing/clock/identity limitations persist; no promotion or CF-05
 change follows from this approval.
 
+**AS-12 — model lab file limits (27 Oct):** a lab dataset holds at most
+500,000 rows (the upper end of the capstone brief's synthetic volume), because
+training and monitoring run inside the request until a job runner exists. CSV
+and Parquet share the existing 50 MB upload cap. A Parquet file is read into the
+same text cells a CSV would hold (`app/services/tabular.py`: positional numbers,
+exact decimals, ISO timestamps with an offset only when the file stores one,
+dates as dates), so every existing validator and quarantine reason applies
+unchanged. Mentor request, 27 Oct.
+
+**AS-13 — monitoring uploads in a lab dataset's layout (27 Oct):** a new file is
+mapped with the dataset's saved mapping; a label or category column in it is
+ignored. It is ingested as an FR-101 batch (source system `MODEL_LAB`,
+expected records = rows in the file); rows that fail validation are written as
+mapped so ingestion quarantines them with a reason, and the batch accounts for
+every row. Account numbers the platform has never seen get anonymous observation
+proxies (`OBS-<number>`, `OBSERVATION_PROXY`), exactly as
+`load_behavioral_dataset` builds them; existing accounts, proxy or real master
+data, are used as they are. An account with two currencies stops the upload (no
+FX). Detection then runs as `POST /detection/run` does: P02, then every ACTIVE
+model.
+
+**AS-14 — model approval (27 Oct, FR-405 "sama seperti FR-204"):** only an
+Analyst submits a lab DRAFT (Data Ops may still train and save drafts); only an
+MLRO approves, returns it to DRAFT, or suspends an ACTIVE one; the approver may
+be neither its creator nor its submitter, and a refused self-approval is
+recorded (FR-405 AC2). Justifications and notes need at least 20 characters, as
+alert dispositions do. Approval retires the previously ACTIVE model of the same
+unit (`superseded_by` set; `uq_model_version_one_active_per_unit` holds) and
+applies from the next detection run. The lab's validation and test results
+stand in for FR-405's simulation (`simulation_reference = lab_run:<id>`). No
+schema change: migration 0008 already lets state and approval provenance move.
+
+**AS-15 — model alerts switch (27 Oct, CF-05 (b)):** model alerts are the seeded
+`ML_SCORE` rule (RUL-0002 v1) moved DRAFT → ACTIVE by an MLRO — with a model
+approval or from the lab's switch — never by default or by a migration, so
+existing deployments and tests behave as before until an MLRO acts. The seeded
+rule has no maker submission; this is the same documented bypass as RUL-0001.
+Grouping, reason text and evidence are `raise_ml_alerts` unchanged (one alert
+per account and source-clock day for transaction models); a threshold below 0.01
+is now printed with two significant digits instead of `0.00`.
+
 ### TRD §1.5 — conflicts still open
 
 - **CF-01** (tied to MQ-09): boundary between forbidden autonomous closure and permitted exact-duplicate suppression
-- **CF-05**: anomaly score must not raise an alert alone, but there is no anomaly rule among the twelve patterns. Proposed: anomaly stays a supporting signal. **The ML pipeline is built so both answers work** (see "Mentor directives" below): (a) the score is a supporting factor on rule alerts, or (b) a score above a threshold raises its own alert — as a rule with pattern `ML_SCORE`, seeded DRAFT, which matches FRD BR-401.2 ("unless an anomaly rule is explicitly configured and approved via §5.3"). Choosing (b) is a state change on that rule, not a code change. **Direction from the mentor (30 Sep), awaiting written confirmation:** option **(b)**. The mentor's instruction to "categorise real and anomalous transactions and alert the admin" is read as a score raising its own alert, through the `ML_SCORE` rule configured and approved via §5.3 (BR-401.2), seeded with the same documented maker-checker bypass as RUL-0001. Option (a) stays as the explanation on the alert detail (the score and its top contributing features)
+- **CF-05 — answered 27 Oct 2026 (V-TEKI mentors, relayed by Michael): option (b).** A score at or above an approved model's threshold raises its own alert, so detection is not only rule-dependent: fixed thresholds can be learned and evaded by staying just under them. Built as an MLRO switch of the seeded `ML_SCORE` rule (RUL-0002), see AS-15 and §18. Reason code RC-ML-01 and severity MEDIUM are still the team's proposal; a written confirmation from the mentors is still advisable. History of the question:
+  anomaly score must not raise an alert alone, but there is no anomaly rule among the twelve patterns. Proposed: anomaly stays a supporting signal. **The ML pipeline is built so both answers work** (see "Mentor directives" below): (a) the score is a supporting factor on rule alerts, or (b) a score above a threshold raises its own alert — as a rule with pattern `ML_SCORE`, seeded DRAFT, which matches FRD BR-401.2 ("unless an anomaly rule is explicitly configured and approved via §5.3"). Choosing (b) is a state change on that rule, not a code change. **Direction from the mentor (30 Sep), awaiting written confirmation:** option **(b)**. The mentor's instruction to "categorise real and anomalous transactions and alert the admin" is read as a score raising its own alert, through the `ML_SCORE` rule configured and approved via §5.3 (BR-401.2), seeded with the same documented maker-checker bypass as RUL-0001. Option (a) stays as the explanation on the alert detail (the score and its top contributing features)
 
 ### Mentor directives, 29 September — ML pipeline, Fraud and AML
 
@@ -1709,3 +1751,63 @@ strict recall guard, honest unknown outcomes and an offline reviewer workflow.
 **Capstone:** Pipeline evaluasi dan alat review selesai, tetapi peningkatan
 precision belum menjaga seluruh cakupan final; model tetap DRAFT dan review
 manusia masih menunggu 300 penilaian.
+
+---
+
+## 18. Model lab: from labelled dataset to detection — 27 October 2026
+
+**Authority.** The mentors' 27 Oct decisions, relayed by Michael (who works
+with Jevon on this repository): the model lab is the intended framework;
+uploads accept Parquet as well as CSV; CF-05 is answered **(b)** — a model
+score raises alerts without a pattern rule, because fixed rules can be learned
+and evaded by staying under their thresholds. Evaluation follows Jevon's
+current protocol. Dataset licences stay open (asked later). Generator, shared
+data, P02 and Jevon's research artefacts are unchanged.
+
+**Fix on main.** `0010_roles_case_evidence` (Gabriel, 27 Oct) and
+`0010_model_lab` (PR #2) both revised 0009, leaving two heads: `alembic upgrade
+head` failed, so the backend container could not start and the suite could not
+build its database. `0011_merge_lab_and_roles` joins them; it upgrades from an
+empty database and from either half-applied state.
+
+**Built** (branch `feat/lab-deploy`):
+- Parquet for lab datasets, monitoring uploads and the regular transaction
+  upload (`app/services/tabular.py`; migration 0012 adds `file_format` and
+  renames `raw_csv` → `raw_file`).
+- Reasons for every lab score (`app/ml/lab/scoring.py`): `linear_log_odds`
+  (Logistic Regression, additive), `tree_shap_log_odds` (LightGBM),
+  `median_replacement_score_difference` (Isolation Forest) — NG-07, BR-401.3.
+- FR-405 approval for lab models: submit (Analyst), approve / return / suspend
+  (MLRO, not the submitter), previous ACTIVE model retired; audit actions
+  `ANOMALY_MODEL_VERSION_SUBMITTED/APPROVED/RETURNED/SUSPENDED/RETIRED` and
+  `ANOMALY_MODEL_SELF_APPROVAL_REFUSED` (AS-14).
+- Model alerts: the MLRO switches `ML_SCORE` (RUL-0002) on or off (AS-15).
+- Scoring: `ml_scoring.py` verifies `LAB_*` artefacts by recomputing their
+  definition hash and scores them on the same behavioral_v1 features built from
+  the database; `ml_queries.py` and `/ml/models` show their definitions and
+  explanation method.
+- Monitoring uploads in a dataset's layout (`POST /lab/datasets/{id}/monitor`,
+  Data Ops; AS-13), followed by P02 and model scoring.
+- UI: seven-step lab page; alert queue labels `ML_SCORE` alerts "Skor model
+  (tanpa rule pola)" with "Skor pemicu"; linear explanations on Model signals.
+
+**Verified.** 769 backend tests pass (757 on main with the fix + 12 new), 5
+slow deselected; frontend build passes. Browser walkthrough as Analyst → MLRO →
+Data Ops → Triage: 100k-row Parquet training file (seed 20261026) → LightGBM
+saved, submitted, approved with model alerts on → 30k-row Parquet monitoring
+file for Sep 2026–Mar 2027 (seed 20261027): 29,512 accepted, 488 quarantined,
+994 account proxies, 785 transactions at or above the threshold → 96 model
+alerts and 12 P02 alerts in about 16 s; the alert detail lists each score's
+feature contributions. A replaced active model was caught by the suite
+(`uq_model_version_one_active_per_unit`) and fixed by retiring before activating.
+
+**Limits.** Synchronous requests (about 25 s to train on 100k rows; files capped
+at 500,000 rows); Fraud (per-transaction) unit only, no AML account-week lab
+track; LightGBM scores are not calibrated probabilities (class weighting; the
+sample's threshold is about 0.0036); synthetic-data figures only (L-01);
+external dataset licences unresolved; rule maker-checker (FR-304) still unbuilt.
+
+**Own decisions:** AS-12 to AS-15. **Capstone:** Lab model kini berjalan dari
+dataset berlabel sampai alert: model disetujui MLRO, menilai data baru, dan
+skornya membuat alert tanpa rule pola (CF-05 opsi b), dengan fitur penyumbang
+pada setiap skor; hasil hanya berlaku untuk data sintetis.

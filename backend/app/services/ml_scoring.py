@@ -32,6 +32,7 @@ from sqlalchemy.orm import Session
 
 from app.ml.feature_set import FEATURE_SET_VERSION, FEATURES, JAKARTA
 from app.ml.features import build_matrices
+from app.ml.lab.scoring import is_lab_artefact, load_predictor as load_lab_predictor, verify as lab_verify
 from app.ml.loader import Account as MlAccount
 from app.ml.loader import Dataset, Merchant as MlMerchant, Txn, _hours
 from app.ml.models import canonical, definition_hash
@@ -97,6 +98,11 @@ def _verify(version: ModelVersion) -> list[str]:
     and MCC reference it needs, compared with this checkout's."""
     card = version.model_card
     features = card["feature_set"]["features"]
+    if is_lab_artefact(version.artefact_type):
+        try:
+            return lab_verify(version)
+        except ValueError as exc:
+            raise ModelIntegrityError(str(exc)) from exc
     if version.artefact_type == "ISOLATION_FOREST_JSON":
         from app.ml.behavioral.features import FEATURE_SET_VERSION as BEHAVIORAL_VERSION
         from app.ml.behavioral.features import FEATURE_DEFINITIONS as DEFINITIONS, feature_names
@@ -155,6 +161,8 @@ def active_models(db: Session) -> dict[str, LoadedModel]:
         if version.artefact_type == "ISOLATION_FOREST_JSON":
             from app.ml.behavioral.model import load_model
             predictor = load_model(version.model_text)
+        elif is_lab_artefact(version.artefact_type):
+            predictor = load_lab_predictor(version.artefact_type, version.model_text, features)
         else:
             import lightgbm as lgb
             predictor = lgb.Booster(model_str=version.model_text)
@@ -312,12 +320,14 @@ def score_all(db: Session, run_id: uuid.UUID, models: dict[str, LoadedModel]) ->
     from app.ml.behavioral.model import explain_model
 
     legacy = {unit: model for unit, model in models.items()
-              if model.version.artefact_type != "ISOLATION_FOREST_JSON"}
+              if model.version.artefact_type != "ISOLATION_FOREST_JSON" and not is_lab_artefact(model.version.artefact_type)}
     runs = _score_legacy(db, run_id, legacy) if legacy else []
     frames = {}
     alerted = _entities_with_rule_alerts(db)
     for unit, model in sorted(models.items()):
-        if model.version.artefact_type != "ISOLATION_FOREST_JSON":
+        # Lab models (app/ml/lab) use the same behavioral_v1 features, with their own predictor.
+        lab = is_lab_artefact(model.version.artefact_type)
+        if model.version.artefact_type != "ISOLATION_FOREST_JSON" and not lab:
             continue
         vocabulary = model.version.model_card["feature_set"]["vocabulary"]
         currency = vocabulary["currency"]
@@ -337,7 +347,8 @@ def score_all(db: Session, run_id: uuid.UUID, models: dict[str, LoadedModel]) ->
         if unit == UNIT_AML:
             keep |= frame.account_number.map(lambda account: customer_ids[account] in alerted).to_numpy(dtype=bool)
         positions = np.flatnonzero(keep)
-        explanations = explain_model(model.version.model_text, frame.iloc[positions], TOP_CONTRIBUTIONS)
+        explanations = (model.booster.explain(frame.iloc[positions], TOP_CONTRIBUTIONS) if lab else
+                        explain_model(model.version.model_text, frame.iloc[positions], TOP_CONTRIBUTIONS))
         records = []
         for i, contributions in zip(positions, explanations):
             records.append({
@@ -359,6 +370,12 @@ def score_all(db: Session, run_id: uuid.UUID, models: dict[str, LoadedModel]) ->
 
 
 # --- ML_SCORE alerts (CF-05 option b), only through an ACTIVE rule version -----------------------
+
+
+def _number(value: float) -> str:
+    """Two decimals as before, but enough digits that a small threshold (a supervised
+    lab model's can be 0.0036) is not shown as 0.00."""
+    return f"{value:.2f}" if value == 0 or abs(value) >= 0.01 else f"{value:.2g}"
 
 
 def _describe(unit: str, contributions: list[dict], n: int = 3, definitions: dict | None = None) -> str:
@@ -395,8 +412,9 @@ def raise_ml_alerts(db: Session, run_id: uuid.UUID, actor: User | None) -> tuple
         if score.unit == UNIT_AML:
             key = (model_version, score.unit, score.customer_id, score.as_of.isoformat())
         else:
+            # Behavioral and lab observations keep the source clock; only fs_v2 is Jakarta time.
             day = (score.as_of.date() if version.artefact_type == "ISOLATION_FOREST_JSON"
-                   else score.as_of.astimezone(JAKARTA).date())
+                   or is_lab_artefact(version.artefact_type) else score.as_of.astimezone(JAKARTA).date())
             key = (model_version, score.unit, score.customer_id, day.isoformat())
         groups[key].append(score)
     created = already = 0
@@ -423,9 +441,10 @@ def raise_ml_alerts(db: Session, run_id: uuid.UUID, actor: User | None) -> tuple
                 what = f"{len(scores)} transaction(s) on {period}"
             model = model_cards[model_version]
             definitions = (model.model_card["feature_set"]["definitions"]
-                           if model.artefact_type == "ISOLATION_FOREST_JSON" else None)
-            reason = (f"{UNIT_LABEL[unit].capitalize()} {model_version} scored {what} at {best.score:.2f} "
-                      f"(threshold {best.threshold:.2f}). Strongest features: "
+                           if model.artefact_type == "ISOLATION_FOREST_JSON" or is_lab_artefact(model.artefact_type)
+                           else None)
+            reason = (f"{UNIT_LABEL[unit].capitalize()} {model_version} scored {what} at {_number(best.score)} "
+                      f"(threshold {_number(best.threshold)}). Strongest features: "
                       f"{_describe(unit, best.contributions, definitions=definitions)}")
             alert = Alert(
                 pattern_code=ML_PATTERN_CODE,

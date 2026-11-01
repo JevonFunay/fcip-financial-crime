@@ -18,6 +18,7 @@ import numpy as np
 import pandas as pd
 
 from app.ml.behavioral.standardize import NormalizationError, normalize_frame
+from app.services.tabular import FORMAT_PARQUET, TableFileError, detect_format, parquet_to_frame
 
 # Canonical fields the lab can map, in display order. "required" fields must be
 # mapped; the rest have a documented fallback or simply stay empty.
@@ -71,6 +72,9 @@ CATEGORY_ALIASES = ("patterncode", "pattern", "category", "typology", "scenario"
 POSITIVE_DEFAULTS = {"1", "true", "yes", "y", "t", "fraud", "ya"}
 LOW_CARDINALITY = 20
 MIN_PER_CLASS = 30
+# Upper end of the capstone brief's synthetic dataset (300k–500k transactions).
+# Training runs inside the request until a background job runner exists.
+MAX_ROWS = 500_000
 DIRECTION_SYNONYMS = {"DR": "DEBIT", "D": "DEBIT", "WITHDRAWAL": "DEBIT", "OUTGOING": "DEBIT", "KELUAR": "DEBIT",
                       "CR": "CREDIT", "C": "CREDIT", "DEPOSIT": "CREDIT", "INCOMING": "CREDIT", "MASUK": "CREDIT"}
 
@@ -87,15 +91,33 @@ def read_csv_bytes(raw_bytes: bytes) -> pd.DataFrame:
     try:
         text = raw_bytes.decode("utf-8-sig")
     except UnicodeDecodeError as exc:
-        raise LabDataError("File harus berupa CSV dengan encoding UTF-8.") from exc
+        raise LabDataError("File harus berupa CSV dengan encoding UTF-8, atau file Parquet.") from exc
     if "\x00" in text:
         raise LabDataError("File berisi byte NUL dan bukan CSV yang valid.")
     try:
         frame = pd.read_csv(io.StringIO(text), dtype=str, keep_default_na=False, skipinitialspace=False)
     except (pd.errors.ParserError, pd.errors.EmptyDataError) as exc:
         raise LabDataError(f"CSV tidak dapat dibaca: {exc}") from exc
+    return _checked(frame)
+
+
+def read_table_bytes(raw_bytes: bytes) -> tuple[pd.DataFrame, str]:
+    """A CSV or Parquet upload as text cells, and which format it was (recognised from content)."""
+    fmt = detect_format(raw_bytes)
+    if fmt == FORMAT_PARQUET:
+        try:
+            return _checked(parquet_to_frame(raw_bytes)), fmt
+        except TableFileError as exc:
+            raise LabDataError(str(exc)) from exc
+    return read_csv_bytes(raw_bytes), fmt
+
+
+def _checked(frame: pd.DataFrame) -> pd.DataFrame:
     if frame.empty or not len(frame.columns):
         raise LabDataError("File kosong atau tidak memiliki baris data.")
+    if len(frame) > MAX_ROWS:
+        raise LabDataError(f"File berisi {len(frame):,} baris; batas lab saat ini {MAX_ROWS:,} baris per file "
+                           "(pelatihan berjalan langsung, belum sebagai job di latar belakang).")
     names = [_name(c) for c in frame.columns]
     if frame.columns.duplicated().any() or len(names) != len(set(names)):
         raise LabDataError("Nama kolom ganda membuat pemetaan ambigu.")
@@ -162,40 +184,33 @@ class MappedData:
     report: dict = field(default_factory=dict)
 
 
-def apply_mapping(raw: pd.DataFrame, mapping: dict) -> MappedData:
-    """Validate a mapping against the file. Raises LabDataError for anything the user must fix."""
+def _field_settings(raw: pd.DataFrame, mapping: dict) -> tuple[dict[str, str], str, str]:
+    """The transaction-field part of a mapping, checked against this file."""
     fields: dict[str, str] = {k: v for k, v in (mapping.get("fields") or {}).items() if v}
     unknown = set(fields) - set(FIELD_KEYS)
     if unknown:
         raise LabDataError(f"Field tidak dikenal: {', '.join(sorted(unknown))}")
     missing_columns = sorted({c for c in fields.values() if c not in raw.columns})
-    label_column = mapping.get("label_column")
-    category_column = mapping.get("category_column") or None
-    for column in (label_column, category_column):
-        if column and column not in raw.columns:
-            missing_columns.append(column)
     if missing_columns:
         raise LabDataError(f"Kolom tidak ada di file: {', '.join(missing_columns)}")
     missing_fields = [f["label"] for f in FIELDS if f["required"] and f["key"] not in fields]
     if missing_fields:
         raise LabDataError(f"Field wajib belum dipetakan: {', '.join(missing_fields)}")
-    if not label_column:
-        raise LabDataError("Pilih kolom label (kunci jawaban) terlebih dahulu.")
     used = list(fields.values())
     if len(used) != len(set(used)):
         raise LabDataError("Satu kolom sumber tidak boleh dipetakan ke dua field.")
-    if label_column in used or (category_column and category_column in used):
-        raise LabDataError("Kolom label dan kolom kategori tidak boleh dipakai sebagai field transaksi (mencegah kebocoran).")
-    positive_values = {str(v).strip().lower() for v in mapping.get("positive_values") or [] if str(v).strip()}
-    if not positive_values:
-        raise LabDataError("Pilih minimal satu nilai label yang dihitung sebagai positif.")
     date_format = mapping.get("date_format") or "iso"
     if date_format not in {"iso", "month_first"}:
         raise LabDataError("Format tanggal harus iso atau month_first.")
     default_currency = (mapping.get("default_currency") or "XXX").strip().upper()
     if not re.fullmatch(r"[A-Z]{3}", default_currency):
         raise LabDataError("Mata uang default harus kode 3 huruf, misalnya IDR atau USD.")
+    return fields, date_format, default_currency
 
+
+def _normalize(raw: pd.DataFrame, fields: dict[str, str], date_format: str,
+               default_currency: str) -> tuple[pd.DataFrame, pd.DataFrame, list[str]]:
+    """Mapped columns through the canonical normalizer: (accepted, quarantine, notes)."""
     notes: list[str] = []
     work = pd.DataFrame(index=raw.index)
     for key, column in fields.items():
@@ -229,10 +244,34 @@ def apply_mapping(raw: pd.DataFrame, mapping: dict) -> MappedData:
         result = normalize_frame(work.reset_index(drop=True), profile)
     except NormalizationError as exc:
         raise LabDataError(f"Validasi gagal: {exc}") from exc
+    return result.frame, result.quarantine, notes
 
-    accepted = result.frame
-    reasons = (result.quarantine.error_reason.str.split("; ").explode().value_counts()
-               if not result.quarantine.empty else pd.Series(dtype=int))
+
+def _reasons(quarantine: pd.DataFrame) -> list[dict]:
+    if quarantine.empty:
+        return []
+    counts = quarantine.error_reason.str.split("; ").explode().value_counts()
+    return [{"reason": str(r), "rows": int(n)} for r, n in counts.head(8).items()]
+
+
+def apply_mapping(raw: pd.DataFrame, mapping: dict) -> MappedData:
+    """Validate a training mapping against the file. Raises LabDataError for anything the user must fix."""
+    fields, date_format, default_currency = _field_settings(raw, mapping)
+    label_column = mapping.get("label_column")
+    category_column = mapping.get("category_column") or None
+    missing_columns = [c for c in (label_column, category_column) if c and c not in raw.columns]
+    if missing_columns:
+        raise LabDataError(f"Kolom tidak ada di file: {', '.join(missing_columns)}")
+    if not label_column:
+        raise LabDataError("Pilih kolom label (kunci jawaban) terlebih dahulu.")
+    used = list(fields.values())
+    if label_column in used or (category_column and category_column in used):
+        raise LabDataError("Kolom label dan kolom kategori tidak boleh dipakai sebagai field transaksi (mencegah kebocoran).")
+    positive_values = {str(v).strip().lower() for v in mapping.get("positive_values") or [] if str(v).strip()}
+    if not positive_values:
+        raise LabDataError("Pilih minimal satu nilai label yang dihitung sebagai positif.")
+
+    accepted, quarantine, notes = _normalize(raw, fields, date_format, default_currency)
     positions = accepted.source_ordinal.to_numpy(dtype=np.int64) - 1
     label_raw = raw[label_column].astype(str).str.strip().to_numpy()[positions]
     label_present = label_raw != ""
@@ -260,8 +299,8 @@ def apply_mapping(raw: pd.DataFrame, mapping: dict) -> MappedData:
     report = {
         "total_rows": int(len(raw)),
         "accepted": int(len(accepted)),
-        "quarantined": int(len(result.quarantine)),
-        "quarantine_reasons": [{"reason": str(r), "rows": int(n)} for r, n in reasons.head(8).items()],
+        "quarantined": int(len(quarantine)),
+        "quarantine_reasons": _reasons(quarantine),
         "usable_rows": int(len(frame)),
         "missing_label": missing_label,
         "excluded_other_currency": excluded_currency,
@@ -281,3 +320,33 @@ def apply_mapping(raw: pd.DataFrame, mapping: dict) -> MappedData:
     if not report["ready"]:
         report["notes"].append(f"Perlu minimal {MIN_PER_CLASS} baris positif dan {MIN_PER_CLASS} negatif untuk melatih model.")
     return MappedData(frame=frame, labels=y, categories=categories, report=report)
+
+
+@dataclass
+class MonitoringData:
+    frame: pd.DataFrame   # accepted canonical observations, as ingestion's canonical CSV expects
+    report: dict
+
+
+def map_for_monitoring(raw: pd.DataFrame, mapping: dict) -> MonitoringData:
+    """A new file in a training dataset's layout, mapped for monitoring.
+
+    Only the transaction fields are used. A label or category column in the
+    file is ignored: live data is never scored with its answers in sight.
+    Rows that fail validation are reported here and quarantined again, with
+    the same reasons, when ingestion stores the batch.
+    """
+    fields, date_format, default_currency = _field_settings(raw, mapping)
+    accepted, quarantine, notes = _normalize(raw, fields, date_format, default_currency)
+    ignored = [c for c in (mapping.get("label_column"), mapping.get("category_column")) if c and c in raw.columns]
+    if ignored:
+        notes.append(f"Kolom {', '.join(ignored)} diabaikan: data yang dipantau tidak memakai kunci jawaban.")
+    return MonitoringData(frame=accepted, report={
+        "total_rows": int(len(raw)),
+        "accepted": int(len(accepted)),
+        "quarantined": int(len(quarantine)),
+        "quarantine_reasons": _reasons(quarantine),
+        "currencies": {str(k): int(v) for k, v in accepted.currency.value_counts().items()},
+        "accounts": int(accepted.account_number.nunique()) if len(accepted) else 0,
+        "notes": notes,
+    })

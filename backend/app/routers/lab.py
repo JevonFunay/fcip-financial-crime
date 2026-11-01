@@ -1,8 +1,15 @@
-"""Model lab API (framework prototype).
+"""Model lab API: train and compare, then approve a model and monitor new data with it.
 
-Data Ops and Analysts use the lab; every role can look at it. Training runs
-synchronously inside the request (seconds to about a minute for ~100k rows):
-a background job runner is the next step before larger datasets.
+Who does what (FRD roles):
+- Data Ops and Analysts upload, map, train and save drafts.
+- An Analyst submits a draft for approval; an MLRO other than the submitter
+  approves, returns or suspends it, and switches model alerts (ML_SCORE) on or
+  off (FR-405, FR-304 BR-304.1).
+- Data Ops uploads new data in a dataset's layout to be monitored (FR-101).
+- Every role can look.
+
+Training and monitoring run synchronously inside the request (about 25 s for
+100k rows); a background job runner is the next step before larger datasets.
 """
 
 import uuid
@@ -18,23 +25,33 @@ from app.ml.lab.mapping import FIELDS, MIN_PER_CLASS, LabDataError
 from app.ml.lab.trainer import MODELS, LabTrainingError
 from app.models.enums import UserRole
 from app.models.lab import LabDataset, LabRun
+from app.models.ml import ModelVersion
 from app.models.user import User
 from app.schemas.lab import (
+    LabApproveIn,
     LabDatasetOut,
     LabFeatureGroup,
     LabFieldSpec,
+    LabHistoryEntry,
     LabMappingIn,
+    LabModelAlertsIn,
+    LabModelAlertsState,
     LabModelSpec,
+    LabModelsOut,
+    LabModelVersionOut,
+    LabMonitorOut,
     LabOptions,
+    LabReasonIn,
     LabRunIn,
     LabRunOut,
     LabRunSummary,
     LabSavedModelOut,
     LabSavedVersion,
     LabSaveIn,
+    LabSubmitIn,
 )
 from app.services import lab as lab_service
-from app.services.ml_scoring import SYNTHETIC_NOTICE
+from app.services.ml_scoring import SIGNAL_NOTICE, SYNTHETIC_NOTICE
 
 router = APIRouter()
 
@@ -49,7 +66,8 @@ def _dataset_out(db: Session, dataset: LabDataset) -> LabDatasetOut:
     runs = db.scalars(select(LabRun).where(LabRun.dataset_id == dataset.id).order_by(LabRun.created_at.desc())).all()
     return LabDatasetOut(
         id=dataset.id, name=dataset.name, file_name=dataset.file_name, file_sha256=dataset.file_sha256,
-        file_size_bytes=dataset.file_size_bytes, row_count=dataset.row_count, columns=dataset.columns,
+        file_size_bytes=dataset.file_size_bytes, file_format=dataset.file_format, row_count=dataset.row_count,
+        columns=dataset.columns,
         preview=dataset.preview, suggestion=dataset.suggestion, mapping=dataset.mapping,
         validation=dataset.validation, status=dataset.status, uploaded_by_email=email,
         created_at=dataset.created_at,
@@ -187,3 +205,135 @@ def save_model(
         validation=card["validation"]["at_threshold"], test=card["test"]["at_threshold"],
         created_at=version.created_at, already_saved=existed,
     )
+
+
+# --- model versions: status, approval (FR-405) and model alerts (CF-05) ------------------------
+
+
+def _emails(db: Session, ids: set) -> dict:
+    ids = {i for i in ids if i is not None}
+    return dict(db.execute(select(User.id, User.email).where(User.id.in_(ids))).all()) if ids else {}
+
+
+def _version_out(db: Session, version: ModelVersion, emails: dict, names: dict) -> LabModelVersionOut:
+    card = version.model_card
+    training = card.get("training_data", {})
+    history = lab_service.version_history(db, version)
+    history_emails = _emails(db, {h.actor_user_id for h in history})
+    successor = db.get(ModelVersion, version.superseded_by) if version.superseded_by else None
+    dataset_id = training.get("dataset_id")
+    run_id = card.get("lab_run_id")
+    return LabModelVersionOut(
+        id=version.id, version=version.version, state=version.state, artefact_type=version.artefact_type,
+        model_key=card.get("lab_model_key"), model_name=card.get("model", {}).get("algorithm", version.artefact_type),
+        training_kind=card.get("model", {}).get("training_kind", "supervised"), threshold=version.threshold,
+        dataset_id=uuid.UUID(dataset_id) if dataset_id else None,
+        dataset_name=names.get(dataset_id) or training.get("dataset_name"),
+        lab_run_id=uuid.UUID(run_id) if run_id else None,
+        validation=card.get("validation", {}).get("at_threshold", {}),
+        test=card.get("test", {}).get("at_threshold", {}),
+        created_by_email=emails.get(version.created_by), submitted_by_email=emails.get(version.submitted_by),
+        approved_by_email=emails.get(version.approved_by), approved_at=version.approved_at,
+        superseded_by_version=successor.version if successor else None, created_at=version.created_at,
+        history=[LabHistoryEntry(at=h.created_at, actor_email=history_emails.get(h.actor_user_id),
+                                 actor_role=h.actor_role, from_state=h.from_state, to_state=h.to_state,
+                                 action=h.action, reason=h.reason) for h in history],
+    )
+
+
+def _models_out(db: Session) -> LabModelsOut:
+    versions = lab_service.lab_versions(db)
+    emails = _emails(db, {v.created_by for v in versions} | {v.submitted_by for v in versions}
+                     | {v.approved_by for v in versions})
+    names = {str(d.id): d.name for d in db.scalars(select(LabDataset))}
+    return LabModelsOut(items=[_version_out(db, v, emails, names) for v in versions],
+                        model_alerts=LabModelAlertsState(**lab_service.model_alerts_state(db)),
+                        min_reason_length=lab_service.MIN_JUSTIFICATION,
+                        synthetic_notice=SYNTHETIC_NOTICE, signal_notice=SIGNAL_NOTICE)
+
+
+def _get_version(db: Session, version_id: uuid.UUID) -> ModelVersion:
+    version = lab_service.get_lab_version(db, version_id)
+    if version is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Model lab tidak ditemukan")
+    return version
+
+
+def _transition(db: Session, action) -> LabModelsOut:
+    try:
+        action()
+    except lab_service.LabConflict as exc:
+        db.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+    return _models_out(db)
+
+
+@router.get("/models", response_model=LabModelsOut, dependencies=[Depends(require_role(*ALL_ROLES))])
+def list_models(db: Session = Depends(get_db)) -> LabModelsOut:
+    return _models_out(db)
+
+
+@router.post("/models/{version_id}/submit", response_model=LabModelsOut)
+def submit_model(version_id: uuid.UUID, payload: LabSubmitIn,
+                 user: User = Depends(require_role(UserRole.ROLE_ANALYST)), db: Session = Depends(get_db)) -> LabModelsOut:
+    version = _get_version(db, version_id)
+    return _transition(db, lambda: lab_service.submit_version(db, version, actor=user,
+                                                              justification=payload.justification))
+
+
+@router.post("/models/{version_id}/approve", response_model=LabModelsOut)
+def approve_model(version_id: uuid.UUID, payload: LabApproveIn,
+                  user: User = Depends(require_role(UserRole.ROLE_MLRO)), db: Session = Depends(get_db)) -> LabModelsOut:
+    version = _get_version(db, version_id)
+    return _transition(db, lambda: lab_service.approve_version(db, version, actor=user, note=payload.note,
+                                                               model_alerts=payload.model_alerts))
+
+
+@router.post("/models/{version_id}/return", response_model=LabModelsOut)
+def return_model(version_id: uuid.UUID, payload: LabReasonIn,
+                 user: User = Depends(require_role(UserRole.ROLE_MLRO)), db: Session = Depends(get_db)) -> LabModelsOut:
+    version = _get_version(db, version_id)
+    return _transition(db, lambda: lab_service.return_version(db, version, actor=user, reason=payload.reason))
+
+
+@router.post("/models/{version_id}/suspend", response_model=LabModelsOut)
+def suspend_model(version_id: uuid.UUID, payload: LabReasonIn,
+                  user: User = Depends(require_role(UserRole.ROLE_MLRO)), db: Session = Depends(get_db)) -> LabModelsOut:
+    version = _get_version(db, version_id)
+    return _transition(db, lambda: lab_service.suspend_version(db, version, actor=user, reason=payload.reason))
+
+
+@router.post("/model-alerts", response_model=LabModelsOut)
+def switch_model_alerts(payload: LabModelAlertsIn, user: User = Depends(require_role(UserRole.ROLE_MLRO)),
+                        db: Session = Depends(get_db)) -> LabModelsOut:
+    def action():
+        lab_service._require_reason(payload.reason, "Alasan")
+        lab_service.set_model_alerts(db, actor=user, enabled=payload.enabled, reason=payload.reason)
+    return _transition(db, action)
+
+
+# --- monitoring new data in a dataset's layout --------------------------------------------------
+
+
+@router.post("/datasets/{dataset_id}/monitor", response_model=LabMonitorOut)
+def monitor(
+    dataset_id: uuid.UUID,
+    file: UploadFile,
+    user: User = Depends(require_role(UserRole.ROLE_DATA_OPS)),
+    db: Session = Depends(get_db),
+) -> LabMonitorOut:
+    dataset = _get_dataset(db, dataset_id)
+    raw_bytes = file.file.read(MAX_UPLOAD_BYTES + 1)
+    if len(raw_bytes) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                            f"File melebihi batas {MAX_UPLOAD_BYTES // (1024 * 1024)} MB")
+    try:
+        result = lab_service.monitor_upload(db, dataset, actor=user, file_name=file.filename or "monitor.csv",
+                                            raw_bytes=raw_bytes)
+    except lab_service.LabConflict as exc:
+        db.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+    except LabDataError as exc:
+        db.rollback()
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+    return LabMonitorOut(**result, signal_notice=SIGNAL_NOTICE, synthetic_notice=SYNTHETIC_NOTICE)

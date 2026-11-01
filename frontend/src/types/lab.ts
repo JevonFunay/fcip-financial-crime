@@ -87,6 +87,7 @@ export interface LabDataset {
   file_name: string;
   file_sha256: string;
   file_size_bytes: number;
+  file_format: "csv" | "parquet";
   row_count: number;
   columns: string[];
   preview: Record<string, string>[];
@@ -183,4 +184,86 @@ export interface LabSavedModel {
   test: LabCurvePoint;
   created_at: string;
   already_saved: boolean;
+}
+
+export type LabModelState = "DRAFT" | "IN_SIMULATION" | "PENDING_APPROVAL" | "ACTIVE" | "SUSPENDED" | "RETIRED";
+
+export interface LabHistoryEntry {
+  at: string;
+  actor_email: string | null;
+  actor_role: string | null;
+  from_state: string | null;
+  to_state: string;
+  action: string | null;
+  reason: string | null;
+}
+
+export interface LabModelVersion {
+  id: string;
+  version: string;
+  state: LabModelState;
+  artefact_type: string;
+  model_key: string | null;
+  model_name: string;
+  training_kind: string;
+  threshold: number;
+  dataset_id: string | null;
+  dataset_name: string | null;
+  lab_run_id: string | null;
+  validation: Partial<LabCurvePoint>;
+  test: Partial<LabCurvePoint>;
+  created_by_email: string | null;
+  submitted_by_email: string | null;
+  approved_by_email: string | null;
+  approved_at: string | null;
+  superseded_by_version: string | null;
+  created_at: string;
+  history: LabHistoryEntry[];
+}
+
+export interface LabModelAlertsState {
+  rule_ref: string;
+  version: number | null;
+  state: string | null;
+  active: boolean;
+  reason_code: string | null;
+  severity: string | null;
+}
+
+export interface LabModelsResponse {
+  items: LabModelVersion[];
+  model_alerts: LabModelAlertsState;
+  min_reason_length: number;
+  synthetic_notice: string;
+  signal_notice: string;
+}
+
+export interface LabMonitorModelRun {
+  model_version: string;
+  unit: string;
+  threshold: number;
+  units_scored: number;
+  units_flagged: number;
+  scores_stored: number;
+  observations_skipped_currency: number;
+}
+
+export interface LabMonitorResult {
+  file_name: string;
+  file_format: string;
+  mapping_report: { notes: string[]; quarantine_reasons: { reason: string; rows: number }[] };
+  batch_ref: string | null;
+  batch_status: string | null;
+  total_rows: number;
+  accepted: number;
+  quarantined: number;
+  quarantine_preview: { row_number: number; error_reason: string }[];
+  account_proxies_created: number;
+  rule_alerts_created: number;
+  models: LabMonitorModelRun[];
+  model_alerts_created: number;
+  model_alerts_active: boolean;
+  seconds: number;
+  signal_notice: string;
+  synthetic_notice: string;
 }

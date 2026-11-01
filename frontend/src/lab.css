@@ -17,14 +17,14 @@
   margin: 0 0 20px;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
 }
 .lab-step {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 11px 12px;
+  gap: 8px;
+  padding: 10px 10px;
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -519,7 +519,7 @@
 
 @media (max-width: 1100px) {
   .lab-stepper {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
   .lab-tiles {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -540,6 +540,194 @@
     grid-template-columns: minmax(0, 1fr);
   }
   .lab-mapping-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* step 5 links */
+.lab-saved-links {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+/* step 6: approval */
+.lab-alerts-switch {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  border: 1px solid #f1dfc0;
+  background: var(--amber-soft);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+.lab-alerts-switch.is-on {
+  border-color: #cfe8dc;
+  background: var(--green-soft);
+}
+.lab-alerts-switch p {
+  margin: 0 0 4px;
+}
+.lab-alerts-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 260px;
+  flex: 0 1 340px;
+}
+.lab-versions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.lab-version {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px 16px;
+  background: #fff;
+  min-width: 0;
+}
+.lab-version.is-current {
+  border-color: #b9c8ee;
+}
+.lab-version.state-active {
+  border-color: #9fd3bd;
+  box-shadow: 0 0 0 3px var(--green-soft);
+}
+.lab-version.state-retired,
+.lab-version.state-suspended {
+  opacity: 0.75;
+}
+.lab-version-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.lab-version-head strong {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.lab-version-facts {
+  margin: 0 0 10px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 14px;
+}
+.lab-version-facts dt {
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 550;
+}
+.lab-version-facts dd {
+  margin: 0;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.lab-version-action {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid #f0f2f7;
+  padding-top: 10px;
+}
+.lab-version-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.lab-version-buttons button {
+  min-height: 36px;
+  padding: 7px 12px;
+  font-size: 12px;
+}
+.lab-alerts-check {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 8px;
+  font-weight: 450;
+}
+.lab-version-waiting {
+  margin: 0;
+}
+.lab-version-history summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--blue);
+  margin-top: 8px;
+}
+.lab-version-history ol {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+}
+
+/* step 7: monitoring */
+.lab-monitor-status {
+  list-style: none;
+  margin: 0 0 16px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.lab-monitor-status li {
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.lab-monitor-status span {
+  font-size: 11px;
+  color: var(--muted);
+}
+.lab-monitor-status strong {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.lab-monitor-form {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.lab-monitor-form .file-select {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  border: 1px dashed #b9c8ee;
+  background: #f7f9ff;
+  border-radius: 8px;
+  padding: 9px 14px;
+  cursor: pointer;
+}
+.lab-monitor-form .processing-state {
+  flex-basis: 100%;
+}
+.lab-monitor-result {
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+.lab-monitor-result .btn-link {
+  margin: 4px 0 12px;
+}
+
+@media (max-width: 900px) {
+  .lab-versions,
+  .lab-version-facts,
+  .lab-monitor-status {
     grid-template-columns: minmax(0, 1fr);
   }
 }

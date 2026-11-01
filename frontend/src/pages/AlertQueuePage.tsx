@@ -55,9 +55,9 @@ export function AlertQueuePage() {
       <section className="card review-queue-card">
         <div className="section-head">
           <div>
-            <h2>Alert dari rule</h2>
+            <h2>Alert dari rule dan model</h2>
             <p className="muted review-caption">
-              Skor model menjadi sinyal pendukung untuk tinjauan manusia.
+              Dibuat oleh rule pola atau oleh skor model yang disetujui MLRO (ML_SCORE); semuanya ditinjau manusia.
             </p>
           </div>
           <label className="review-filter">
@@ -144,7 +144,11 @@ export function AlertQueuePage() {
                         <span className="review-pattern">
                           {alert.pattern_code}
                         </span>
-                        <div className="review-cell-sub">Deteksi rule</div>
+                        <div className="review-cell-sub">
+                          {alert.pattern_code === "ML_SCORE"
+                            ? "Skor model (tanpa rule pola)"
+                            : "Deteksi rule"}
+                        </div>
                       </td>
                       <td>
                         <StatusBadge status={alert.status} />
@@ -153,9 +157,16 @@ export function AlertQueuePage() {
                         <span className="review-score">
                           {alert.model_score === null
                             ? "—"
-                            : alert.model_score.toFixed(3)}
+                            : alert.model_score !== 0 &&
+                                Math.abs(alert.model_score) < 0.01
+                              ? alert.model_score.toPrecision(2)
+                              : alert.model_score.toFixed(3)}
                         </span>
-                        <div className="review-cell-sub">Skor pendukung</div>
+                        <div className="review-cell-sub">
+                          {alert.pattern_code === "ML_SCORE"
+                            ? "Skor pemicu"
+                            : "Skor pendukung"}
+                        </div>
                       </td>
                       <td className="reason-cell">{alert.reason}</td>
                       <td className="review-date-cell">

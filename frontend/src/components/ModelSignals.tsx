@@ -13,6 +13,19 @@ function formatValue(value: number | null): string {
   return value.toLocaleString("id-ID", { maximumFractionDigits: 4 });
 }
 
+/** Three decimals as before, but a small threshold (a lab model's can be 0.0036) keeps its digits. */
+function formatScore(value: number): string {
+  return value !== 0 && Math.abs(value) < 0.01 ? value.toPrecision(2) : value.toFixed(3);
+}
+
+function explanationCaption(method: string | undefined): string {
+  if (method === "median_replacement_score_difference")
+    return "Selisih skor saat satu fitur diganti median training. Nilai positif berarti skor asli lebih tinggi. Ini bukan TreeSHAP, bukan log-odds, tidak aditif, dan bukan bukti sebab-akibat. Skor anomali bukan probabilitas fraud.";
+  if (method === "linear_log_odds")
+    return "Bobot fitur dikali nilainya yang distandarkan (Logistic Regression), pada skala log-odds. Nilai positif menaikkan skor; jumlah kontribusi ditambah intercept sama dengan skor log-odds. Nilainya bukan persentase.";
+  return "Kontribusi memakai skala log-odds (TreeSHAP). Nilai positif menaikkan skor; nilainya bukan persentase.";
+}
+
 /** Explanation scale belongs to its immutable model version, not its table. */
 export function ModelSignals({
   scores,
@@ -96,10 +109,10 @@ export function ModelSignals({
                       <span
                         className={`review-score ${s.flagged ? "score-high" : ""}`}
                       >
-                        {s.score.toFixed(3)}
+                        {formatScore(s.score)}
                       </span>
                     </td>
-                    <td className="num mono">{s.threshold.toFixed(3)}</td>
+                    <td className="num mono">{formatScore(s.threshold)}</td>
                     <td className="review-feature-cell">
                       {s.contributions.slice(0, 3).map((c) => (
                         <div className="review-feature" key={c.feature}>
@@ -133,10 +146,7 @@ export function ModelSignals({
                         <div className="review-contribution-panel">
                           <h3>Kontribusi fitur</h3>
                           <p className="muted review-caption">
-                            {s.explanation_method ===
-                            "median_replacement_score_difference"
-                              ? "Selisih skor saat satu fitur diganti median training. Nilai positif berarti skor asli lebih tinggi. Ini bukan TreeSHAP, bukan log-odds, tidak aditif, dan bukan bukti sebab-akibat. Skor anomali bukan probabilitas fraud."
-                              : "Kontribusi memakai skala log-odds (TreeSHAP). Nilai positif menaikkan skor; nilainya bukan persentase."}
+                            {explanationCaption(s.explanation_method)}
                           </p>
                           <table className="table compact">
                             <thead>

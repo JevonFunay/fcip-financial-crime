@@ -8,6 +8,9 @@ from datetime import datetime, timedelta
 from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session
 
+from app.ml.lab.scoring import EXPLANATION_METHOD as LAB_EXPLANATION_METHOD
+from app.ml.lab.scoring import SCORE_KIND as LAB_SCORE_KIND
+from app.ml.lab.scoring import is_lab_artefact
 from app.models.alert import Alert
 from app.models.customer import Customer
 from app.models.ml import UNIT_AML, UNIT_FRAUD, MlScore, ModelVersion
@@ -29,7 +32,9 @@ def _base() -> Select:
 def to_out(row) -> ScoreOut:
     score, version, customer, transaction_ref, amount, precision, timezone_known, currency = row
     card = version.model_card
-    behavioral = version.artefact_type == "ISOLATION_FOREST_JSON"
+    lab = is_lab_artefact(version.artefact_type)
+    # Behavioral and lab models carry their feature definitions in their own card.
+    behavioral = version.artefact_type == "ISOLATION_FOREST_JSON" or lab
     definitions = card.get("feature_set", {}).get("definitions", {})
     return ScoreOut(
         id=score.id, model_version=version.version, unit=score.unit, customer_id=customer.id,
@@ -41,8 +46,10 @@ def to_out(row) -> ScoreOut:
                                                 FEATURE_DEFINITIONS.get((UNIT_FEATURES[score.unit], c["feature"]), "")))
                        for c in score.contributions],
         feature_set_version=version.feature_set_version,
-        explanation_method=card.get("model", {}).get("explanation_method", "tree_shap_log_odds"),
-        score_kind=card.get("model", {}).get("score_kind", "supervised_score"),
+        explanation_method=(LAB_EXPLANATION_METHOD[version.artefact_type] if lab else
+                            card.get("model", {}).get("explanation_method", "tree_shap_log_odds")),
+        score_kind=(LAB_SCORE_KIND[version.artefact_type] if lab else
+                    card.get("model", {}).get("score_kind", "supervised_score")),
         currency=currency or card.get("feature_set", {}).get("vocabulary", {}).get("currency"),
         timestamp_precision=(precision if score.unit == UNIT_FRAUD else "week") if behavioral else precision,
         source_timezone_known=timezone_known,

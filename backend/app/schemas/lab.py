@@ -71,6 +71,7 @@ class LabDatasetOut(BaseModel):
     file_name: str
     file_sha256: str
     file_size_bytes: int
+    file_format: str
     row_count: int
     columns: list[str]
     preview: list[dict]
@@ -123,3 +124,102 @@ class LabSavedModelOut(BaseModel):
     test: dict
     created_at: datetime
     already_saved: bool
+
+
+class LabHistoryEntry(BaseModel):
+    at: datetime
+    actor_email: str | None
+    actor_role: str | None
+    from_state: str | None
+    to_state: str
+    action: str | None
+    reason: str | None
+
+
+class LabModelVersionOut(BaseModel):
+    id: uuid.UUID
+    version: str
+    state: RuleState
+    artefact_type: str
+    model_key: str | None
+    model_name: str
+    training_kind: str
+    threshold: float
+    dataset_id: uuid.UUID | None
+    dataset_name: str | None
+    lab_run_id: uuid.UUID | None
+    validation: dict
+    test: dict
+    created_by_email: str | None
+    submitted_by_email: str | None
+    approved_by_email: str | None
+    approved_at: datetime | None
+    superseded_by_version: str | None
+    created_at: datetime
+    history: list[LabHistoryEntry]
+
+
+class LabModelAlertsState(BaseModel):
+    rule_ref: str
+    version: int | None
+    state: str | None
+    active: bool
+    reason_code: str | None
+    severity: str | None
+
+
+class LabModelsOut(BaseModel):
+    items: list[LabModelVersionOut]
+    model_alerts: LabModelAlertsState
+    min_reason_length: int
+    synthetic_notice: str
+    signal_notice: str
+
+
+class LabSubmitIn(BaseModel):
+    justification: str = Field(min_length=1, max_length=2000)
+
+
+class LabApproveIn(BaseModel):
+    note: str = Field(min_length=1, max_length=2000)
+    # None leaves the ML_SCORE switch as it is; True/False switches it with this approval.
+    model_alerts: bool | None = None
+
+
+class LabReasonIn(BaseModel):
+    reason: str = Field(min_length=1, max_length=2000)
+
+
+class LabModelAlertsIn(BaseModel):
+    enabled: bool
+    reason: str = Field(min_length=1, max_length=2000)
+
+
+class LabMonitorModelRun(BaseModel):
+    model_version: str
+    unit: str
+    threshold: float
+    units_scored: int
+    units_flagged: int
+    scores_stored: int
+    observations_skipped_currency: int = 0
+
+
+class LabMonitorOut(BaseModel):
+    file_name: str
+    file_format: str
+    mapping_report: dict
+    batch_ref: str | None
+    batch_status: str | None
+    total_rows: int
+    accepted: int
+    quarantined: int
+    quarantine_preview: list[dict]
+    account_proxies_created: int
+    rule_alerts_created: int
+    models: list[LabMonitorModelRun]
+    model_alerts_created: int
+    model_alerts_active: bool
+    seconds: float
+    signal_notice: str
+    synthetic_notice: str

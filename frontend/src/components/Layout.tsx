@@ -47,6 +47,11 @@ const roleNames: Record<string, string> = {
   ROLE_ANALYST: "Analyst",
   ROLE_TRIAGE: "Triage Analyst",
   ROLE_INVESTIGATOR: "Investigator",
+  ROLE_SENIOR_INVESTIGATOR: "Senior Investigator",
+  ROLE_MLRO: "MLRO",
+  ROLE_AUDITOR: "Internal Auditor",
+  ROLE_MANAGEMENT: "Management",
+  ROLE_ADMIN: "Administrator",
 };
 
 export function Layout() {

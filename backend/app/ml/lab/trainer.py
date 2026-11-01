@@ -45,7 +45,7 @@ MODELS: dict[str, dict] = {
     "isolation_forest": {
         "name": "Isolation Forest", "kind": "unsupervised", "artefact_type": "LAB_ISOLATION_FOREST_JSON",
         "description": "Tanpa label: menandai transaksi yang paling tidak biasa (pendekatan model FCIP saat ini).",
-        "score_kind": "isolation_score", "default": True,
+        "score_kind": "anomaly_score", "default": True,
     },
 }
 LOGISTIC_FORMAT = "fcip_lab_logistic_json_v1"

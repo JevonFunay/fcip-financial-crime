@@ -1,6 +1,8 @@
 import type {
   LabDataset,
   LabMappingIn,
+  LabModelsResponse,
+  LabMonitorResult,
   LabOptions,
   LabRun,
   LabRunIn,
@@ -55,5 +57,49 @@ export async function saveLabModel(
     model_key: modelKey,
     threshold_index: thresholdIndex,
   });
+  return data;
+}
+
+export async function fetchLabModels(): Promise<LabModelsResponse> {
+  const { data } = await apiClient.get<LabModelsResponse>("/lab/models");
+  return data;
+}
+
+export async function submitLabModel(id: string, justification: string): Promise<LabModelsResponse> {
+  const { data } = await apiClient.post<LabModelsResponse>(`/lab/models/${id}/submit`, { justification });
+  return data;
+}
+
+export async function approveLabModel(
+  id: string,
+  note: string,
+  modelAlerts: boolean | null,
+): Promise<LabModelsResponse> {
+  const { data } = await apiClient.post<LabModelsResponse>(`/lab/models/${id}/approve`, {
+    note,
+    model_alerts: modelAlerts,
+  });
+  return data;
+}
+
+export async function returnLabModel(id: string, reason: string): Promise<LabModelsResponse> {
+  const { data } = await apiClient.post<LabModelsResponse>(`/lab/models/${id}/return`, { reason });
+  return data;
+}
+
+export async function suspendLabModel(id: string, reason: string): Promise<LabModelsResponse> {
+  const { data } = await apiClient.post<LabModelsResponse>(`/lab/models/${id}/suspend`, { reason });
+  return data;
+}
+
+export async function setLabModelAlerts(enabled: boolean, reason: string): Promise<LabModelsResponse> {
+  const { data } = await apiClient.post<LabModelsResponse>("/lab/model-alerts", { enabled, reason });
+  return data;
+}
+
+export async function monitorLabDataset(id: string, file: File): Promise<LabMonitorResult> {
+  const form = new FormData();
+  form.append("file", file);
+  const { data } = await apiClient.post<LabMonitorResult>(`/lab/datasets/${id}/monitor`, form);
   return data;
 }

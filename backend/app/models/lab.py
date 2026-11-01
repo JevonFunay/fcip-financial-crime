@@ -6,9 +6,9 @@ model version). A training dataset is deliberately NOT ingested into the live
 `transaction` table: it is study material, not activity to monitor, and it
 carries a label column that live data never has.
 
-The original upload is kept byte-for-byte (`raw_csv`, deferred so listings do
-not load it) together with its checksum, so a run can always be traced back to
-exactly the file it was trained on.
+The original upload — CSV or Parquet — is kept byte-for-byte (`raw_file`,
+deferred so listings do not load it) together with its checksum and format,
+so a run can always be traced back to exactly the file it was trained on.
 """
 
 import uuid
@@ -35,7 +35,8 @@ class LabDataset(Base):
     file_name: Mapped[str] = mapped_column(String, nullable=False)
     file_sha256: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     file_size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
-    raw_csv: Mapped[bytes] = deferred(mapped_column(LargeBinary, nullable=False))
+    raw_file: Mapped[bytes] = deferred(mapped_column(LargeBinary, nullable=False))
+    file_format: Mapped[str] = mapped_column(String, nullable=False, default="csv")
     row_count: Mapped[int] = mapped_column(Integer, nullable=False)
     columns: Mapped[list] = mapped_column(JSONB, nullable=False)
     preview: Mapped[list] = mapped_column(JSONB, nullable=False)

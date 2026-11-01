@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 
 from app.core.rbac import require_role
 from app.database import get_db
+from app.ml.lab.scoring import EXPLANATION_METHOD as LAB_EXPLANATION_METHOD
+from app.ml.lab.scoring import SCORE_KIND as LAB_SCORE_KIND
 from app.models.enums import UserRole
 from app.models.ml import UNIT_AML, UNIT_FRAUD, ModelVersion
 from app.schemas.ml import ModelVersionOut, ScoreListResponse
@@ -34,8 +36,10 @@ def list_models(db: Session = Depends(get_db)) -> list[ModelVersionOut]:
             validation=(card.get("validation", {}) if own_card else
                         {k: gbm.get(k) for k in ("average_precision", "precision", "recall", "f1")}),
             created_at=version.created_at, synthetic_notice=SYNTHETIC_NOTICE,
-            explanation_method=card.get("model", {}).get("explanation_method", "tree_shap_log_odds"),
-            score_kind=card.get("model", {}).get("score_kind", "supervised_score"),
+            explanation_method=(LAB_EXPLANATION_METHOD.get(version.artefact_type, "none") if lab else
+                                card.get("model", {}).get("explanation_method", "tree_shap_log_odds")),
+            score_kind=(LAB_SCORE_KIND.get(version.artefact_type, "supervised_score") if lab else
+                        card.get("model", {}).get("score_kind", "supervised_score")),
             training_kind=(card.get("model", {}).get("training_kind", "supervised") if lab
                            else "unsupervised" if behavioral else "supervised"),
             currency=card.get("feature_set", {}).get("vocabulary", {}).get("currency", "IDR" if not own_card else None),

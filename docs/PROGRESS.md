@@ -5,6 +5,15 @@
 Supersedes any earlier progress figure. Scope definitions, architecture and open
 questions are unchanged — see `PROJECT_CONTEXT.md`.
 
+> **27 October, branch `feat/lab-deploy`:** the model lab now goes from labelled
+> dataset to detection, per the mentors' 27 Oct decisions: Parquet uploads (lab
+> and regular upload), reasons for every lab score, MLRO approval of lab models
+> (FR-405), model alerts without a pattern rule (CF-05 answered (b); `ML_SCORE`
+> switched by an MLRO), and monitoring uploads in a dataset's layout. Also fixes
+> main: the two `0010` migrations left two heads (`0011_merge_lab_and_roles`).
+> Details: [LAB_THIN_SLICE.md](LAB_THIN_SLICE.md), PROJECT_CONTEXT §18 and AS-12
+> to AS-15.
+>
 > **26 October, branch `lab-thin-slice` only (fork, not `main`):** a model-lab
 > prototype of the mentors' "framework" direction — upload a labelled dataset,
 > map columns, choose feature groups and models (Logistic Regression, LightGBM,

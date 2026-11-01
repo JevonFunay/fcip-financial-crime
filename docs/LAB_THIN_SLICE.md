@@ -1,64 +1,61 @@
-# Model lab — thin slice of the "framework" direction
+# Model lab — train, approve, monitor
 
-Branch `lab-thin-slice` (fork `Tohrubo/fcip-financial-crime-mc-fork`), 26 October 2026.
-A **possibility to discuss**, not a change to `main`: it shows what FCIP would look
-like if the ML work became a framework where a user uploads a labelled dataset,
-tunes the setup, compares models and keeps the best one, as the V-TEKI mentors
-described. Nothing here activates scoring.
+The **Lab model** page is FCIP's detection framework, the direction the V-TEKI
+mentors confirmed on 27 October 2026: a user uploads a labelled dataset, tunes
+the setup, compares models and keeps the best one; after approval, that model
+scores new data and raises alerts on its own, without a pattern rule having to
+fire. Started as the 26 Oct thin slice (merged as PR #2); extended on 27 Oct.
 
-![Comparison of three models on the same labelled data](screenshots/lab/06-comparison.png)
+![The MLRO approves a model and switches model alerts on](screenshots/lab/deploy-07-mlro-approved.png)
 
-## What it does
+## The seven steps (Indonesian UI)
 
-A new **Lab model** page (sidebar, Indonesian UI) walks through five steps:
+| Step | Who | What happens |
+|---|---|---|
+| 1. Dataset berlabel | Data Ops, Analyst | Upload a **CSV or Parquet** file with a label column. Stored byte-for-byte with its SHA-256, separate from the monitored `transaction` table. |
+| 2. Pemetaan kolom | Data Ops, Analyst | FCIP suggests which column is the ID, account, date, amount, direction… and which is the label; every choice can be changed. Validation and quarantine are the same code the regular upload uses. |
+| 3. Fitur & model | Data Ops, Analyst | Switch eight feature groups on or off; compare **Logistic Regression**, **LightGBM** (supervised) and **Isolation Forest** (unsupervised). Chronological split, 50–80% for training. |
+| 4. Hasil & threshold | everyone | Comparison on the held-out test period, recall per pattern, precision/recall curve, threshold slider showing alerts per 10,000 transactions. |
+| 5. Simpan & ajukan | Data Ops, Analyst | The chosen model and threshold are saved as a DRAFT model version; an **Analyst submits** it with a justification. |
+| 6. Persetujuan MLRO | MLRO | An **MLRO other than the submitter** approves (or returns, or later suspends). Approval makes it ACTIVE and retires the previous active model. The MLRO also switches **model alerts** on or off. |
+| 7. Pantau data baru | Data Ops | Upload new transactions (CSV or Parquet) **in the same layout as the dataset**. They are ingested as a normal batch, unseen accounts get anonymous records, then detection runs: rules and the active model. |
 
-1. **Dataset berlabel** — upload a CSV that has a label column. It is stored
-   byte-for-byte with its SHA-256 in `lab_dataset`, *separate from the live
-   `transaction` table*: training data carries answers and is never monitored.
-2. **Pemetaan kolom** — FCIP suggests which column is the transaction ID,
-   account, date, amount, direction, channel, device and so on, and which is
-   the label and its positive value; the user can change every choice. Rows
-   are validated by the **same normalizer the upload and the offline pipeline
-   use** (`app/ml/behavioral/standardize.py`), so bad rows are quarantined with
-   the same reasons. Missing optional fields get a recorded neutral value
-   (e.g. channel `UNKNOWN`), never a guessed fact. The label column can never
-   be mapped as a feature.
-3. **Fitur & model** — switch eight feature groups on or off (amount, 7/30-day
-   history, deviation from the account's own baseline, 1h/24h velocity, hour of
-   day, channel, new device/IP/merchant, source session data) and pick the
-   models: **Logistic Regression**, **LightGBM** (supervised) and **Isolation
-   Forest** (unsupervised, the current FCIP approach). Choose the training share
-   (50–80%).
-4. **Hasil & threshold** — a comparison table on the held-out test period
-   (average precision, precision, recall, alerts per 10,000 transactions),
-   recall per pattern when a category column is mapped, a precision/recall
-   curve and a **threshold slider** that shows, in plain words, how many alerts
-   a setting creates, how many are right and how many cases are missed.
-5. **Simpan draft** — the chosen model + threshold goes into the existing
-   `model_version` registry as **DRAFT** (immutable, hashed, with a model
-   card). It appears on the Model flags page. A DRAFT never scores anything.
+Alerts raised by the model appear in the normal alert queue as pattern
+`ML_SCORE`, labelled "Skor model (tanpa rule pola)", with the model version,
+threshold and the features that pushed the score up. Triage, cases and audit
+work as for any alert.
 
-### Protocol (fixed, recorded in every run and model card)
+## Mentor decisions this implements (27 Oct, relayed by Michael)
 
-- Chronological split: oldest rows train, the next block validates, the newest
-  block tests. Default 60/20/20.
-- Features are the existing point-in-time FRAUD set (`behavioral_v1`): history
-  comes only from rows before each transaction; medians and vocabularies are
-  fitted on the training period only.
-- LightGBM early stopping and every model's default threshold (max F1) use the
-  validation block. Isolation Forest is fitted without labels.
-- The slider shows **validation** figures. **Test** figures for a chosen
-  threshold are only revealed when the model is saved, so the threshold is not
-  tuned to the test data.
-- Artefacts are JSON / LightGBM text, never pickle, like the rest of FCIP.
+- **Framework:** the lab as built is the intended direction.
+- **Parquet:** uploads accept Parquet as well as CSV (lab datasets, monitoring
+  uploads and the regular transaction upload).
+- **CF-05 → (b):** a model score at or above an approved threshold raises an
+  alert even when no rule fires. Reason: rules can be learned, and once known,
+  activity can be kept just under their thresholds. Built as an MLRO switch of
+  the seeded `ML_SCORE` rule (RUL-0002); reason code RC-ML-01 and severity
+  MEDIUM remain the team's proposal.
+- **Evaluation:** reported the way Jevon's model is evaluated (chronological
+  train/validation/test, threshold on validation only, test revealed once).
+- **Open, later:** licences of external datasets (FRD CN-02, brief slide 15).
 
-## Result on the sample dataset (synthetic)
+## Rules that keep it honest
 
-`fcip_lab_sample_s20261026.csv`: 100,000 rows from generator 1.4.0
-(`--target-transactions 100000 --min-per-pattern 25 --seed 20261026`), label =
-the Fraud model's patterns (ATO, P04, P05), 1,933 positive rows, 1,681 rows
-quarantined by validation (duplicate IDs, bad dates, bad currency/amount defects
-the generator injects on purpose).
+- **Every score explains itself** (FRD NG-07, BR-401.3; TRD ADR-007):
+  Logistic Regression by weight × standardised value (`linear_log_odds`,
+  additive), LightGBM by TreeSHAP (`tree_shap_log_odds`), Isolation Forest by
+  median replacement (as Jevon's models).
+- **Labels never reach monitoring:** a label column in a monitoring file is
+  ignored, with a note.
+- **Nobody approves their own model** (FR-405 E1); refusals are recorded.
+- **Nothing switches on by default:** `ML_SCORE` stays DRAFT until an MLRO acts.
+- **Every step is audited** under the dataset's correlation ID.
+- **The platform never tunes itself** (US-1004): a person picks the threshold.
+
+## Result on the sample data (synthetic)
+
+Training file: 100,000 transactions, generator 1.4.0 seed 20261026, label =
+the Fraud model's patterns (ATO, P04, P05).
 
 | Model (test period) | Average precision | Precision | Recall | Alerts / 10k |
 |---|---:|---:|---:|---:|
@@ -66,127 +63,101 @@ the generator injects on purpose).
 | **LightGBM** | **0.942** | 92.0% | 90.3% | 323 |
 | Isolation Forest | 0.158 | 17.5% | 49.1% | 927 |
 
-Per pattern (test): LightGBM catches P04 528/531 and ATO 56/93 but **P05 0/23**;
-Isolation Forest catches **P05 22/23** (dormant accounts waking up look
-unusual) but little else. Supervised models win overall; the unsupervised one
-covers the pattern that had too few labels to learn. That is an argument for
-using both, not one.
+Monitoring file: 30,000 new transactions for the six months after training
+(seed 20261027, reference date 2027-03-31), as Parquet, with the approved
+LightGBM: 29,512 accepted, 488 quarantined with reasons, 994 anonymous account
+records, 785 transactions at or above the threshold → **96 model alerts**
+(one per account per day), plus 12 P02 rule alerts, in about 16 seconds.
 
-**Caveat, as in every FCIP report:** these numbers are high because the data is
-synthetic and the scenarios follow the same definitions the labels come from.
-They demonstrate the workflow, not real-world detection quality.
+These figures come from synthetic data whose scenarios follow the same
+definitions as its labels; they show the workflow, not real-world detection
+quality (TRD §10.6, FRD L-01). LightGBM's scores are not calibrated
+probabilities (the class weighting shifts them; its threshold is about 0.0036).
 
-Training the three models on 100k rows takes about 25 seconds end to end
-(feature building ~12 s).
-
-## How to run it (Docker)
+## How to run it
 
 ```bash
-git fetch origin && git checkout lab-thin-slice
-cp .env.example .env            # if you don't have one yet
-docker compose up --build       # migration 0010 runs on start
+docker compose up --build          # migrations up to 0012 run on start
 docker compose exec backend python -m app.scripts.seed --users-only
 ```
 
-Get the sample file: either use the CSV shared with this branch, or generate it
-(about 10 s):
+Sample files (git-ignored, regenerated in seconds):
 
 ```bash
 docker compose exec backend python -m app.scripts.generate_raw_dataset \
   --target-transactions 100000 --min-per-pattern 25 --seed 20261026 --out ml_data/lab/raw_s20261026
 docker compose exec backend python -m app.scripts.make_lab_sample \
   --raw-dir ml_data/lab/raw_s20261026 --out ml_data/lab/fcip_lab_sample_s20261026.csv
+docker compose exec backend python -m app.scripts.generate_raw_dataset --target-transactions 30000 \
+  --min-per-pattern 10 --seed 20261027 --reference-date 2027-03-31 --out ml_data/lab/raw_monitor_s20261027
+docker compose exec backend python -m app.scripts.make_lab_sample \
+  --raw-dir ml_data/lab/raw_monitor_s20261027 --out ml_data/lab/fcip_monitor_s20261027.csv
 ```
 
-The file then sits in `backend/ml_data/lab/` on your machine (git-ignored).
-Open http://localhost:5173, log in as `analyst@fcip.internal` /
-`DevPassword123!` (or `dataops@`), choose **Lab model**.
+For Parquet versions, convert either CSV with pandas (`to_parquet`). Logins:
+`analyst@`, `mlro@`, `dataops@`, `triage@fcip.internal`, password `DevPassword123!`.
 
-## Five-minute demo script
+## Demo script (about 8 minutes, four logins)
 
-1. Lab model → drag the CSV in, name it, **Unggah dataset**.
-2. Point out the suggested mapping (generator column names differ from FCIP's),
-   the label `is_fraud` with positive value `1`, category `pattern_code`.
-   **Validasi pemetaan** → 98,319 usable rows, 1,681 quarantined with reasons.
-3. Leave all feature groups and all three models on → **Latih & bandingkan**
-   (~25 s).
-4. Comparison table: supervised vs unsupervised on the same data; then the
-   per-pattern table (the P05 story above).
-5. Threshold: move the slider right — fewer alerts, higher precision, more
-   missed cases; switch to Isolation Forest to show the difference.
-6. **Simpan sebagai draft** → test figures appear → **Lihat di registry model**.
+1. **Analyst** → Lab model → upload the training file → *Validasi pemetaan* →
+   *Latih & bandingkan* → show the comparison and the per-pattern table →
+   threshold slider → *Simpan sebagai draft* → in step 6, write a
+   justification → *Ajukan ke MLRO*.
+2. **MLRO** → Lab model → step 6 → note → keep "Skor di atas threshold
+   langsung menjadi alert" ticked → *Setujui & aktifkan*. The banner turns
+   green: model alerts are on.
+3. **Data Ops** → Lab model → step 7 → choose the monitoring file → *Unggah &
+   jalankan deteksi* → results → *Buka antrean alert*.
+4. **Triage** → open an `ML_SCORE` alert → Model signals → *Lihat detail* shows
+   which features drove the score → disposition as usual.
 
-## Questions this is meant to settle with the mentors
+## Not built yet
 
-1. Is this the "framework" you meant: upload labelled data, tune, compare,
-   save — with the model then used for detection?
-2. What should users be able to tune beyond this (feature groups, models,
-   split, threshold)? Do you expect custom features or only switches?
-3. Which datasets will you upload (format, size, labelled at transaction or
-   account level)? Is AML needed at account-week level as in the TRD?
-4. **CF-05:** may a saved model, once approved, raise alerts on its own, or
-   only add a signal to rule alerts? (The `ML_SCORE` rule is ready but DRAFT.)
-5. Who approves a model before it scores live data (FR-405 / MLRO)?
-
-## Not in this slice (next steps if the direction is confirmed)
-
-- Training runs inside the request; larger files need a background job runner.
-- Transaction-level (Fraud) unit only; the AML account-week unit is the next
-  track (the feature code exists in `behavioral/features.py`).
-- No approval flow (FR-405) and no scoring with lab models: the detection run
-  only knows the existing model types. Generalising `ml_scoring.py` is the
-  riskiest remaining piece.
-- No per-transaction explanations for lab models yet (the registry card says
-  `explanation_method: none`).
-- 50 MB upload limit, same as transaction upload.
+- Training and monitoring run inside the request (about 25 s for 100k rows);
+  bigger files need a background job runner. Lab files are capped at 500,000 rows.
+- Transaction-level (Fraud) models only; the AML account-week track is next.
+- Live monitoring means "upload, then detect"; there is no streaming feed.
+- The approval flow covers lab models; rule approval (FR-304) is still separate.
 
 ## Decisions I took myself (for Jevon to check)
 
-- **Lab data is separate from live data** (new `lab_dataset`, `lab_run`,
-  `lab_model` tables, migration 0010); saved models reuse `model_version` as DRAFT
-  with `LAB_*` artefact types and feature set `lab:behavioral_v1`.
-- **Roles:** Data Ops and Analyst can upload/map/train/save; every role can view.
-  No new role was added.
-- **Fallbacks for missing fields:** no transaction ID → row number; no direction →
-  all `DEBIT`; no channel → `UNKNOWN`; no currency → a stated default (else `XXX`).
-  Each is recorded as a note on the dataset. A dataset with several currencies
-  trains on the most frequent one only (no FX).
-- **Minimum 30 positive and 30 negative rows** to train; every split must contain
-  both classes.
-- **Default threshold = max F1 on validation; best model = highest validation
-  average precision.** Test figures for other thresholds are only shown on save.
-- **Sample label rule:** the Fraud model's patterns (ATO, P04, P05), own in-window
-  rows of injected positives (as `app/ml/labels.py`); look-alikes and other
-  patterns' rows are 0 in this single-label file.
-- LightGBM uses `scale_pos_weight = negatives/positives`, so its scores are not
-  calibrated probabilities (the default threshold on the sample is ~0.004).
+Recorded as AS-12 to AS-15 in `PROJECT_CONTEXT.md` §8:
+- 500,000-row cap per lab file; Parquet read into the same text cells as CSV (AS-12).
+- Monitoring uploads: saved mapping reused, label ignored, batch source
+  `MODEL_LAB`, anonymous `OBS-` account proxies for unseen accounts, detection
+  right after (AS-13).
+- Approval: Analyst submits, MLRO approves/returns/suspends, no self-approval,
+  20-character minimum for notes, previous active model retired (AS-14).
+- `ML_SCORE` is switched by an MLRO only, never by default; small thresholds are
+  printed with two significant digits in alert text (AS-15).
+- Also fixed: the two `0010` migrations (lab and Gabriel's roles/cases) left two
+  heads, so `alembic upgrade head` failed; `0011_merge_lab_and_roles` joins them.
 
 ## Ringkasan capstone (Bahasa Indonesia)
 
-Prototipe "Lab model" menunjukkan arah framework yang diminta mentor: pengguna
-mengunggah dataset berlabel, memetakan kolom (dengan saran otomatis dan validasi
-yang sama dengan upload FCIP), memilih kelompok fitur dan model, lalu
-membandingkan Logistic Regression, LightGBM dan Isolation Forest pada periode uji
-yang tidak dipakai untuk pelatihan. Threshold dipilih dengan slider pada data
-validasi, dan model terpilih disimpan ke registry model FCIP sebagai DRAFT tanpa
-mengaktifkan penilaian. Pada data sintetis 100 ribu transaksi, model berlabel
-(LightGBM, average precision 0,94) jauh lebih presisi daripada Isolation Forest
-(0,16), tetapi Isolation Forest menangkap pola P05 yang terlewat oleh model
-berlabel. Angka ini berasal dari data sintetis dan bukan ukuran kinerja produksi.
-Alur persetujuan model (FR-405), penilaian data live dengan model lab, unit AML
-mingguan, dan keputusan CF-05 belum termasuk.
+Lab model kini menjadi framework deteksi dari ujung ke ujung, sesuai arahan
+mentor V-TEKI tanggal 27 Oktober: pengguna mengunggah dataset berlabel (CSV atau
+Parquet), memetakan kolom, membandingkan Logistic Regression, LightGBM dan
+Isolation Forest pada periode uji, lalu memilih threshold. Analyst mengajukan
+model terpilih, MLRO lain menyetujuinya (FR-405), dan sejak itu model menilai
+data transaksi baru yang diunggah Data Ops dengan susunan kolom yang sama. Skor
+di atas threshold langsung menjadi alert tanpa harus menunggu rule pola terpicu
+(CF-05 opsi b), sehingga deteksi tidak bergantung pada rule yang bisa dipelajari
+dan dihindari. Setiap skor menyertakan fitur penyumbangnya, dan setiap langkah
+tercatat di audit trail. Pada data sintetis, LightGBM yang disetujui menandai
+785 dari 29.512 transaksi baru dan membuat 96 alert. Angka ini berasal dari data
+sintetis dan bukan ukuran kinerja produksi; job di latar belakang, jalur AML
+mingguan dan lisensi dataset eksternal belum diselesaikan.
 
 ## Files
 
-Backend: `app/ml/lab/` (mapping, features, trainer), `app/services/lab.py`,
-`app/routers/lab.py`, `app/schemas/lab.py`, `app/models/lab.py`,
-`alembic/versions/0010_model_lab.py`, `app/scripts/make_lab_sample.py`,
-`tests/test_lab.py` (14 tests), small changes to `app/routers/ml.py` (lists lab
-drafts), `app/services/audit.py`, `app/main.py`.
-Frontend: `pages/LabPage.tsx`, `lab.css`, `api/lab.ts`, `types/lab.ts`, route and
-sidebar entry, lab-aware model card on Model flags.
-
-Verification: 698 backend tests pass (684 existing + 14 new); frontend
-typecheck and build pass; the full flow was clicked through in headless Chromium
-against a live API (upload → map → train → threshold → save → registry), including
-the read-only Triage view and a 390 px phone width without horizontal scrolling.
+Backend: `app/ml/lab/` (mapping, features, trainer, **scoring**),
+`app/services/tabular.py`, `app/services/lab.py`, `app/routers/lab.py`,
+`app/schemas/lab.py`, `app/models/lab.py`, migrations `0010_model_lab`,
+`0011_merge_lab_and_roles`, `0012_lab_file_format`, `app/scripts/make_lab_sample.py`;
+lab support in `app/services/ml_scoring.py`, `app/services/ml_queries.py`,
+`app/routers/ml.py`; Parquet in `app/routers/ingestion.py`.
+Tests: `tests/test_lab.py`, `tests/test_lab_deploy.py`, `tests/test_tabular.py`.
+Frontend: `pages/LabPage.tsx`, `components/LabDeploy.tsx`, `lab.css`,
+`api/lab.ts`, `types/lab.ts`; Parquet on the Overview upload; model-alert labels
+in the alert queue; linear explanations in `components/ModelSignals.tsx`.

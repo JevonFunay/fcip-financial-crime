@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import {
   fetchLabDataset,
   fetchLabDatasets,
+  fetchLabModels,
   fetchLabOptions,
   fetchLabRun,
   saveLabMapping,
@@ -14,6 +15,7 @@ import {
 } from "../api/lab";
 import { errorMessage } from "../api/errors";
 import { Icon } from "../components/Icon";
+import { ModelApprovalPanel, MonitorPanel } from "../components/LabDeploy";
 import { useAuth } from "../context/AuthContext";
 import { formatDateTime } from "../format";
 import type {
@@ -21,6 +23,7 @@ import type {
   LabDataset,
   LabMappingIn,
   LabModelResult,
+  LabModelsResponse,
   LabOptions,
   LabRun,
   LabSavedModel,
@@ -64,11 +67,13 @@ function kindLabel(kind: string): string {
 // --- stepper -------------------------------------------------------------------------------------
 
 const STEPS = [
-  { title: "Dataset berlabel", caption: "Unggah atau pilih" },
+  { title: "Dataset berlabel", caption: "CSV atau Parquet" },
   { title: "Pemetaan kolom", caption: "Cocokkan & validasi" },
   { title: "Fitur & model", caption: "Pilih & latih" },
   { title: "Hasil & threshold", caption: "Bandingkan & atur" },
-  { title: "Simpan draft", caption: "Masuk registry" },
+  { title: "Simpan & ajukan", caption: "Draft ke MLRO" },
+  { title: "Persetujuan MLRO", caption: "Aktifkan model" },
+  { title: "Pantau data baru", caption: "Skor & alert" },
 ];
 
 function Stepper({ reached }: { reached: number }) {
@@ -128,11 +133,11 @@ function DatasetStep({
     setFileError("");
     upload.reset();
     if (!candidate) return;
-    if (!candidate.name.toLowerCase().endsWith(".csv") || candidate.size > options.max_upload_bytes) {
+    if (!/\.(csv|parquet)$/i.test(candidate.name) || candidate.size > options.max_upload_bytes) {
       setFileError(
         candidate.size > options.max_upload_bytes
           ? `File melebihi batas ${maxMb} MB.`
-          : "Pilih file berformat .csv.",
+          : "Pilih file berformat .csv atau .parquet.",
       );
       return;
     }
@@ -147,7 +152,7 @@ function DatasetStep({
           <h2 id="lab-step-1">Dataset berlabel</h2>
           <p>Dataset latih disimpan terpisah dari transaksi yang dimonitor dan wajib punya kolom label (kunci jawaban).</p>
         </div>
-        <span className="badge badge-blue">CSV · {maxMb} MB</span>
+        <span className="badge badge-blue">CSV / Parquet · {maxMb} MB</span>
       </div>
       <div className="lab-dataset-grid">
         {canWrite && (
@@ -173,7 +178,7 @@ function DatasetStep({
             >
               <Icon name={file ? "file" : "upload"} size={24} />
               <div>
-                <strong>{file ? file.name : "Tarik CSV berlabel ke sini"}</strong>
+                <strong>{file ? file.name : "Tarik file berlabel (CSV atau Parquet) ke sini"}</strong>
                 <p>
                   {file
                     ? `${(file.size / (1024 * 1024)).toLocaleString("id-ID", { maximumFractionDigits: 2 })} MB · siap diunggah`
@@ -187,7 +192,7 @@ function DatasetStep({
                   ref={fileInput}
                   className="sr-only"
                   type="file"
-                  accept=".csv,text/csv"
+                  accept=".csv,text/csv,.parquet"
                   onChange={(event) => choose(event.target.files?.[0])}
                 />
               </div>
@@ -225,7 +230,8 @@ function DatasetStep({
                     <span>
                       <strong>{dataset.name}</strong>
                       <small>
-                        {num(dataset.row_count)} baris · {dataset.runs.length} run · {formatDateTime(dataset.created_at)}
+                        {dataset.file_format.toUpperCase()} · {num(dataset.row_count)} baris · {dataset.runs.length} run ·{" "}
+                        {formatDateTime(dataset.created_at)}
                       </small>
                     </span>
                     <span className={`badge ${dataset.status === "MAPPED" ? "badge-green" : "badge-amber"}`}>
@@ -661,6 +667,7 @@ function ResultsStep({ run, canWrite }: { run: LabRun; canWrite: boolean }) {
       setSaved(result);
       void queryClient.invalidateQueries({ queryKey: ["lab-run", run.id] });
       void queryClient.invalidateQueries({ queryKey: ["models"] });
+      void queryClient.invalidateQueries({ queryKey: ["lab-models"] });
     },
   });
   const point = model.validation_curve[Math.min(index, model.validation_curve.length - 1)];
@@ -875,8 +882,8 @@ function ResultsStep({ run, canWrite }: { run: LabRun; canWrite: boolean }) {
         <div className="section-head">
           <div>
             <span className="section-kicker">LANGKAH 5</span>
-            <h2 id="lab-step-5">Simpan sebagai draft</h2>
-            <p>Model dan threshold terpilih masuk ke registry model FCIP dengan status DRAFT.</p>
+            <h2 id="lab-step-5">Simpan & ajukan</h2>
+            <p>Model dan threshold terpilih masuk ke registry model FCIP sebagai DRAFT, lalu diajukan ke MLRO.</p>
           </div>
         </div>
         <div className="lab-save">
@@ -908,12 +915,17 @@ function ResultsStep({ run, canWrite }: { run: LabRun; canWrite: boolean }) {
                 {pct(saved.test.recall)} · {num(saved.test.flagged_per_10k, 0)} alert / 10.000 trx.
               </p>
               <p className="small muted">
-                DRAFT belum menilai transaksi apa pun. Aktivasi menunggu alur persetujuan model (FR-405) dan keputusan
-                mentor soal CF-05 (apakah skor model boleh membuat alert sendiri).
+                DRAFT belum menilai transaksi apa pun. Berikutnya: Analyst mengajukannya, MLRO lain menyetujui
+                (langkah 6), lalu data baru dipantau dengan model ini (langkah 7).
               </p>
-              <Link to="/model-flags" className="btn-link button-secondary">
-                Lihat di registry model <Icon name="arrow-right" size={14} />
-              </Link>
+              <div className="lab-saved-links">
+                <a href="#lab-step-6" className="btn-link">
+                  Ke persetujuan model <Icon name="arrow-right" size={14} />
+                </a>
+                <Link to="/model-flags" className="btn-link button-secondary">
+                  Lihat di registry model
+                </Link>
+              </div>
             </div>
           )}
           {!saved && savedHere.length > 0 && (
@@ -928,6 +940,24 @@ function ResultsStep({ run, canWrite }: { run: LabRun; canWrite: boolean }) {
 }
 
 // --- page ----------------------------------------------------------------------------------------
+
+/** How far the selected dataset has come through the seven steps (0-based index of the current one). */
+function stepReached(
+  ready: boolean,
+  hasDataset: boolean,
+  run: LabRun | null,
+  models: LabModelsResponse | undefined,
+  datasetId: string | null,
+  monitored: string | null,
+): number {
+  if (!hasDataset) return 0;
+  if (!ready) return 1;
+  const own = (models?.items ?? []).filter((v) => v.dataset_id === datasetId);
+  if (own.some((v) => v.state === "ACTIVE")) return monitored === datasetId ? 7 : 6;
+  if (own.some((v) => v.state === "PENDING_APPROVAL")) return 5;
+  if (own.some((v) => v.state === "DRAFT") || run?.saved_versions.length) return 4;
+  return run ? 3 : 2;
+}
 
 export function LabPage() {
   const { user } = useAuth();
@@ -954,8 +984,10 @@ export function LabPage() {
     queryFn: () => fetchLabRun(runId as string),
     enabled: !!runId,
   });
+  const labModels = useQuery({ queryKey: ["lab-models"], queryFn: fetchLabModels });
+  const [monitored, setMonitored] = useState<string | null>(null);
   const ready = dataset.data?.status === "MAPPED" && !!dataset.data.validation?.ready;
-  const reached = !dataset.data ? 0 : !ready ? 1 : !run.data ? 2 : run.data.saved_versions.length ? 5 : 3;
+  const reached = stepReached(ready, !!dataset.data, run.data ?? null, labModels.data, selectedId, monitored);
 
   return (
     <>
@@ -964,16 +996,17 @@ export function LabPage() {
           <span className="eyebrow">MODEL LAB · PROTOTIPE</span>
           <h1>Lab model</h1>
           <p className="page-subtitle">
-            Unggah dataset berlabel, petakan kolom, latih beberapa model, bandingkan, lalu pilih threshold.
+            Unggah dataset berlabel, latih dan bandingkan model, minta persetujuan, lalu pantau data baru dengan model
+            terpilih.
           </p>
         </div>
       </div>
       <p className="notice lab-prototype-notice">
         <Icon name="info" size={15} />
         <span>
-          Prototipe arah <strong>framework</strong> untuk dibahas dengan mentor. Dataset lab tidak masuk ke transaksi
-          yang dimonitor, dan model yang disimpan berstatus DRAFT: belum menilai data apa pun sampai alur persetujuan
-          model (FR-405) dibangun. Angka dari data sintetis bukan ukuran kinerja produksi.
+          Arah <strong>framework</strong> yang disetujui mentor. Dataset latih tidak masuk ke transaksi yang dipantau;
+          model baru menilai data setelah diajukan Analyst dan disetujui MLRO, dan skornya boleh membuat alert tanpa
+          rule pola (CF-05). Angka dari data sintetis bukan ukuran kinerja produksi.
         </span>
       </p>
       <Stepper reached={reached} />
@@ -1014,6 +1047,17 @@ export function LabPage() {
           )}
           {run.isFetching && !run.data && <p className="loading-text">Memuat hasil run...</p>}
           {run.data && ready && <ResultsStep run={run.data} canWrite={canWrite} />}
+          {labModels.error && <p className="error" role="alert">{errorMessage(labModels.error)}</p>}
+          {labModels.data && <ModelApprovalPanel data={labModels.data} role={user?.role} datasetId={selectedId} />}
+          {labModels.data && dataset.data && ready && (
+            <MonitorPanel
+              dataset={dataset.data}
+              models={labModels.data}
+              canMonitor={user?.role === "ROLE_DATA_OPS"}
+              maxBytes={options.data.max_upload_bytes}
+              onResult={() => setMonitored(dataset.data?.id ?? null)}
+            />
+          )}
         </>
       )}
     </>
