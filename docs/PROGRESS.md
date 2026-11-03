@@ -1,10 +1,16 @@
 # FCIP — Progress Status
 
-**As of 27 October 2026 · roughly 18% of MVP scope (estimate)**
+**As of 3 November 2026 · roughly 20% of MVP scope (estimate)**
 
 Supersedes any earlier progress figure. Scope definitions, architecture and open
 questions are unchanged — see `PROJECT_CONTEXT.md`.
 
+> **3 November:** detection patterns **P01 and P03–P10** are now rule-as-data like P02
+> (migration 0013 seeds nine ACTIVE rules, `RUL-0003`…`RUL-0011`; templates in
+> `app/services/detection/`). On the generated small profile all injected positives of P01–P10 are
+> caught and none of the 42 clean-control entities is alerted. Parameter sheet for the mentor, evidence
+> and limitations: [DETECTION_PATTERNS.md](DETECTION_PATTERNS.md). P11 and P12 are not built.
+>
 > **27 October, branch `feat/lab-deploy`:** the model lab now goes from labelled
 > dataset to detection, per the mentors' 27 Oct decisions: Parquet uploads (lab
 > and regular upload), reasons for every lab score, MLRO approval of lab models
@@ -38,7 +44,7 @@ assigns effort weights.
 | Dimension | Built | % |
 |---|---|---|
 | Functional requirements (full-equivalent) | ~22 of 120 (16 done + 12 partial at half credit) | ~18% |
-| Detection patterns implemented as app rules | 1 of 12 (P02) | 8% |
+| Detection patterns implemented as app rules | 10 of 12 (P01–P10; P11 needs the graph, P12 the screening engine) | 83% |
 | Database tables | ~20 of ~90 | ~22% |
 | API route handlers (all routers, incl. auth/health) | ~34, against ~80 in the TRD catalogue | not comparable 1:1 |
 | RBAC roles defined | 9 of 9 | 100% (definition only — see D15) |
@@ -88,7 +94,7 @@ assigns effort weights.
 | FR-301 | Rule list and detail (read) | Creating a draft rule, reason-code uniqueness, plain-language description guard |
 | FR-302 | Immutable versions viewable | New version created on change; `RULE_VERSION_IMMUTABLE` error; version diff |
 | FR-303 | Simulation endpoint | Not verified against ACs: 7-day freshness guard, ≤ 6-month period, overlap report, sample of 20 |
-| FR-306 / 309 / 310 | Detection run for P02 (+ ML rule DRAFT); structural no-write role | Only one pattern runs; dedupe/suppression and priority scoring incomplete |
+| FR-306 / 309 / 310 | Detection run for P01–P10 (+ ML rule DRAFT); structural no-write role; a re-run raises nothing new | P11/P12; suppression counters and priority scoring (FR-311) incomplete |
 | FR-612 | Related-alert context partly shown | Case history and false-positive-in-30-days context |
 | FR-804 | Case transitions `OPEN → IN_PROGRESS → PENDING_CLOSURE → CLOSED` | FRD vocabulary (`IN_INVESTIGATION`, `PENDING_DECISION`, `PENDING_APPROVAL`, `RETURNED_FOR_REWORK`, `APPROVED_CLOSED`); reopen flow |
 | FR-808 | Case queue and assignment | Case detail completeness, SLA status, unauthorised-URL behaviour |
@@ -108,6 +114,29 @@ assigns effort weights.
 ---
 
 ## Built since the last progress report
+
+### 3 November — Patterns P01 and P03–P10 as rule-as-data
+
+- **Templates** `p01_large_txn`, `p03_rapid_movement`, `p04_high_velocity`, `p05_dormant_reactivation`,
+  `p06_round_amounts`, `p07_sudden_spike`, `p08_high_risk_geo`, `p09_shared_device`,
+  `p10_unusual_merchant`, on a shared module (`common.py`: one read of the transactions per run, typed
+  candidates, one alert-creating run) and a `registry.py` that the run and simulation endpoints use.
+- **Migration 0013** seeds nine rules as ACTIVE with the FRD §8 defaults, with the same documented
+  maker-checker bypass as P02 (audit event `RULE_SEEDED_ACTIVE`). The values are proposals, not decisions
+  (MQ-01, MQ-02 still open): see the parameter sheet in [DETECTION_PATTERNS.md](DETECTION_PATTERNS.md).
+- **Endpoints:** `POST /detection/run` now runs every rule pattern; `POST /detection/patterns/{code}/run`
+  runs one. Simulation (`/rules/{ref}/versions/{v}/simulate`) works for every new pattern; it also no
+  longer fails when the data has a single instant.
+- **Tests:** `tests/test_detection_patterns.py` (69 tests: positive, look-alike negative, boundary,
+  explanation, not-enough-data per pattern, plus run, idempotency, endpoints and simulation).
+- **Evidence (generated small profile, synthetic):** injected positives caught P01 3/3, P02 2/2, P03 2/2,
+  P04 3/3, P05 2/2, P06 2/2, P07 2/2, P08 2/2, P09 10/10, P10 2/2; 0 of 42 control entities alerted; all ten
+  patterns run in about 2 seconds on 20,458 transactions. Reproduce with
+  `python -m app.scripts.evaluate_patterns --raw-dir <dataset>`.
+- **Open findings:** alert volume for P01 (161), P07 (48) and P10 (46) is far above what the labelled
+  scenarios explain: needs a simulation review with the mentor before the defaults are accepted.
+  Performance at 420k transactions has not been measured (T-PERF-04). P09 and P10 cannot yet use
+  household context or merchant age (reported as `DATA_UNAVAILABLE`).
 
 ### 27 October — Investigation chain skeleton (partial; GATE 3 not reached)
 
@@ -159,7 +188,7 @@ Percentages are rough, based on the status tables above.
 | D1 Ingestion | ~40% | Batch, checksum, log, reconciliation done. DQ metrics (FR-108), late-arrival (FR-106), reprocessing (FR-107) not built |
 | D2 Entity Resolution | 0% | `customer_id` still stands in for `entity_id` |
 | D3 Risk Scoring | 0% | |
-| D4 Rules Engine + Detection | ~25% | P02 as data; rule read + simulation; no create/submit/approve; 11 patterns missing |
+| D4 Rules Engine + Detection | ~50% | P01–P10 as data with simulation; no create/submit/approve (FR-301/304); P11, P12 missing; priority scoring open |
 | D5 Anomaly + Graph | ~5% | ML signal shown on alerts (supervised, DRAFT); graph and FR-401 baseline not in the app |
 | D6 Screening | 0% | Generator produces watchlist; no engine, no review flow |
 | D7 Alert & Triage | ~45% | Strongest domain; state vocabulary still narrower than contract; no SLA, bulk, reopen |
@@ -197,8 +226,8 @@ project start date). Feature freeze (Gate 5) is week 14, so roughly six weeks re
 2. **Complete the decision workflow:** decision type, evidence-referencing rationale, completeness
    check returning all unmet conditions at once, `403 SEGREGATION_OF_DUTIES_VIOLATION` + DENIED audit,
    database CHECK `checker_id <> maker_id`.
-3. **Patterns P01, P03–P10 as rule-as-data** (logic exists offline in `app/ml/comparators.py`), each with
-   positive / negative / boundary / explanation / sufficiency tests and the control-cohort test.
+3. ~~Patterns P01, P03–P10 as rule-as-data~~ — done 3 November. Remaining: review alert volume with the
+   mentor, measure on the `full` profile, make recall/control an automated test.
 4. **Rule maker-checker** (FR-301 create, FR-304, FR-305), MLRO as checker.
 5. **Entity 360 and timeline** with evidence capture (FR-701, 702, 708).
 6. **Screening engine + minimal entity resolution** (P12, SM-06 database guarantees).

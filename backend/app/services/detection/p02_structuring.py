@@ -183,6 +183,19 @@ class Candidate:
     customer_ref: str
     cluster: Cluster
 
+    # The same accessors every other pattern's candidate has (common.PatternCandidate).
+    @property
+    def transactions(self) -> tuple:
+        return self.cluster.transactions
+
+    @property
+    def window_start(self) -> datetime:
+        return self.cluster.window_start
+
+    @property
+    def window_end(self) -> datetime:
+        return self.cluster.window_end
+
 
 @dataclass(frozen=True)
 class Evaluation:

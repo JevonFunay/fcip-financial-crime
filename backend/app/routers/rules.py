@@ -15,7 +15,7 @@ be called prematurely.
 """
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
@@ -180,8 +180,7 @@ def simulate_rule_version(
     Only ROLE_DATA_OPS and ROLE_ANALYST can trigger a simulation; the
     maker-checker approval flow (FR-304, not built yet) will gate ACTIVE use.
 
-    Supported patterns: P02_STRUCTURING.  Other patterns will get their own
-    evaluate() once their detectors are built; the endpoint shape is the same.
+    Supported patterns: P01-P10 except P11 and P12 (graph and screening are not built).
     """
     rule = _get_rule_or_404(db, rule_ref)
     version = _get_version_or_404(db, rule, v)
@@ -195,14 +194,16 @@ def simulate_rule_version(
             f"Version {v} is in state '{version.state.value}'; only DRAFT or IN_SIMULATION versions can be simulated",
         )
 
-    # Import pattern templates lazily so adding a new pattern doesn't touch this
-    # file — each pattern registers its own evaluate() callable.
+    # Each pattern registers its own parameters factory and evaluate(); a simulation
+    # runs exactly the function a live detection run runs.
     from app.services.detection.p02_structuring import (  # noqa: PLC0415
         P02Parameters,
         evaluate as p02_evaluate,
     )
+    from app.services.detection.registry import TEMPLATES  # noqa: PLC0415
 
     _SUPPORTED_PATTERNS = {"P02_STRUCTURING": (P02Parameters.from_rule_version, p02_evaluate)}
+    _SUPPORTED_PATTERNS.update({code: (t.parameters_from, t.evaluate) for code, t in TEMPLATES.items()})
 
     if rule.pattern_code not in _SUPPORTED_PATTERNS:
         raise HTTPException(
@@ -233,10 +234,10 @@ def simulate_rule_version(
     sample: list[SimulationSampleAlert] = [
         SimulationSampleAlert(
             customer_ref=c.customer_ref,
-            window_start=c.cluster.window_start.astimezone(timezone.utc),
-            window_end=c.cluster.window_end.astimezone(timezone.utc),
-            txn_count=len(c.cluster.transactions),
-            aggregate_amount=str(sum(t.amount for t in c.cluster.transactions)),
+            window_start=c.window_start.astimezone(timezone.utc),
+            window_end=c.window_end.astimezone(timezone.utc),
+            txn_count=len(c.transactions),
+            aggregate_amount=str(sum(t.amount for t in c.transactions)),
         )
         for c in evaluation.candidates[:10]
     ]
@@ -244,7 +245,7 @@ def simulate_rule_version(
     # Daily distribution: how many would-be alerts per date.
     daily: dict[str, int] = {}
     for c in evaluation.candidates:
-        day = c.cluster.window_start.astimezone(timezone.utc).date().isoformat()
+        day = c.window_start.astimezone(timezone.utc).date().isoformat()
         daily[day] = daily.get(day, 0) + 1
 
     # Determine the actual evaluated period (None → whole DB).
@@ -259,6 +260,8 @@ def simulate_rule_version(
         ).one()
         actual_start = row[0] or datetime.now(timezone.utc)
         actual_end = row[1] or datetime.now(timezone.utc)
+        if actual_end <= actual_start:  # a single transaction (or one instant) still needs a non-empty period
+            actual_end = actual_start + timedelta(seconds=1)
 
     alerted_entities = len(set(c.customer_id for c in evaluation.candidates))
     result = SimulationResult(
