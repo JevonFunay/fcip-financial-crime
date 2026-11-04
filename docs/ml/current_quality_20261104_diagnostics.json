@@ -1,0 +1,434 @@
+{
+  "after_final_evaluation": true,
+  "calendar_caveat": "The generator reference date is not a hard accepted-date cap. Existing generated valid future-date defects remain accepted. Fresh final follows all fit/validation observations but overlaps the exposed development-test calendar; no post-final filtering was applied.",
+  "created_at_utc": "2026-11-04T05:11:04.392909+00:00",
+  "development_test_and_final_calendar_ranges_overlap": true,
+  "final_accepted_dates": {
+    "earliest": "2026-09-29T17:05:51+00:00",
+    "latest": "2027-04-03T14:20:36+00:00"
+  },
+  "final_after_latest_train_observation": true,
+  "final_after_latest_validation_observation": true,
+  "final_artifact_files_verified": 20,
+  "final_p04_positive_fraction": 0.8644688644688645,
+  "final_positive_rows_by_pattern": {
+    "ATO": 234,
+    "P04": 1652,
+    "P05": 25
+  },
+  "final_rows_at_or_before_development_test_end": 3846,
+  "final_rows_at_or_before_train_end": 0,
+  "final_rows_at_or_before_validation_end": 0,
+  "frozen_files_verified": 41,
+  "generator_scenario_placement": {
+    "final": {
+      "all_requests_placed": true,
+      "calibration": {
+        "added": 0,
+        "final": 100000,
+        "generated_before_calibration": 109281,
+        "removed": 9281
+      },
+      "min_per_pattern_requested": 25,
+      "scenario_placement": {
+        "ATO": {
+          "edge": {
+            "placed": 25,
+            "requested": 25
+          },
+          "positives": {
+            "placed": 25,
+            "requested": 25
+          }
+        },
+        "P01": {
+          "boundary": {
+            "placed": 25,
+            "requested": 25
+          },
+          "edge": {
+            "placed": 25,
+            "requested": 25
+          },
+          "positives": {
+            "placed": 25,
+            "requested": 25
+          }
+        },
+        "P02": {
+          "boundary": {
+            "placed": 25,
+            "requested": 25
+          },
+          "edge": {
+            "placed": 25,
+            "requested": 25
+          },
+          "positives": {
+            "placed": 25,
+            "requested": 25
+          }
+        },
+        "P03": {
+          "boundary": {
+            "placed": 25,
+            "requested": 25
+          },
+          "edge": {
+            "placed": 25,
+            "requested": 25
+          },
+          "positives": {
+            "placed": 25,
+            "requested": 25
+          }
+        },
+        "P04": {
+          "boundary": {
+            "placed": 25,
+            "requested": 25
+          },
+          "edge": {
+            "placed": 25,
+            "requested": 25
+          },
+          "positives": {
+            "placed": 25,
+            "requested": 25
+          }
+        },
+        "P05": {
+          "boundary": {
+            "placed": 25,
+            "requested": 25
+          },
+          "edge": {
+            "placed": 25,
+            "requested": 25
+          },
+          "positives": {
+            "placed": 25,
+            "requested": 25
+          }
+        },
+        "P06": {
+          "boundary": {
+            "placed": 25,
+            "requested": 25
+          },
+          "edge": {
+            "placed": 25,
+            "requested": 25
+          },
+          "positives": {
+            "placed": 25,
+            "requested": 25
+          }
+        },
+        "P07": {
+          "edge": {
+            "placed": 25,
+            "requested": 25
+          },
+          "positives": {
+            "placed": 25,
+            "requested": 25
+          }
+        },
+        "P08": {
+          "edge": {
+            "placed": 25,
+            "requested": 25
+          },
+          "positives": {
+            "placed": 25,
+            "requested": 25
+          }
+        },
+        "P09": {
+          "boundary": {
+            "placed": 25,
+            "requested": 25
+          },
+          "edge": {
+            "placed": 25,
+            "requested": 25
+          },
+          "positives": {
+            "placed": 25,
+            "requested": 25
+          }
+        },
+        "P10": {
+          "edge": {
+            "placed": 25,
+            "requested": 25
+          },
+          "positives": {
+            "placed": 25,
+            "requested": 25
+          }
+        },
+        "P11": {
+          "boundary": {
+            "placed": 25,
+            "requested": 25
+          },
+          "edge": {
+            "placed": 25,
+            "requested": 25
+          },
+          "positives": {
+            "placed": 25,
+            "requested": 25
+          }
+        },
+        "P12": {
+          "edge": {
+            "placed": 25,
+            "requested": 25
+          },
+          "positives": {
+            "placed": 25,
+            "requested": 25
+          }
+        }
+      },
+      "scope": "Scenario counts across whole raw draw, not a guarantee of positive-row coverage inside every chronological partition.",
+      "shortfalls": []
+    },
+    "source": {
+      "all_requests_placed": true,
+      "calibration": {
+        "added": 0,
+        "final": 100000,
+        "generated_before_calibration": 108841,
+        "removed": 8841
+      },
+      "min_per_pattern_requested": 25,
+      "scenario_placement": {
+        "ATO": {
+          "edge": {
+            "placed": 25,
+            "requested": 25
+          },
+          "positives": {
+            "placed": 25,
+            "requested": 25
+          }
+        },
+        "P01": {
+          "boundary": {
+            "placed": 25,
+            "requested": 25
+          },
+          "edge": {
+            "placed": 25,
+            "requested": 25
+          },
+          "positives": {
+            "placed": 25,
+            "requested": 25
+          }
+        },
+        "P02": {
+          "boundary": {
+            "placed": 25,
+            "requested": 25
+          },
+          "edge": {
+            "placed": 25,
+            "requested": 25
+          },
+          "positives": {
+            "placed": 25,
+            "requested": 25
+          }
+        },
+        "P03": {
+          "boundary": {
+            "placed": 25,
+            "requested": 25
+          },
+          "edge": {
+            "placed": 25,
+            "requested": 25
+          },
+          "positives": {
+            "placed": 25,
+            "requested": 25
+          }
+        },
+        "P04": {
+          "boundary": {
+            "placed": 25,
+            "requested": 25
+          },
+          "edge": {
+            "placed": 25,
+            "requested": 25
+          },
+          "positives": {
+            "placed": 25,
+            "requested": 25
+          }
+        },
+        "P05": {
+          "boundary": {
+            "placed": 25,
+            "requested": 25
+          },
+          "edge": {
+            "placed": 25,
+            "requested": 25
+          },
+          "positives": {
+            "placed": 25,
+            "requested": 25
+          }
+        },
+        "P06": {
+          "boundary": {
+            "placed": 25,
+            "requested": 25
+          },
+          "edge": {
+            "placed": 25,
+            "requested": 25
+          },
+          "positives": {
+            "placed": 25,
+            "requested": 25
+          }
+        },
+        "P07": {
+          "edge": {
+            "placed": 25,
+            "requested": 25
+          },
+          "positives": {
+            "placed": 25,
+            "requested": 25
+          }
+        },
+        "P08": {
+          "edge": {
+            "placed": 25,
+            "requested": 25
+          },
+          "positives": {
+            "placed": 25,
+            "requested": 25
+          }
+        },
+        "P09": {
+          "boundary": {
+            "placed": 25,
+            "requested": 25
+          },
+          "edge": {
+            "placed": 25,
+            "requested": 25
+          },
+          "positives": {
+            "placed": 25,
+            "requested": 25
+          }
+        },
+        "P10": {
+          "edge": {
+            "placed": 25,
+            "requested": 25
+          },
+          "positives": {
+            "placed": 25,
+            "requested": 25
+          }
+        },
+        "P11": {
+          "boundary": {
+            "placed": 25,
+            "requested": 25
+          },
+          "edge": {
+            "placed": 25,
+            "requested": 25
+          },
+          "positives": {
+            "placed": 25,
+            "requested": 25
+          }
+        },
+        "P12": {
+          "edge": {
+            "placed": 25,
+            "requested": 25
+          },
+          "positives": {
+            "placed": 25,
+            "requested": 25
+          }
+        }
+      },
+      "scope": "Scenario counts across whole raw draw, not a guarantee of positive-row coverage inside every chronological partition.",
+      "shortfalls": []
+    }
+  },
+  "interpretation": "Overall supervised figures are dominated by P04. ATO/P05 positive rows were absent from fitting despite being placed in the whole generated source. The small slice tests 18 P04 rows, not small-value ATO/P05 generalization.",
+  "logistic_numeric_parameters_all_finite": true,
+  "original_frozen_manifest_sha256": "b10ccf52133618c060732e6f0209181fdfd22a00524b0755abcc7d807c49075f",
+  "original_report_sha256": "7f78a400abae76561b653bf233a7eba68d2a16a6e86d1b56924a699eb00394d1",
+  "retuning_performed": false,
+  "score_columns_all_finite": {
+    "score_amount_only": true,
+    "score_isolation_forest": true,
+    "score_lightgbm": true,
+    "score_logistic_regression": true
+  },
+  "small_amount_train_q25": 78189.0,
+  "small_positive_rows_by_pattern": {
+    "P04": 18
+  },
+  "source_full_accepted_dates": {
+    "earliest": "2026-03-31T17:06:54+00:00",
+    "latest": "2026-10-06T14:06:09+00:00"
+  },
+  "source_full_and_final_calendar_ranges_overlap": true,
+  "source_split_recomputed_from_original_mapping": {
+    "test": {
+      "earliest": "2026-08-27T02:55:54+00:00",
+      "latest": "2026-10-06T14:06:09+00:00",
+      "positive_rows": 733,
+      "positive_rows_by_pattern": {
+        "ATO": 150,
+        "P04": 561,
+        "P05": 22
+      },
+      "rows": 19663
+    },
+    "train": {
+      "earliest": "2026-03-31T17:06:54+00:00",
+      "latest": "2026-07-26T06:48:42+00:00",
+      "positive_rows": 581,
+      "positive_rows_by_pattern": {
+        "ATO": 0,
+        "P04": 581,
+        "P05": 0
+      },
+      "rows": 58991
+    },
+    "validation": {
+      "earliest": "2026-07-26T06:49:04+00:00",
+      "latest": "2026-08-27T02:55:52+00:00",
+      "positive_rows": 501,
+      "positive_rows_by_pattern": {
+        "ATO": 88,
+        "P04": 410,
+        "P05": 3
+      },
+      "rows": 19664
+    }
+  },
+  "used_for_selection": false,
+  "version": "current_lab_postfinal_diagnostics_v1"
+}

@@ -1,5 +1,20 @@
 # Handoff: Financial Crime Intelligence Platform (FCIP)
 
+**Current handoff — 4 November 2026:** read
+[PROJECT_CONTEXT.md §18–19](docs/PROJECT_CONTEXT.md),
+[PROGRESS.md](docs/PROGRESS.md), [the Lab guide](docs/LAB_THIN_SLICE.md) and
+[current quality evidence](docs/ml/current_quality_20261104.md) first. The
+7 October material below is historical; its role, dataset, model-registration
+and pending-CF-05 instructions do not describe the current application.
+
+The current code has nine roles, model Lab approval/monitoring and P01–P10
+rules. The 4 November audit passes 843 existing backend checks + 18 new audit
+checks and the frontend build. Fresh synthetic LightGBM P98.56%/R89.38% hides
+weak ATO/P05 coverage (33.33%/0%); TRAIN has no positive ATO/P05 examples.
+The audit does not promote or activate models, modify the generator or live DB,
+or prove real crime/AML accuracy. Future fixes need fresh evaluation; do not
+tune on the now-exposed final and call a reproduction an unseen test.
+
 Kamu akan melanjutkan pengembangan sebuah proyek capstone. Baca seluruh prompt ini sebelum mengerjakan apa pun. Kalau kamu tidak bisa membaca file di repository secara langsung, minta Jevon menempelkan file yang kamu butuhkan, terutama `docs/PROJECT_CONTEXT.md`, `docs/PROGRESS.md` dan `README.md`. Jangan menebak isi file.
 
 ---

@@ -1,0 +1,269 @@
+{
+  "date": "2026-11-04",
+  "scope": "unchanged current model-lab pipeline on new synthetic source/final; not an identified ACTIVE DB artifact",
+  "state": "DRAFT",
+  "production_changed": false,
+  "source_rows": 100000,
+  "source_accepted": 98318,
+  "fitted_train_rows": 58991,
+  "validation_rows": 19664,
+  "exposed_development_test_rows": 19663,
+  "fresh_final_rows": 100000,
+  "fresh_final_scored": 98346,
+  "fresh_final_quarantined": 1654,
+  "final_positives": 1911,
+  "validation_selected": "lightgbm",
+  "models": {
+    "amount_only": {
+      "average_precision": 0.037429431885094684,
+      "f1": 0.10250421694563384,
+      "flag_rate": 0.2940333109633335,
+      "flagged": 28917,
+      "flagged_per_10k": 2940.3331096333354,
+      "fn": 331,
+      "fp": 27337,
+      "positive_rows": 1911,
+      "precision": 0.054639139606459865,
+      "recall": 0.826792255363684,
+      "roc_auc": 0.7500628624487033,
+      "rows": 98346,
+      "threshold": 551556.0,
+      "tn": 69098,
+      "tp": 1580,
+      "unresolved_rows": 0
+    },
+    "isolation_forest": {
+      "average_precision": 0.14311483352507323,
+      "f1": 0.2605703048180924,
+      "flag_rate": 0.04261484961259228,
+      "flagged": 4191,
+      "flagged_per_10k": 426.14849612592275,
+      "fn": 1116,
+      "fp": 3396,
+      "positive_rows": 1911,
+      "precision": 0.1896921975662133,
+      "recall": 0.41601255886970173,
+      "roc_auc": 0.8784512154487488,
+      "rows": 98346,
+      "threshold": 0.5694763830545521,
+      "tn": 93039,
+      "tp": 795,
+      "unresolved_rows": 0
+    },
+    "lightgbm": {
+      "average_precision": 0.9679706896562263,
+      "f1": 0.9374313940724478,
+      "flag_rate": 0.01762145893071401,
+      "flagged": 1733,
+      "flagged_per_10k": 176.2145893071401,
+      "fn": 203,
+      "fp": 25,
+      "positive_rows": 1911,
+      "precision": 0.9855741488747836,
+      "recall": 0.8937728937728938,
+      "roc_auc": 0.9951602168321053,
+      "rows": 98346,
+      "threshold": 0.6927640305129358,
+      "tn": 96410,
+      "tp": 1708,
+      "unresolved_rows": 0
+    },
+    "logistic_regression": {
+      "average_precision": 0.9169810692348991,
+      "f1": 0.8847951608468518,
+      "flag_rate": 0.017550281658633805,
+      "flagged": 1726,
+      "flagged_per_10k": 175.50281658633804,
+      "fn": 302,
+      "fp": 117,
+      "positive_rows": 1911,
+      "precision": 0.9322132097334879,
+      "recall": 0.8419675562532706,
+      "roc_auc": 0.9821208012261942,
+      "rows": 98346,
+      "threshold": 0.9896514806889327,
+      "tn": 96318,
+      "tp": 1609,
+      "unresolved_rows": 0
+    }
+  },
+  "pattern_recall": {
+    "amount_only": {
+      "ATO": {
+        "caught": 231,
+        "missed": 3,
+        "positive_rows": 234,
+        "recall": 0.9871794871794872
+      },
+      "P04": {
+        "caught": 1324,
+        "missed": 328,
+        "positive_rows": 1652,
+        "recall": 0.801452784503632
+      },
+      "P05": {
+        "caught": 25,
+        "missed": 0,
+        "positive_rows": 25,
+        "recall": 1.0
+      }
+    },
+    "isolation_forest": {
+      "ATO": {
+        "caught": 4,
+        "missed": 230,
+        "positive_rows": 234,
+        "recall": 0.017094017094017096
+      },
+      "P04": {
+        "caught": 767,
+        "missed": 885,
+        "positive_rows": 1652,
+        "recall": 0.4642857142857143
+      },
+      "P05": {
+        "caught": 24,
+        "missed": 1,
+        "positive_rows": 25,
+        "recall": 0.96
+      }
+    },
+    "lightgbm": {
+      "ATO": {
+        "caught": 78,
+        "missed": 156,
+        "positive_rows": 234,
+        "recall": 0.3333333333333333
+      },
+      "P04": {
+        "caught": 1630,
+        "missed": 22,
+        "positive_rows": 1652,
+        "recall": 0.986682808716707
+      },
+      "P05": {
+        "caught": 0,
+        "missed": 25,
+        "positive_rows": 25,
+        "recall": 0.0
+      }
+    },
+    "logistic_regression": {
+      "ATO": {
+        "caught": 83,
+        "missed": 151,
+        "positive_rows": 234,
+        "recall": 0.3547008547008547
+      },
+      "P04": {
+        "caught": 1526,
+        "missed": 126,
+        "positive_rows": 1652,
+        "recall": 0.923728813559322
+      },
+      "P05": {
+        "caught": 0,
+        "missed": 25,
+        "positive_rows": 25,
+        "recall": 0.0
+      }
+    }
+  },
+  "small_amount": {
+    "amount_only": {
+      "average_precision": 0.0016226085523076586,
+      "f1": 0.0,
+      "flag_rate": 0.0,
+      "flagged": 0,
+      "flagged_per_10k": 0.0,
+      "fn": 18,
+      "fp": 0,
+      "positive_rows": 18,
+      "precision": null,
+      "recall": 0.0,
+      "roc_auc": 0.7934387173286402,
+      "rows": 26345,
+      "threshold": 551556.0,
+      "tn": 26327,
+      "tp": 0,
+      "unresolved_rows": 0
+    },
+    "isolation_forest": {
+      "average_precision": 0.04522481576287235,
+      "f1": 0.06691449814126395,
+      "flag_rate": 0.009527424558739799,
+      "flagged": 251,
+      "flagged_per_10k": 95.27424558739798,
+      "fn": 9,
+      "fp": 242,
+      "positive_rows": 18,
+      "precision": 0.035856573705179286,
+      "recall": 0.5,
+      "roc_auc": 0.940930941196828,
+      "rows": 26345,
+      "threshold": 0.5694763830545521,
+      "tn": 26085,
+      "tp": 9,
+      "unresolved_rows": 0
+    },
+    "lightgbm": {
+      "average_precision": 0.953122730573711,
+      "f1": 0.85,
+      "flag_rate": 0.0008350730688935282,
+      "flagged": 22,
+      "flagged_per_10k": 8.350730688935283,
+      "fn": 1,
+      "fp": 5,
+      "positive_rows": 18,
+      "precision": 0.7727272727272727,
+      "recall": 0.9444444444444444,
+      "roc_auc": 0.9998565055730704,
+      "rows": 26345,
+      "threshold": 0.6927640305129358,
+      "tn": 26322,
+      "tp": 17,
+      "unresolved_rows": 0
+    },
+    "logistic_regression": {
+      "average_precision": 0.7503136723085571,
+      "f1": 0.75,
+      "flag_rate": 0.000531410134750427,
+      "flagged": 14,
+      "flagged_per_10k": 5.314101347504271,
+      "fn": 6,
+      "fp": 2,
+      "positive_rows": 18,
+      "precision": 0.8571428571428571,
+      "recall": 0.6666666666666666,
+      "roc_auc": 0.9997742072988017,
+      "rows": 26345,
+      "threshold": 0.9896514806889327,
+      "tn": 26325,
+      "tp": 12,
+      "unresolved_rows": 0
+    }
+  },
+  "small_amount_boundary_IDR": 78189.0,
+  "final_positive_pattern_counts": {
+    "ATO": 234,
+    "P04": 1652,
+    "P05": 25
+  },
+  "frozen_file_count": 41,
+  "final_expected_file_count": 20,
+  "original_local_report_sha256": "7f78a400abae76561b653bf233a7eba68d2a16a6e86d1b56924a699eb00394d1",
+  "original_frozen_manifest_sha256": "b10ccf52133618c060732e6f0209181fdfd22a00524b0755abcc7d807c49075f",
+  "final_scores_sha256": "cca979d14a052700407d2ba24d6bfa7375d63361d3eecc563c450d19d3506bfb",
+  "checks": "docs/ml/current_quality_20261104_checks.json",
+  "full_benchmark": "docs/ml/current_quality_20261104.json",
+  "independent_verification": "docs/ml/current_quality_20261104_verification.json",
+  "critical_limits": [
+    "Only synthetic current P04/ATO/P05 single-label policy, not real fraud/AML accuracy.",
+    "P04 dominates positives; LightGBM misses156/234 ATO and25/25 P05.",
+    "Post-final source audit finds no ATO/P05 positive in TRAIN; validation/test examples do not replace training coverage.",
+    "All18small-value positives are P04, so low-value ATO/P05 are unassessed.",
+    "Accepted date defects mean full development TEST overlaps a few final calendar days; actual TRAIN and validation finish before final.",
+    "Same generator/recipes and recurring ID tokens; final-only history, no proof of independent real customers.",
+    "Existing UI final-test exposure, mapping drift and P02-only Lab monitoring are unchanged."
+  ]
+}

@@ -1,9 +1,16 @@
 # FCIP — Progress Status
 
-**As of 3 November 2026 · roughly 20% of MVP scope (estimate)**
+**As of 4 November 2026 · roughly 20% of MVP scope (3 November estimate; not recounted by the quality audit)**
 
 Supersedes any earlier progress figure. Scope definitions, architecture and open
 questions are unchanged — see `PROJECT_CONTEXT.md`.
+
+> **4 November quality verification:** all **843 existing backend checks** and
+> the frontend build pass; 18 new offline audit checks pass too. Fresh synthetic
+> Lab LightGBM precision/recall is **98.56%/89.38%**, but ATO recall is 33.33% and
+> P05 is 0%. Actual TRAIN has no positive examples of either pattern. These
+> results measure the current offline pipeline, not a live ACTIVE artifact or
+> real crime/AML accuracy. [Report and evidence](ml/current_quality_20261104.md).
 
 > **3 November:** detection patterns **P01 and P03–P10** are now rule-as-data like P02
 > (migration 0013 seeds nine ACTIVE rules, `RUL-0003`…`RUL-0011`; templates in
@@ -52,15 +59,17 @@ assigns effort weights.
 | Demo-relevant UAT scenarios runnable end to end | 3 of 15 (UAT-01, 04, 05 are plausible; others blocked) | ~20% |
 
 **Test status (be precise about what was verified):**
-- Core application suites (alerts, cases, evidence, rules, auth, RBAC, audit, P02
-  detection, rule schema): **203 passed, 0 failed**, run 27 Oct against PostgreSQL 16.
-- The earlier claim of "735 passed, 8 skipped, 5 deselected" (`pytest -m "not slow"`
-  in Docker) has **not been independently reproduced**; the ML suites are slow and
-  were not completed in the verification run. Re-run in Docker and record the
-  command and output date before quoting that number.
-- Frontend `npm run build` was not re-run in the verification pass.
-- Passing tests establish technical correctness only; they do not establish
-  detection quality. The ML quality gate is still unmet and every model is DRAFT.
+- On 4 November, **838 regular + 5 slow existing tests pass**, no failed or skipped
+  bodies, on a new private PostgreSQL16.15 cluster. The temporary servers are
+  confirmed stopped; no live application database is accessed.
+- **18 new audit guard checks pass**, independently repeated, for 861 distinct
+  passing checks in the stage. Preliminary/repeated checks are not double-counted.
+- Frontend `npm run build` passes (TypeScript and Vite production build).
+- Full commands, runtimes, warnings, environment setup correction and log hashes
+  are in [technical evidence](ml/current_quality_20261104_checks.json).
+- Passing tests do not establish broad detection quality or fix the listed
+  evaluation/integration gaps. Audit models remain offline DRAFT; current live
+  registry state was not queried. Production browser QA was not rerun.
 
 ---
 
@@ -114,6 +123,18 @@ assigns effort weights.
 ---
 
 ## Built since the last progress report
+
+### 4 November — current application and model quality tested
+
+843 existing tests + 18 new audit checks pass, plus frontend build. An unchanged
+Lab fit uses 100k source rows; a frozen later 100k synthetic draw has 98,346 valid
+rows. Selected LightGBM P98.56%/R89.38%, FP25/FN203, but ATO 78/234 and P05 0/25.
+Post-final diagnosis finds TRAIN positives only P04; aggregate metrics mask gaps.
+Small ≤IDR78,189 catches 17/18 positives, all P04. No production/generator/DB change.
+**Own decisions:** AS-16 records native defaults, fresh frozen draw, amount-only
+diagnostic, unsupported-slice honesty and isolated PostgreSQL verification.
+**Capstone:** Tes teknis lulus, tetapi cakupan ATO/P05 belum baik; hasil hanya
+simulasi dan model audit tetap offline. [Full report](ml/current_quality_20261104.md).
 
 ### 3 November — Patterns P01 and P03–P10 as rule-as-data
 

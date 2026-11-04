@@ -4,10 +4,25 @@
 Intelligence Platform capstone: what the project is, what the spec demands, what
 is actually built, what is deliberately not built, and what is still undecided.
 
-Last updated: **20 October 2026** · ~17% of MVP scope
-(scope percentage last recounted 29 September)
+Last updated: **4 November 2026** · latest scope estimate in
+[PROGRESS.md](PROGRESS.md) is roughly 20% (3 November; not recounted by this audit).
 
-**Current handoff:** §14–17 and [ML_DATA_ENGINE.md](ML_DATA_ENGINE.md) supersede
+**Current handoff:** §18–19, [the Lab guide](LAB_THIN_SLICE.md) and
+[PROGRESS.md](PROGRESS.md) describe the current application after the team's
+27 October/3 November work: nine roles, model approval and monitoring, and
+P01–P10 app rules. CF-05(b) is recorded as answered; an MLRO controls model
+alerts. Historical statements below about absent roles, pending CF-05 and
+only P02 are not the current application capability. Actual live model state
+was not queried by the 4 November verification.
+
+The [4 November quality audit](ml/current_quality_20261104.md) passes all
+843 existing backend checks, 18 new audit checks and the frontend build.
+Fresh offline Lab LightGBM precision/recall is 98.56%/89.38%, but ATO recall
+is 33.33% and P05 0%. TRAIN has no positive ATO/P05 examples. These are
+same-generator synthetic results, not real-crime or AML accuracy; the audit
+does not promote, register or activate any model.
+
+**Historical research handoff, 14–20 October:** §14–17 and [ML_DATA_ENGINE.md](ML_DATA_ENGINE.md) supersede
 the old dataset/training instructions below. The USD pipeline is unsupervised;
 the initial replacement verified 1,400,000 generated rows and an actual
 200,000-row upload (§14). The new offline follow-up creates another 1,400,000
@@ -692,6 +707,26 @@ rule has no maker submission; this is the same documented bypass as RUL-0001.
 Grouping, reason text and evidence are `raise_ml_alerts` unchanged (one alert
 per account and source-clock day for transaction models); a threshold below 0.01
 is now printed with two significant digits instead of `0.00`.
+
+**AS-16 — current Lab quality measurement (4 Nov):** Jevon asked to test the
+current system after the collaborative changes. Preserve native Lab mapping,
+all eight groups, 60/20/20 row split, model seed 20261026 and three algorithms.
+Use unchanged generator 1.4.0/sample policy on a new 100k source (seed 2026110401,
+reference 2026-09-30, minimum 25), then freeze validation-AP selection/native max-F1
+thresholds before another 100k draw (seed 2026110402, reference 2027-03-31).
+A validation-fixed amount-only cutoff is a diagnostic, never an extra Lab
+winner. These are measurement settings, not FRD operating points. Keep the
+existing exposed internal test as development evidence. Final features use
+new-episode history and frozen TRAIN vocabulary; no training-file history is
+joined by recurring identifier tokens. Hash inputs/code/model texts/contracts
+at creation and check original expectations through final evaluation.
+
+Use a temporary PostgreSQL 16 cluster for integration tests; no live app state
+is changed. Report transaction-level pattern/small-amount denominators and
+post-final findings honestly: ATO/P05 positives absent from TRAIN, P04 dominates
+final labels, and accepted generated date defects overlap the exposed internal
+test's calendar. Do not filter/retune after the final or call this real fraud,
+AML quality, independent customers or an ACTIVE deployment-artifact test.
 
 ### TRD §1.5 — conflicts still open
 
@@ -1811,3 +1846,69 @@ external dataset licences unresolved; rule maker-checker (FR-304) still unbuilt.
 dataset berlabel sampai alert: model disetujui MLRO, menilai data baru, dan
 skornya membuat alert tanpa rule pola (CF-05 opsi b), dengan fitur penyumbang
 pada setiap skor; hasil hanya berlaku untuk data sintetis.
+
+---
+
+## 19. Current application and Lab quality verified — 4 November 2026
+
+Jevon requested an actual test after the team's changes on `main` at
+`e4e3eb6727aeea10e9123e61081476eb46c78ae8`.
+[Report](ml/current_quality_20261104.md),
+[compact results](ml/current_quality_20261104_summary.json),
+[technical checks](ml/current_quality_20261104_checks.json) and
+[post-final diagnosis](ml/current_quality_20261104_diagnostics.json) are tracked.
+No production code, generator/shared data, live DB, registry or rule state changes.
+
+**Technical:** 838 regular + 5 slow existing tests pass on isolated temporary
+PostgreSQL 16.15; both temporary servers stop cleanly. Frontend production build
+passes. Eighteen new audit guard tests also pass (independently repeated),
+making 861 distinct passing checks. An initial socket-URL/Alembic interpolation
+setup error is resolved only in the temporary harness and is not counted as
+838 functional failures. Warnings and log hashes are retained. Docker becomes
+available after Jevon starts it, but no Compose services are running; the
+live ACTIVE model registry is not inspected. No browser QA is claimed.
+
+**Measured pipeline:** new 100k source → 98,318 usable / 1,682 quarantine. The
+unchanged Lab defaults fit on 58,991 TRAIN rows, validate 19,664 and expose 19,663
+internal-test rows. All three native fits finish. Validation AP chooses
+LightGBM and native validation max-F1 fixes thresholds; an amount-only cutoff
+is a separate diagnostic. Forty-one original protected hashes, model/contracts,
+mapping and vocabulary freeze before generating another 100k draw. Final has
+98,346 scored rows / 1,654 quarantine, 1,911 synthetic positives, no unknown
+accepted targets, and 20 creation-time final-artifact hashes. No final tuning.
+
+| Same fresh synthetic final | Precision | Recall | TP / FP / FN / TN |
+|---|---:|---:|---|
+| LightGBM, validation-selected | 98.56% | 89.38% | 1708 / 25 / 203 / 96410 |
+| Logistic Regression | 93.22% | 84.20% | 1609 / 117 / 302 / 96318 |
+| Isolation Forest | 18.97% | 41.60% | 795 / 3396 / 1116 / 93039 |
+| Amount-only diagnostic | 5.46% | 82.68% | 1580 / 27337 / 331 / 69098 |
+
+**Critical coverage:** LightGBM catches P04 1630/1652 (98.67%), ATO 78/234
+(33.33%), P05 0/25. All 581 TRAIN positives are P04; ATO/P05 are zero, despite
+their presence in validation/test and all requested whole-draw scenario
+placements being fulfilled. P04 is 86.45% of final positives. Small ≤TRAIN q25
+IDR78,189 has TP17/FP5/FN1/TN26,322 (P77.27%, R94.44%), but all 18 positives
+are P04. Low-value ATO/P05 remain unassessed. The high aggregate precision
+does not establish broad pattern coverage, real fraud or money laundering.
+
+Actual final dates follow all TRAIN/validation observations, but 3,846 final
+rows share the exposed internal-test calendar: accepted valid date defects
+extend that test into October. No post-final filtering is applied. The new
+draw is same-generator/recipe evidence, not independent real customers or
+unseen typologies. Independent review recomputes 52 slice, 12 pattern and 24
+negative-cohort results exactly and verifies all original hashes/checksums.
+
+Application gaps from the read-through remain: exposed final metrics/multiple
+threshold saves, mutable mappings without run snapshots, timestamp ties across
+Lab splits, P02-only Lab/CLI monitoring versus the all-pattern endpoint,
+historical flagged scores not restricted to ACTIVE model versions, and
+incomplete investigation/evidence storage. Passing existing tests does not
+mean these gaps are fixed. New audit code measures the unchanged pipeline.
+
+**Own decisions:** AS-16 records fixed native measurement, a separately frozen
+final draw, amount-only comparison, explicit unsupported slices and temporary
+DB isolation. **Capstone:** Aplikasi lulus tes teknis; LightGBM presisi pada
+simulasi P04, tetapi ATO/P05 belum tercakup. Distribusi label pada periode
+TRAIN dan validitas evaluasi perlu diperbaiki melalui pekerjaan berikutnya;
+model audit tetap offline, tanpa klaim kualitas produksi atau AML.

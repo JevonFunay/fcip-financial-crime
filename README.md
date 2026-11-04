@@ -19,7 +19,23 @@ the MLRO). Every score lists the features behind it. See
 [docs/LAB_THIN_SLICE.md](docs/LAB_THIN_SLICE.md) for the steps, demo script and
 limits. The regular transaction upload accepts Parquet too.
 
-## Current data and ML workflow — 20 October 2026
+## Current quality verification — 4 November 2026
+
+[The current quality report](docs/ml/current_quality_20261104.md) records
+**843 existing backend checks + 18 new audit checks passing**, plus the frontend
+build. The unchanged Lab's validation-selected LightGBM scores a fresh synthetic
+final with **98.56% precision / 89.38% recall**, but ATO recall is 33.33% and
+P05 is 0%. The actual TRAIN period contains positive P04 examples only; high
+aggregate quality does not establish broad fraud or AML coverage. No model is
+registered/activated and no live database is modified by the audit.
+
+The source has 100k rows (58,991 actual TRAIN); the post-freeze final has 100k
+rows, 98,346 accepted. The report distinguishes the exposed internal test,
+small-value denominators, accepted date defects and same-generator limitations.
+Current Lab approval/monitoring follows the 27 October guide above; the older
+research/demo state below is historical and is not a live-registry assertion.
+
+## Historical USD data and ML workflow — 20 October 2026
 
 **Latest precision stage:** the [20 October report](docs/ml/precision_20261020.md)
 preserves whole AML networks, runs a separate public FRAUD benchmark and

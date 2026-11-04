@@ -1,0 +1,116 @@
+{
+  "date": "2026-11-04",
+  "git_head": "e4e3eb6727aeea10e9123e61081476eb46c78ae8",
+  "existing_backend": {
+    "task_date": "2026-11-04",
+    "attempt": 2,
+    "started_at_utc": "2026-11-04T05:00:58.371078+00:00",
+    "cluster_root": "<temporary-private-pg>",
+    "database": "fcip_test",
+    "unix_socket_only": true,
+    "peer_authentication": true,
+    "port": 51537,
+    "database_url_has_no_host_query": true,
+    "connection_uses_private_PGHOST_PGPORT": true,
+    "postgres_version": "postgres (PostgreSQL) 16.15 (Homebrew)",
+    "head": "e4e3eb6727aeea10e9123e61081476eb46c78ae8",
+    "thread_environment": {
+      "OMP_NUM_THREADS": "1",
+      "OPENBLAS_NUM_THREADS": "1",
+      "MKL_NUM_THREADS": "1"
+    },
+    "phases": {
+      "regular": {
+        "exit_code": 0,
+        "wall_seconds": 132.098,
+        "command": [
+          "backend/.venv/bin/python",
+          "-m",
+          "pytest",
+          "-p",
+          "no:cacheprovider",
+          "-m",
+          "not slow",
+          "-q"
+        ],
+        "log": "/tmp/fcip_tests_20261104_backend_regular.log",
+        "pytest_summary": "838 passed, 5 deselected, 263 warnings in 130.10s (0:02:10)",
+        "passed": 838,
+        "failed": 0,
+        "deselected": 5,
+        "warnings": 263,
+        "log_sha256": "38f81a767215d70b0e9453d06c6eef4ef127914bc2ea5be178f03c91f1d1a089"
+      },
+      "slow": {
+        "exit_code": 0,
+        "wall_seconds": 120.815,
+        "command": [
+          "backend/.venv/bin/python",
+          "-m",
+          "pytest",
+          "-p",
+          "no:cacheprovider",
+          "-m",
+          "slow",
+          "-q"
+        ],
+        "log": "/tmp/fcip_tests_20261104_backend_slow.log",
+        "pytest_summary": "5 passed, 838 deselected, 1 warning in 119.05s (0:01:59)",
+        "passed": 5,
+        "failed": 0,
+        "deselected": 838,
+        "warnings": 1,
+        "log_sha256": "b89ca33e176e40acc748387b77225513e3650752aaf8619752f7b0a88e7dc606"
+      }
+    },
+    "server_identity_verified": true,
+    "sqlalchemy_connection_identity_verified": true,
+    "cluster_stop_exit_code": 0,
+    "cluster_stopped": true,
+    "completed_at_utc": "2026-11-04T05:05:12.220325+00:00",
+    "existing_total_passed": 843,
+    "full_suite_failed": 0,
+    "full_suite_skipped": 0,
+    "initial_setup_attempt": {
+      "log": "/tmp/fcip_tests_20261104_backend_setup_attempt1_regular.log",
+      "summary": "/tmp/fcip_tests_20261104_backend_setup_attempt1_summary.json",
+      "outcome": "No test body executed. Alembic ConfigParser rejected percent-encoded private UNIX socket URL; fixed harness only by using simple DATABASE_URL and PGHOST/PGPORT. Not 838 functional failures."
+    },
+    "extra_preliminary_pure_units": {
+      "passed": 18,
+      "deselected": 2,
+      "runtime_seconds": 3.04,
+      "log": "/tmp/fcip_tests_20261104_lab_unit.log",
+      "scope": "Existing lab/mapping/train/explanation and tabular unit tests; repeated within later full suite, not 18 additional unique tests."
+    },
+    "verification_limits": [
+      "Host PostgreSQL16.15 with private peer-authenticated UNIX socket, not a Docker execution.",
+      "Existing tests pass technically; model accuracy needs separately reported benchmark evidence.",
+      "Two previously demonstrated robustness gaps (P01 equal-time history and naive simulation periods) remain unpatched and outside existing passing assertions.",
+      "No live application DB accessed, no source edits or shared-data generation."
+    ]
+  },
+  "frontend": {
+    "command": "npm run build",
+    "exit_code": 0,
+    "typescript_and_vite_passed": true,
+    "modules": 164,
+    "log": "/tmp/fcip_frontend_build_20261104.log",
+    "log_sha256": "20ac7532484916fe1aa356e04dcb29f08821beadf0e78912cfe6bcc2dc4ecdb4",
+    "browser_test_run": false
+  },
+  "new_audit_guard_tests": {
+    "command": "PYTHONDONTWRITEBYTECODE=1 backend/.venv/bin/python -m pytest --noconftest -p no:cacheprovider backend/tests/test_lab_quality_audit.py -q",
+    "unique_passed": 18,
+    "independent_review_passed": true,
+    "independent_log": "/tmp/fcip_quality_audit_independent_20261104.log",
+    "independent_log_sha256": "15d00f9903596eca098212a407ce28be06cede08a6ba21c4dcc52731074e8d2d",
+    "production_code_changes": false
+  },
+  "distinct_passed_total": 861,
+  "distinct_passed_note": "843 existing (838 regular + 5 slow), plus 18 new audit-guard checks. Preliminary18 existing lab units and repeated independent18 audit checks are overlaps, not extra distinct tests.",
+  "docker_state_at_readonly_check": "Daemon responds, but docker compose ps --all lists no project services; live ACTIVE model registry was not inspected.",
+  "database_limits": "Only disposable PostgreSQL16.15 fcip_test database; both temporary servers stopped. No live app state changed.",
+  "raw_or_shared_dataset_changes": false,
+  "model_registration_or_activation": false
+}
