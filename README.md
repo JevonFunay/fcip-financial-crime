@@ -1,29 +1,49 @@
 # FCIP — Financial Crime Intelligence Platform (walking skeleton)
 
-Capstone project. This repo is being built as a thin end-to-end slice first
-(auth, core data model, CSV ingestion, one detection pattern, alert/case
-triage, minimal UI), following FRD-FCIP and TRD-FCIP. Out of scope for this
-stage: entity resolution, risk scoring, watchlist/PEP screening, graph
-investigation, AI narrative, maker-checker approval, dashboards, and
-additional detection patterns — these come in later iterations.
+Capstone project following FRD-FCIP and TRD-FCIP. The current slice includes
+authentication, CSV/Parquet ingestion, P01–P10 rules, alert/case triage and the
+model Lab with MLRO approval and upload-based monitoring. Entity resolution,
+risk scoring, watchlist/PEP screening, graph investigation, AI narrative and
+the complete investigation/evidence workflow remain unfinished. See
+[current context](docs/PROJECT_CONTEXT.md) for scope and open mentor decisions.
 
 ## Model lab: train, approve, monitor — 27 October 2026
 
 The **Lab model** page is the detection framework the mentors confirmed: upload a
 labelled CSV or Parquet file, map its columns, compare Logistic Regression,
-LightGBM and Isolation Forest on a held-out period, pick a threshold and save a
-DRAFT. An Analyst submits it, a different MLRO approves it, and from then on new
+LightGBM and Isolation Forest on validation, then lock one model/threshold before
+revealing its final TEST result and saving a DRAFT. Mapping and chronological
+share freeze at first training across uploads of the exact same bytes.
+An Analyst submits it, a different MLRO approves it, and from then on new
 data uploaded in the same layout is scored by it; scores at or above its
 threshold raise alerts without a pattern rule firing (CF-05 (b), switched on by
 the MLRO). Every score lists the features behind it. See
 [docs/LAB_THIN_SLICE.md](docs/LAB_THIN_SLICE.md) for the steps, demo script and
 limits. The regular transaction upload accepts Parquet too.
 
-## Current quality verification — 4 November 2026
+## Current Lab repair and retraining — 4 November 2026
+
+[The repair report](docs/ml/lab_repair_20261104.md) records **913 distinct backend
+tests passing** and the frontend build. A separate, versioned synthetic source
+has **250,000 rows**, including **150,000 actual TRAIN rows** with ATO/P04/P05
+and low-value benign lookalikes in every split. Legacy generator 1.4.0 and old
+artifacts stay unchanged. Comparison is validation-only; final selection locks
+once. Monitoring runs P01–P10 and only ACTIVE model flags create new ML alerts.
+
+On the **same fresh 100,000-row final**, preselected LightGBM scores
+**68.49% precision / 97.39% recall**, versus the pinned old model's
+36.99% / 13.91%. Low-value recall is 97.86%, with all three patterns represented.
+False positives increase **499 → 944**, so the strict matched guard fails;
+104/108 benign lookalike episodes receive a flag. These are synthetic
+interventions, not adjudicated crime or AML labels. Models remain offline
+DRAFT; no live DB migration, registry change or activation was performed.
+The separate AML account-week Lab is still a later stage.
+
+## Historical baseline quality verification — 4 November 2026
 
 [The current quality report](docs/ml/current_quality_20261104.md) records
 **843 existing backend checks + 18 new audit checks passing**, plus the frontend
-build. The unchanged Lab's validation-selected LightGBM scores a fresh synthetic
+build. That baseline Lab's validation-selected LightGBM scores a fresh synthetic
 final with **98.56% precision / 89.38% recall**, but ATO recall is 33.33% and
 P05 is 0%. The actual TRAIN period contains positive P04 examples only; high
 aggregate quality does not establish broad fraud or AML coverage. No model is
@@ -32,7 +52,10 @@ registered/activated and no live database is modified by the audit.
 The source has 100k rows (58,991 actual TRAIN); the post-freeze final has 100k
 rows, 98,346 accepted. The report distinguishes the exposed internal test,
 small-value denominators, accepted date defects and same-generator limitations.
-Current Lab approval/monitoring follows the 27 October guide above; the older
+Baseline reproduction requires commit `0382821` or its archived source; the
+repaired runtime deliberately rejects its missing TRAIN coverage. Do not compare
+the old 98.56% directly with the new percentage on a different final population.
+Current Lab approval/monitoring follows the updated guide above; the older
 research/demo state below is historical and is not a live-registry assertion.
 
 ## Historical USD data and ML workflow — 20 October 2026

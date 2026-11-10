@@ -1,0 +1,299 @@
+{
+  "bounded_blas_probes": {
+    "bounded_ramp": {
+      "max_abs_result": 15.997844784538522,
+      "max_error_vs_non_blas": 8.881784197001252e-15,
+      "warnings": [
+        "divide by zero encountered in matmul",
+        "overflow encountered in matmul",
+        "invalid value encountered in matmul"
+      ]
+    },
+    "ones": {
+      "max_abs_result": 15.998608018297308,
+      "max_error_vs_non_blas": 1.7763568394002505e-15,
+      "warnings": [
+        "divide by zero encountered in matmul",
+        "overflow encountered in matmul",
+        "invalid value encountered in matmul"
+      ]
+    },
+    "zeros": {
+      "max_abs_result": 0.0,
+      "max_error_vs_non_blas": 0.0,
+      "warnings": [
+        "divide by zero encountered in matmul",
+        "overflow encountered in matmul",
+        "invalid value encountered in matmul"
+      ]
+    }
+  },
+  "checks": {
+    "features_rebuilt_from_frozen_vocabularies": true,
+    "final_creation_files": 9,
+    "final_population_all_five_arms": 100000,
+    "native_default_validation_winner_and_max_f1_verified": true,
+    "new_frozen_files": 38,
+    "original_archived_code_entries": 11,
+    "original_unchanged_data_artifacts": 30,
+    "recomputed_arms": 5,
+    "recomputed_slices_per_arm": 13,
+    "source_test_scores_computed": false,
+    "strict_future_after_both_sources": true
+  },
+  "completed_at_utc": "2026-11-04T07:18:49.203094+00:00",
+  "counterfactual_pairs_with_identical_scores": {
+    "amount_only": 511,
+    "isolation_forest": 511,
+    "lightgbm": 511,
+    "logistic_regression": 511,
+    "previous_lightgbm": 511
+  },
+  "feature_numerics": {
+    "final": {
+      "infinite_values": 0,
+      "intentional_missing_values": 825243,
+      "rows": 100000
+    },
+    "previous_final": {
+      "infinite_values": 0,
+      "intentional_missing_values": 825243,
+      "rows": 100000
+    },
+    "source": {
+      "infinite_values": 0,
+      "intentional_missing_values": 2049354,
+      "rows": 250000
+    }
+  },
+  "fp_delta": 445,
+  "limitations": [
+    "Intentional feature NaNs remain unknown; no infinities and all saved scores finite.",
+    "Fixed saved-model scoring/feature reconstruction only; no optimizer, threshold selection change or final retuning.",
+    "Saved-coefficient numerical verification does not reconstruct every transient optimizer iterate.",
+    "Synthetic paired recipes cannot establish verified crime or production precision."
+  ],
+  "logistic_numeric_checks": {
+    "final": {
+      "blas_warnings": [
+        "divide by zero encountered in matmul",
+        "overflow encountered in matmul",
+        "invalid value encountered in matmul"
+      ],
+      "coef_max_abs": 10.540618488528402,
+      "dot_max": 27.38975109713834,
+      "dot_min": -36.9195616174532,
+      "fixed_threshold_flags_identical": true,
+      "max_blas_vs_non_blas_dot_error": 6.217248937900877e-15,
+      "max_non_blas_probability_error": 8.881784197001252e-16,
+      "non_blas_probability_all_finite": true,
+      "theoretical_dot_abs_bound": 127.08529465025482,
+      "z_max_abs": 22.451069129342265
+    },
+    "source_train": {
+      "blas_warnings": [
+        "divide by zero encountered in matmul",
+        "overflow encountered in matmul",
+        "invalid value encountered in matmul"
+      ],
+      "coef_max_abs": 10.540618488528402,
+      "dot_max": 28.038817964680135,
+      "dot_min": -31.023513238680195,
+      "max_blas_vs_non_blas_dot_error": 7.993605777301127e-15,
+      "non_blas_probability_all_finite": true,
+      "saved_solution_gradient_max_abs": 7.098967440465577e-05,
+      "saved_solution_intercept_gradient_abs": 3.6518157969037955e-05,
+      "theoretical_dot_abs_bound": 129.33534686696595,
+      "z_max_abs": 22.451069129342265
+    },
+    "source_validation": {
+      "blas_warnings": [
+        "divide by zero encountered in matmul",
+        "overflow encountered in matmul",
+        "invalid value encountered in matmul"
+      ],
+      "coef_max_abs": 10.540618488528402,
+      "dot_max": 27.215521596025457,
+      "dot_min": -35.71976203527317,
+      "max_blas_vs_non_blas_dot_error": 1.0658141036401503e-14,
+      "non_blas_probability_all_finite": true,
+      "theoretical_dot_abs_bound": 123.23838574069767,
+      "z_max_abs": 22.451069129342265
+    }
+  },
+  "native_score_replay": {
+    "isolation_forest": {
+      "final_threshold_flags_identical": true,
+      "max_abs_final_score_error": 0.0,
+      "scoring_warnings": [],
+      "validation_default_f1_is_maximum": true
+    },
+    "lightgbm": {
+      "final_threshold_flags_identical": true,
+      "max_abs_final_score_error": 0.0,
+      "scoring_warnings": [],
+      "validation_default_f1_is_maximum": true
+    },
+    "logistic_regression": {
+      "final_threshold_flags_identical": true,
+      "max_abs_final_score_error": 0.0,
+      "scoring_warnings": [
+        "divide by zero encountered in matmul",
+        "overflow encountered in matmul",
+        "invalid value encountered in matmul",
+        "divide by zero encountered in matmul",
+        "overflow encountered in matmul",
+        "invalid value encountered in matmul"
+      ],
+      "validation_default_f1_is_maximum": true
+    }
+  },
+  "numpy_blas": {
+    "detection method": "system",
+    "found": true,
+    "include directory": "unknown",
+    "lib directory": "unknown",
+    "name": "accelerate",
+    "openblas configuration": "unknown",
+    "pc file directory": "unknown",
+    "version": "unknown"
+  },
+  "previous_same_final": {
+    "average_precision": 0.16128310842895544,
+    "f1": 0.2021386685063815,
+    "flag_rate": 0.00792,
+    "flagged": 792,
+    "flagged_per_10k": 79.2,
+    "fn": 1814,
+    "fp": 499,
+    "positive_rows": 2107,
+    "precision": 0.369949494949495,
+    "recall": 0.13906027527289985,
+    "roc_auc": 0.7895609156013552,
+    "rows": 100000,
+    "threshold": 0.6927640305129358,
+    "tn": 97394,
+    "tp": 293,
+    "unresolved_rows": 0
+  },
+  "report_sha256": "f4a5fbf84dc56a8fb4e4d1dba2d7742918bfbc3be14da6da453d162c5895c166",
+  "selected": {
+    "average_precision": 0.774676364539321,
+    "f1": 0.8042328042328043,
+    "flag_rate": 0.02996,
+    "flagged": 2996,
+    "flagged_per_10k": 299.6,
+    "fn": 55,
+    "fp": 944,
+    "positive_rows": 2107,
+    "precision": 0.684913217623498,
+    "recall": 0.9738965353583294,
+    "roc_auc": 0.9963509018261082,
+    "rows": 100000,
+    "threshold": 0.900359914358378,
+    "tn": 96949,
+    "tp": 2052,
+    "unresolved_rows": 0
+  },
+  "selected_benign_episode_flags": 104,
+  "selected_positive_episode_hits": 108,
+  "small_selected": {
+    "ATO": {
+      "caught": 348,
+      "missed": 9,
+      "positive_rows": 357,
+      "recall": 0.9747899159663865
+    },
+    "P04": {
+      "caught": 350,
+      "missed": 14,
+      "positive_rows": 364,
+      "recall": 0.9615384615384616
+    },
+    "P05": {
+      "caught": 356,
+      "missed": 0,
+      "positive_rows": 356,
+      "recall": 1.0
+    }
+  },
+  "source_coverage": {
+    "test": {
+      "date_from": "2025-10-22T19:25:10+00:00",
+      "date_to": "2025-12-20T16:59:11+00:00",
+      "patterns": {
+        "ATO": {
+          "benign_lookalike_rows": 27,
+          "positive_rows": 85,
+          "small_benign_rows": 19,
+          "small_positive_rows": 45
+        },
+        "P04": {
+          "benign_lookalike_rows": 41,
+          "positive_rows": 86,
+          "small_benign_rows": 7,
+          "small_positive_rows": 44
+        },
+        "P05": {
+          "benign_lookalike_rows": 48,
+          "positive_rows": 79,
+          "small_benign_rows": 25,
+          "small_positive_rows": 39
+        }
+      },
+      "rows": 50000
+    },
+    "train": {
+      "date_from": "2023-12-31T23:02:14+00:00",
+      "date_to": "2025-08-16T12:15:24+00:00",
+      "patterns": {
+        "ATO": {
+          "benign_lookalike_rows": 613,
+          "positive_rows": 1098,
+          "small_benign_rows": 301,
+          "small_positive_rows": 555
+        },
+        "P04": {
+          "benign_lookalike_rows": 544,
+          "positive_rows": 1088,
+          "small_benign_rows": 277,
+          "small_positive_rows": 561
+        },
+        "P05": {
+          "benign_lookalike_rows": 373,
+          "positive_rows": 1101,
+          "small_benign_rows": 187,
+          "small_positive_rows": 550
+        }
+      },
+      "rows": 150000
+    },
+    "validation": {
+      "date_from": "2025-08-16T12:15:53+00:00",
+      "date_to": "2025-10-22T19:24:54+00:00",
+      "patterns": {
+        "ATO": {
+          "benign_lookalike_rows": 131,
+          "positive_rows": 245,
+          "small_benign_rows": 65,
+          "small_positive_rows": 127
+        },
+        "P04": {
+          "benign_lookalike_rows": 142,
+          "positive_rows": 238,
+          "small_benign_rows": 74,
+          "small_positive_rows": 119
+        },
+        "P05": {
+          "benign_lookalike_rows": 64,
+          "positive_rows": 251,
+          "small_benign_rows": 29,
+          "small_positive_rows": 130
+        }
+      },
+      "rows": 50000
+    }
+  },
+  "state": "PASS_WITH_RETAIN_OFFLINE_DRAFT",
+  "strict_workload_guard_passed": false
+}

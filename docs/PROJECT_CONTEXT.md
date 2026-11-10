@@ -7,7 +7,7 @@ is actually built, what is deliberately not built, and what is still undecided.
 Last updated: **4 November 2026** · latest scope estimate in
 [PROGRESS.md](PROGRESS.md) is roughly 20% (3 November; not recounted by this audit).
 
-**Current handoff:** §18–19, [the Lab guide](LAB_THIN_SLICE.md) and
+**Current handoff:** §18–20, [the Lab guide](LAB_THIN_SLICE.md) and
 [PROGRESS.md](PROGRESS.md) describe the current application after the team's
 27 October/3 November work: nine roles, model approval and monitoring, and
 P01–P10 app rules. CF-05(b) is recorded as answered; an MLRO controls model
@@ -15,12 +15,22 @@ alerts. Historical statements below about absent roles, pending CF-05 and
 only P02 are not the current application capability. Actual live model state
 was not queried by the 4 November verification.
 
-The [4 November quality audit](ml/current_quality_20261104.md) passes all
+The [4 November Lab repair](ml/lab_repair_20261104.md) passes 913 distinct backend
+checks and the frontend build. It fixes evaluation/mapping leakage, adds a
+separate 250k-row coverage source (150k actual TRAIN), fits three candidates and
+aligns P01–P10/ACTIVE-only monitoring. On the same new 100k final, selected
+LightGBM P68.49%/R97.39% versus pinned old model P36.99%/R13.91%; FP rises
+499→944 and benign lookalike flags remain high. The strict matched guard fails;
+models stay offline DRAFT. No live DB, model activation or enterprise-generator
+change. AML account-week Lab is a later stage. See §20 and AS-17–19.
+
+The preceding [4 November baseline audit](ml/current_quality_20261104.md) passes all
 843 existing backend checks, 18 new audit checks and the frontend build.
 Fresh offline Lab LightGBM precision/recall is 98.56%/89.38%, but ATO recall
 is 33.33% and P05 0%. TRAIN has no positive ATO/P05 examples. These are
 same-generator synthetic results, not real-crime or AML accuracy; the audit
-does not promote, register or activate any model.
+does not promote, register or activate any model. That historical run requires
+0382821's source archive; its percentage is not comparable across final datasets.
 
 **Historical research handoff, 14–20 October:** §14–17 and [ML_DATA_ENGINE.md](ML_DATA_ENGINE.md) supersede
 the old dataset/training instructions below. The USD pipeline is unsupervised;
@@ -727,6 +737,54 @@ post-final findings honestly: ATO/P05 positives absent from TRAIN, P04 dominates
 final labels, and accepted generated date defects overlap the exposed internal
 test's calendar. Do not filter/retune after the final or call this real fraud,
 AML quality, independent customers or an ACTIVE deployment-artifact test.
+
+**AS-17 — authorised Lab evaluation repair (4 Nov):** Jevon's “gas” approves
+the proposed evaluation, TRAIN-coverage, retraining and monitoring repairs;
+the AML account-week Lab remains a separate later stage. First training locks
+mapping, 50–80% TRAIN share and protocol by exact source-byte SHA; duplicates
+share the protocol. Whole availability groups stay together, with conservative
+day-end availability when time precision is absent. Feature/model experiments
+use validation only until one run/model/threshold is locked before its final
+TEST result. Exact repeat save is idempotent; other choices/refits after reveal
+are refused. Re-encoded duplicates are not detected. Legacy exposed runs remain
+unchanged and explicitly labelled, with comparison TEST metrics redacted. This
+implements the mentor's validation-then-final direction and FR-405 versioned
+provenance; it is not an automatic promotion policy.
+
+**AS-18 — authorised separate coverage generator (4 Nov):** use new
+`lab_behavioral_coverage_v1`, retaining the existing Lab upload schema and
+unchanged enterprise generator 1.4.0, `raw_contract.py`, raw sources, Tiny/Small
+and historical model/data artifacts. Fixed source 250,000 rows, seed 2026110403,
+start 2024-01-01, 720 days; at least 100,000 actual TRAIN rows at share 0.6.
+These design numbers are team assumptions, not FRD targets. Monthly ATO/P04/P05
+positive and benign episodes cover TRAIN/VAL/TEST and low amounts; paired cases
+share channels and history, with random identifiers. History has 32–64 observations;
+P05 gap 100–120 days and 16–24 event transactions meet FRD §8.5's ≥90-day and
+≥5-in-7-days branches even at low value. Amounts/currency are declared synthetic
+IDR from the existing Lab schema, not conversion of the historical USD public
+source. A 25% target of exact observable benign counterfactuals deliberately
+limits perfect intent classification. Labels mean simulated interventions;
+unlabelled public data is never relabelled as verified crime. Coverage checks
+inspect source TEST label-support metadata, without source TEST predictions or
+label-dependent repartitioning/retries. Chronological history/episode overlap
+is disclosed, not represented as an independent-case holdout.
+
+**AS-19 — fixed retraining measurement and monitoring alignment (4 Nov):** all
+eight current groups, model seed 20261026, three native candidates. Native
+highest validation AP chooses the winner; native validation max-F1 fixes default
+thresholds, with no invented minimum recall target. Freeze original code/input/
+mapping/model/selection hashes before final 100,000 rows, seed 2026110404,
+start 2027-01-01 for 720 days, strictly after both new and old reference source
+calendars. Evaluate all three fixed candidates plus validation-fixed amount-only
+and the original pinned LightGBM on identical final rows; only native candidates
+are eligible for the pre-final winner. Report per-pattern low-value row recall,
+episode any-hit recall/delay, benign controls and matched old-model TP/FP guards;
+do not select or retune after final. Preserve the original 0382821 source archive
+and report/model hashes rather than declaring changed runtime code identical to
+the prior audit. Temporary PostgreSQL 16.15 tests only. Monitoring uses the
+approved model mapping snapshot and P01–P10 registry; only ACTIVE model versions'
+stored flags create new ML alerts. No live migration, registration or activation
+is authorised by this offline run. Jevon receives commit commands and pushes.
 
 ### TRD §1.5 — conflicts still open
 
@@ -1912,3 +1970,70 @@ DB isolation. **Capstone:** Aplikasi lulus tes teknis; LightGBM presisi pada
 simulasi P04, tetapi ATO/P05 belum tercakup. Distribusi label pada periode
 TRAIN dan validitas evaluasi perlu diperbaiki melalui pekerjaan berikutnya;
 model audit tetap offline, tanpa klaim kualitas produksi atau AML.
+
+---
+
+## 20. Lab evaluation, coverage retraining and monitoring repair — 4 November 2026
+
+Jevon's “gas” authorises the proposed repairs after §19. AS-17–19 record the
+research choices; the AML account-week Lab remains a later stage.
+[Report](ml/lab_repair_20261104.md), [results](ml/lab_repair_20261104_results.json),
+[technical checks](ml/lab_repair_20261104_checks.json) and
+[independent verification](ml/lab_repair_20261104_verification.json) are current.
+
+**Implemented:** migration0014 locks mapping/TRAIN share across exact-byte
+duplicate sources, stores immutable run/model provenance and serialises one
+final run/model/threshold choice before TEST reveal. Comparisons/thresholds
+use validation only; legacy exposed results remain unchanged and labelled.
+Whole availability ties stay in one chronological partition. Supervised fits
+reject validation-positive categories missing TRAIN. The UI reflects these
+states and reports validation coverage and the persistent selected final.
+
+**Coverage:** separate `lab_behavioral_coverage_v1`, same Lab upload columns,
+source250k seed2026110403 →150k actual TRAIN, 50k VAL, 50k internal TEST. Each
+contains positive/benign/low-value ATO/P04/P05; actual TRAIN positives
+1098/1088/1101. No quarantine or missing target. Source TEST support metadata
+is inspected; TEST prediction metrics are not. Irregular history, label-neutral
+channels/IDs, low tickets and benign counterparts include exact observable
+counterfactuals. The IDR simulation does not convert the historical USD public
+source or claim its labels. FRD §8.5 supports P05's dormancy/count branch.
+
+**One-shot result:** three native fits, validation AP selects LightGBM, native
+validation max-F1 threshold0.9003599144. Thirty-eight original expected hashes
+and own frozen-manifest SHA seal before generating seed2026110404's100k final.
+All100k score, with2107 positives; final2027–2028 follows both the new source
+and original reference calendar. Selected TP2052/FP944/FN55/TN96949:
+**P68.49%/R97.39%**, ATO673/697, P04684/715, P05695/695. Small≤TRAINq25
+IDR61,504.655:TP1054/FP493/FN23/TN23036, **P68.13%/R97.86%**, all3patterns.
+Pinned old LightGBM on these same rows:P36.99%/R13.91%,TP293/FP499. TP guards
+pass but FP+445 means strict matched guard fails; no promotion or final tuning.
+
+**Important limits:** 108/108 positive episodes hit, but104/108 benign episodes
+also hit. FP includes498/511 exact and443/485 other benign event rows; only
+3/86,621 ordinary background rows flag. Behavioral episode recognition is not
+intent discrimination. Labels/prevalence are simulated, cases share recipes
+and history can cross time partitions. No new AML target, live ACTIVE-artifact
+test, calibrated probabilities or grouped app-alert benchmark. All new models
+stay offline DRAFT. Final is exposed; reuse is not an unseen result.
+
+**Monitoring:** CLI/Lab call the P01–P10 registry. Only ACTIVE model versions'
+stored flags create new model alerts. Monitoring verifies/reuses the approved
+Lab card's complete mapping; incompatible references or incomplete legacy
+mapping provenance are refused without changing version state.
+
+**Verification:** 913 distinct backend checks pass (887 regular+5 slow+1 later
+generator check+20 new audit checks; repeated35-check preflight not double-
+counted), private PostgreSQL16.15 stopped. Frontend build passes; no browser QA.
+Actual offline protocol-to-report42.68s, not current UI latency. LR matrix
+warnings are retained, with finite scores/parameters and independent parity
+checks. No live DB migration, registration, model/rule activation, commit or
+push. Normal deployment still needs migration0014. Old1.4/raw_contract/shared/
+raw data and artifacts stay unchanged; archived0382821's11code hashes and old
+report/model checksums match their original expectations. Old reproduction
+requires that archive, not today's changed trainer.
+
+**Own decisions:** AS-17–19. **Capstone:** Penguncian evaluasi dan cakupan TRAIN
+diperbaiki; recall nominal kecil mencapai97,86% pada simulasi tiga pola. Presisi
+naik terhadap model lama pada data final yang sama, tetapi false positive
+bertambah dan lookalike sah masih sering tertandai. Model tetap offline DRAFT,
+tanpa klaim akurasi fraud nyata atau pencucian uang.

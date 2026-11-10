@@ -46,7 +46,7 @@ def _ml_rule_state(db: Session) -> RuleState:
 
 
 def _trained_draft(client: TestClient, analyst: dict, *, model: str = "lightgbm", rows: int = 2500) -> dict:
-    upload = client.post("/lab/datasets", headers=analyst, files={"file": ("lab.csv", make_dataset(rows), "text/csv")})
+    upload = client.post("/lab/datasets", headers=analyst, files={"file": ("lab.csv", make_dataset(rows, seed={"lightgbm": 7, "logistic_regression": 17, "isolation_forest": 27}[model]), "text/csv")})
     assert upload.status_code == 201, upload.text
     dataset = upload.json()
     s = dataset["suggestion"]

@@ -70,7 +70,7 @@ def _dataset_out(db: Session, dataset: LabDataset) -> LabDatasetOut:
         columns=dataset.columns,
         preview=dataset.preview, suggestion=dataset.suggestion, mapping=dataset.mapping,
         validation=dataset.validation, status=dataset.status, uploaded_by_email=email,
-        created_at=dataset.created_at,
+        created_at=dataset.created_at, evaluation=lab_service.evaluation_state(db, dataset),
         runs=[LabRunSummary(id=r.id, created_at=r.created_at, seconds=r.seconds,
                             best_model=r.results.get("best_model"), models=r.config.get("models", [])) for r in runs],
     )
@@ -80,7 +80,8 @@ def _run_out(db: Session, run: LabRun) -> LabRunOut:
     dataset = db.get(LabDataset, run.dataset_id)
     return LabRunOut(
         id=run.id, dataset_id=run.dataset_id, dataset_name=dataset.name if dataset else "", created_at=run.created_at,
-        seconds=run.seconds, config=run.config, results=run.results,
+        seconds=run.seconds, config=run.config, results=lab_service.public_run_results(run),
+        evaluation=lab_service.evaluation_state(db, dataset, run),
         saved_versions=[LabSavedVersion(model_key=v.model_card.get("lab_model_key", ""), version=v.version,
                                         threshold=v.threshold)
                         for v in lab_service.saved_versions(db, run)],
@@ -154,6 +155,9 @@ def map_dataset(
     dataset = _get_dataset(db, dataset_id)
     try:
         dataset = lab_service.map_dataset(db, dataset, payload.model_dump(), actor=user)
+    except lab_service.LabConflict as exc:
+        db.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
     except LabDataError as exc:
         db.rollback()
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
@@ -171,6 +175,7 @@ def train(
     try:
         run = lab_service.train(db, dataset, payload.model_dump(), actor=user)
     except lab_service.LabConflict as exc:
+        db.rollback()
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
     except (LabDataError, LabTrainingError) as exc:
         db.rollback()
@@ -196,8 +201,12 @@ def save_model(
                                                   threshold_index=payload.threshold_index, actor=user)
     except LookupError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
-    except lab_service.LabConflict as exc:
+    except lab_service.LabInvalidSelection as exc:
+        db.rollback()
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(exc)) from exc
+    except lab_service.LabConflict as exc:
+        db.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
     card = version.model_card
     return LabSavedModelOut(
         model_version_id=version.id, version=version.version, state=version.state, threshold=version.threshold,
@@ -225,6 +234,8 @@ def _version_out(db: Session, version: ModelVersion, emails: dict, names: dict) 
     run_id = card.get("lab_run_id")
     return LabModelVersionOut(
         id=version.id, version=version.version, state=version.state, artefact_type=version.artefact_type,
+        evaluation_state=("REVEALED" if training.get("protocol_version") == "sealed_final_v2"
+                          and card.get("test", {}).get("revealed_once") else "LEGACY_EXPOSED"),
         model_key=card.get("lab_model_key"), model_name=card.get("model", {}).get("algorithm", version.artefact_type),
         training_kind=card.get("model", {}).get("training_kind", "supervised"), threshold=version.threshold,
         dataset_id=uuid.UUID(dataset_id) if dataset_id else None,

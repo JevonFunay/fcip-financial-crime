@@ -187,7 +187,7 @@ function VersionCard({
           </dd>
         </div>
         <div>
-          <dt>Data uji</dt>
+          <dt>{version.evaluation_state === "REVEALED" ? "Uji final terkunci" : "Uji historis · sudah terbuka"}</dt>
           <dd>
             presisi {pct(version.test.precision)} · recall {pct(version.test.recall)} ·{" "}
             {num(Math.round(version.test.flagged_per_10k ?? NaN))} alert/10k
@@ -472,7 +472,7 @@ export function MonitorPanel({
             <div className="lab-tile">
               <span>Alert dari rule</span>
               <strong>{num(result.rule_alerts_created)}</strong>
-              <small>rule pola yang aktif (P02)</small>
+              <small>seluruh rule pola yang aktif (P01–P10)</small>
             </div>
           </div>
           <p className="small muted">

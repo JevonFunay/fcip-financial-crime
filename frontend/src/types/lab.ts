@@ -81,6 +81,26 @@ export interface LabRunSummary {
   models: string[];
 }
 
+export interface LabEvaluation {
+  state: "UNCONFIGURED" | "SEALED" | "REVEALED" | "LEGACY_EXPOSED";
+  protocol_id?: string | null;
+  source_sha256?: string;
+  mapping_sha256?: string | null;
+  train_share?: number | null;
+  final_run_id?: string | null;
+  model_key?: string | null;
+  threshold_index?: number | null;
+  version?: string | null;
+  evaluated_at?: string | null;
+  selected_final?: {
+    model_key: string;
+    version: string;
+    threshold_index: number;
+    at_threshold: LabTestResult;
+    by_category: { category: string; positives: number; caught: number }[] | null;
+  } | null;
+}
+
 export interface LabDataset {
   id: string;
   name: string;
@@ -98,6 +118,7 @@ export interface LabDataset {
   uploaded_by_email: string | null;
   created_at: string;
   runs: LabRunSummary[];
+  evaluation: LabEvaluation;
 }
 
 export interface LabRunIn {
@@ -133,14 +154,14 @@ export interface LabModelResult {
   default_index: number;
   validation_ranking: { average_precision: number | null; roc_auc: number | null };
   validation_curve: LabCurvePoint[];
-  test: LabTestResult;
-  test_by_category: { category: string; positives: number; caught: number }[] | null;
+  validation_by_category?: { category: string; positives: number; caught: number }[] | null;
+  validation_category_curve?: { category: string; positives: number; caught: number }[][] | null;
   top_features: { feature: string; share: number; direction: string | null; definition: string }[];
 }
 
 export interface LabSplitPart {
   rows: number;
-  positives: number;
+  positives?: number;
   date_from: string | null;
   date_to: string | null;
 }
@@ -155,8 +176,8 @@ export interface LabRunResults {
     definitions: Record<string, string>;
     feature_seconds: number;
   };
-  positive_rate_test: number;
   models: LabModelResult[];
+  positive_category_coverage?: { train?: Record<string, number>; validation?: Record<string, number> };
   best_model: string;
   seconds: number;
 }
@@ -170,6 +191,7 @@ export interface LabRun {
   config: LabRunIn;
   results: LabRunResults;
   saved_versions: { model_key: string; version: string; threshold: number }[];
+  evaluation: LabEvaluation;
   synthetic_notice: string;
 }
 
@@ -219,6 +241,7 @@ export interface LabModelVersion {
   superseded_by_version: string | null;
   created_at: string;
   history: LabHistoryEntry[];
+  evaluation_state?: "REVEALED" | "LEGACY_EXPOSED";
 }
 
 export interface LabModelAlertsState {

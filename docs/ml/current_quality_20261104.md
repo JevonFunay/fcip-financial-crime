@@ -1,5 +1,14 @@
 # Current FCIP quality verification — 4 November 2026
 
+Historical baseline, preserved at commit `0382821`. The subsequent
+[Lab repair and retraining](lab_repair_20261104.md) supersedes its live-code
+description without rewriting this evidence. Reproduce this baseline from the
+archived commit/source, not the repaired runtime: its supervised coverage guard
+now rejects the old ATO/P05-missing TRAIN and its time split preserves ties.
+The additive archive is `backend/ml_data/lab_quality_s20261104/source_snapshot_0382821/`.
+Old model/data/report hashes remain unchanged. Compare models on the same new
+final in the repair report, not percentages from these different populations.
+
 ## Outcome
 
 The current application passes its existing **843 backend checks** and frontend

@@ -9,29 +9,30 @@ reported, not duplicated.
 import argparse
 
 from app.database import SessionLocal
-from app.services.detection.p02_structuring import run_p02_structuring
+from app.services.detection.registry import run_all_rule_patterns
 from app.services.ml_scoring import run_ml_scoring
 
 
 def run(rules_only: bool = False) -> None:
     db = SessionLocal()
     try:
-        summary = run_p02_structuring(db)
+        summaries = run_all_rule_patterns(db)
         ml = None if rules_only else run_ml_scoring(db)
     finally:
         db.close()
 
-    print(f"{summary.pattern_code} run {summary.detection_run_id}")
-    rules = ", ".join(f"{r.rule_ref} v{r.version}" for r in summary.rules_evaluated)
-    print(f"rule versions evaluated: {rules or 'none (no ACTIVE rule version)'}")
-    print(f"alerts created: {summary.alerts_created}, already existing: {summary.alerts_already_existing}")
-    for alert in summary.alerts:
-        status = "NEW" if alert.created else "existing"
-        print(
-            f"  [{status}] {alert.rule_ref} v{alert.rule_version} {alert.customer_ref}: {alert.txn_count_in_band} txns, "
-            f"aggregate {alert.aggregate_amount:,.0f}, window {alert.window_start.date()} -> {alert.window_end.date()} "
-            f"(alert {alert.alert_id})"
-        )
+    for summary in summaries:
+        print(f"{summary.pattern_code} run {summary.detection_run_id}")
+        rules = ", ".join(f"{r.rule_ref} v{r.version}" for r in summary.rules_evaluated)
+        print(f"rule versions evaluated: {rules or 'none (no ACTIVE rule version)'}")
+        print(f"alerts created: {summary.alerts_created}, already existing: {summary.alerts_already_existing}")
+        for alert in summary.alerts:
+            state = "NEW" if alert.created else "existing"
+            print(
+                f"  [{state}] {alert.rule_ref} v{alert.rule_version} {alert.customer_ref}: "
+                f"{alert.txn_count_in_band} txns, aggregate {alert.aggregate_amount:,.0f}, "
+                f"window {alert.window_start.date()} -> {alert.window_end.date()} (alert {alert.alert_id})"
+            )
     if ml is None:
         return
     print(f"\nML scoring run {ml.detection_run_id} ({ml.seconds}s)")

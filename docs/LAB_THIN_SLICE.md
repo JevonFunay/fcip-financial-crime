@@ -5,6 +5,9 @@ mentors confirmed on 27 October 2026: a user uploads a labelled dataset, tunes
 the setup, compares models and keeps the best one; after approval, that model
 scores new data and raises alerts on its own, without a pattern rule having to
 fire. Started as the 26 Oct thin slice (merged as PR #2); extended on 27 Oct.
+The 4 November repair locks mapping and chronological boundaries at first
+training, compares on validation only and reveals one committed final choice.
+See [the repair report](ml/lab_repair_20261104.md) for current quality and limits.
 
 ![The MLRO approves a model and switches model alerts on](screenshots/lab/deploy-07-mlro-approved.png)
 
@@ -13,10 +16,10 @@ fire. Started as the 26 Oct thin slice (merged as PR #2); extended on 27 Oct.
 | Step | Who | What happens |
 |---|---|---|
 | 1. Dataset berlabel | Data Ops, Analyst | Upload a **CSV or Parquet** file with a label column. Stored byte-for-byte with its SHA-256, separate from the monitored `transaction` table. |
-| 2. Pemetaan kolom | Data Ops, Analyst | FCIP suggests which column is the ID, account, date, amount, direction… and which is the label; every choice can be changed. Validation and quarantine are the same code the regular upload uses. |
-| 3. Fitur & model | Data Ops, Analyst | Switch eight feature groups on or off; compare **Logistic Regression**, **LightGBM** (supervised) and **Isolation Forest** (unsupervised). Chronological split, 50–80% for training. |
-| 4. Hasil & threshold | everyone | Comparison on the held-out test period, recall per pattern, precision/recall curve, threshold slider showing alerts per 10,000 transactions. |
-| 5. Simpan & ajukan | Data Ops, Analyst | The chosen model and threshold are saved as a DRAFT model version; an **Analyst submits** it with a justification. |
+| 2. Pemetaan kolom | Data Ops, Analyst | FCIP suggests ID, account, date, amount, direction and label columns. Choices can be changed before first training; mapping then freezes across uploads of the same exact bytes. Validation and quarantine share the regular upload code. |
+| 3. Fitur & model | Data Ops, Analyst | Choose eight feature groups, **Logistic Regression**, **LightGBM** and **Isolation Forest**. Choose 50–80% TRAIN before first training; mapping/share then freeze. Whole availability-time ties stay together; day-only rows become available at day end. Vocabulary is TRAIN-only. Supervised fits refuse validation-positive categories absent from TRAIN. Refits are allowed until a final choice is revealed. |
+| 4. Hasil & threshold | everyone | Compare validation AP, precision/recall, per-pattern coverage and threshold curves. The slider shows transaction flags per 10,000, not grouped application alerts. Source TEST metrics stay sealed. |
+| 5. Simpan & ajukan | Data Ops, Analyst | **Kunci pilihan & simpan draft** commits one run/model/threshold before revealing its final TEST result. Identical saves are idempotent; other choices and further fits on those exact source bytes are blocked. An **Analyst submits** the DRAFT with a justification. |
 | 6. Persetujuan MLRO | MLRO | An **MLRO other than the submitter** approves (or returns, or later suspends). Approval makes it ACTIVE and retires the previous active model. The MLRO also switches **model alerts** on or off. |
 | 7. Pantau data baru | Data Ops | Upload new transactions (CSV or Parquet) **in the same layout as the dataset**. They are ingested as a normal batch, unseen accounts get anonymous records, then detection runs: rules and the active model. |
 
@@ -51,8 +54,27 @@ work as for any alert.
 - **Nothing switches on by default:** `ML_SCORE` stays DRAFT until an MLRO acts.
 - **Every step is audited** under the dataset's correlation ID.
 - **The platform never tunes itself** (US-1004): a person picks the threshold.
+- **One committed final evaluation:** validation supports experimentation; the
+  source-wide lock is keyed to exact uploaded file bytes. Re-encoding the same
+  observations is not detected. This is an application guard, not proof that a
+  dataset owner has never seen the labels.
+- **Legacy exposure is retained:** old runs are marked `LEGACY_EXPOSED`, with
+  comparison TEST metrics redacted. Their stored artifacts/results are not
+  rewritten or represented as a new blind test.
+- **Monitoring follows the approved contract:** an ACTIVE Lab version's saved
+  mapping is verified and reused. An incompatible dataset or a legacy card
+  without complete mapping provenance is refused, requiring a new reviewed
+  version; the existing version's state is not changed automatically.
+- **All implemented rules run:** Lab monitoring, the CLI and the regular
+  detection endpoint use the P01–P10 registry. Stored flags from retired or
+  suspended model versions cannot create new alerts.
 
-## Result on the sample data (synthetic)
+## Historical result on the 27 October sample (synthetic)
+
+These exposed metrics predate the evaluation lock and are retained as workflow
+history. For the current frozen experiment use the
+[4 November repair report](ml/lab_repair_20261104.md). Reusing an exposed file
+does not make a fresh quality test.
 
 Training file: 100,000 transactions, generator 1.4.0 seed 20261026, label =
 the Fraud model's patterns (ATO, P04, P05).
@@ -77,31 +99,35 @@ probabilities (the class weighting shifts them; its threshold is about 0.0036).
 ## How to run it
 
 ```bash
-docker compose up --build          # migrations up to 0012 run on start
+docker compose up --build          # migrations through 0014 run on start
 docker compose exec backend python -m app.scripts.seed --users-only
 ```
 
-Sample files (git-ignored, regenerated in seconds):
+Current coverage-study files are git-ignored. Generate into a new destination;
+the generator refuses an existing output directory. This is a separate Lab
+generator; enterprise generator 1.4.0 and shared Tiny/Small stay unchanged.
 
 ```bash
-docker compose exec backend python -m app.scripts.generate_raw_dataset \
-  --target-transactions 100000 --min-per-pattern 25 --seed 20261026 --out ml_data/lab/raw_s20261026
-docker compose exec backend python -m app.scripts.make_lab_sample \
-  --raw-dir ml_data/lab/raw_s20261026 --out ml_data/lab/fcip_lab_sample_s20261026.csv
-docker compose exec backend python -m app.scripts.generate_raw_dataset --target-transactions 30000 \
-  --min-per-pattern 10 --seed 20261027 --reference-date 2027-03-31 --out ml_data/lab/raw_monitor_s20261027
-docker compose exec backend python -m app.scripts.make_lab_sample \
-  --raw-dir ml_data/lab/raw_monitor_s20261027 --out ml_data/lab/fcip_monitor_s20261027.csv
+docker compose exec backend python -m app.scripts.generate_lab_dataset \
+  --rows 250000 --seed 2026110403 --start-date 2024-01-01 \
+  --out ml_data/lab_demo_coverage_s2026110403
 ```
 
-For Parquet versions, convert either CSV with pandas (`to_parquet`). Logins:
+Upload only `transactions.csv` into Lab step 1. Its label/category columns are
+evaluation metadata and never model features. Other files in the output
+directory are audit sidecars. The already measured source/final files from the
+repair report can demonstrate the workflow, but their final metrics are exposed.
+Keep the explicit `IDR` column; this Lab study does not convert or replace the
+historical USD public-source track. For Parquet convert the CSV with pandas
+(`to_parquet`). Logins:
 `analyst@`, `mlro@`, `dataops@`, `triage@fcip.internal`, password `DevPassword123!`.
 
 ## Demo script (about 8 minutes, four logins)
 
 1. **Analyst** → Lab model → upload the training file → *Validasi pemetaan* →
-   *Latih & bandingkan* → show the comparison and the per-pattern table →
-   threshold slider → *Simpan sebagai draft* → in step 6, write a
+   *Latih & bandingkan* → show validation and TRAIN/validation pattern support →
+   threshold slider → *Kunci pilihan & simpan draft* → review the single revealed
+   final result → in step 6, write a
    justification → *Ajukan ke MLRO*.
 2. **MLRO** → Lab model → step 6 → note → keep "Skor di atas threshold
    langsung menjadi alert" ticked → *Setujui & aktifkan*. The banner turns
@@ -113,15 +139,17 @@ For Parquet versions, convert either CSV with pandas (`to_parquet`). Logins:
 
 ## Not built yet
 
-- Training and monitoring run inside the request (about 25 s for 100k rows);
-  bigger files need a background job runner. Lab files are capped at 500,000 rows.
-- Transaction-level (Fraud) models only; the AML account-week track is next.
+- Training and monitoring run inside the request; bigger files need a background
+  job runner. The earlier 25 s/100k observation is historical, not a current
+  250k UI latency measurement. Lab files are capped at 500,000 rows and 50 MiB.
+- The current Lab's unit is a transaction. The separate AML account-week Lab
+  track is a later stage; these synthetic targets do not measure laundering.
 - Live monitoring means "upload, then detect"; there is no streaming feed.
 - The approval flow covers lab models; rule approval (FR-304) is still separate.
 
 ## Decisions I took myself (for Jevon to check)
 
-Recorded as AS-12 to AS-15 in `PROJECT_CONTEXT.md` §8:
+Recorded as AS-12 to AS-15 and AS-17 to AS-19 in `PROJECT_CONTEXT.md` §8:
 - 500,000-row cap per lab file; Parquet read into the same text cells as CSV (AS-12).
 - Monitoring uploads: saved mapping reused, label ignored, batch source
   `MODEL_LAB`, anonymous `OBS-` account proxies for unseen accounts, detection
@@ -132,21 +160,28 @@ Recorded as AS-12 to AS-15 in `PROJECT_CONTEXT.md` §8:
   printed with two significant digits in alert text (AS-15).
 - Also fixed: the two `0010` migrations (lab and Gabriel's roles/cases) left two
   heads, so `alembic upgrade head` failed; `0011_merge_lab_and_roles` joins them.
+- Exact-file protocol, conservative availability ties and final choice lock
+  (AS-17), separate synthetic coverage study (AS-18), matched frozen benchmark
+  and all-pattern/ACTIVE-only monitoring alignment (AS-19).
 
 ## Ringkasan capstone (Bahasa Indonesia)
 
 Lab model kini menjadi framework deteksi dari ujung ke ujung, sesuai arahan
 mentor V-TEKI tanggal 27 Oktober: pengguna mengunggah dataset berlabel (CSV atau
 Parquet), memetakan kolom, membandingkan Logistic Regression, LightGBM dan
-Isolation Forest pada periode uji, lalu memilih threshold. Analyst mengajukan
+Isolation Forest pada periode validasi, lalu mengunci satu model dan threshold
+sebelum hasil uji final dibuka satu kali. Pemetaan dan pembagian waktu dikunci
+saat training pertama, termasuk pada unggahan ulang dengan byte yang sama.
+Analyst mengajukan
 model terpilih, MLRO lain menyetujuinya (FR-405), dan sejak itu model menilai
 data transaksi baru yang diunggah Data Ops dengan susunan kolom yang sama. Skor
 di atas threshold langsung menjadi alert tanpa harus menunggu rule pola terpicu
 (CF-05 opsi b), sehingga deteksi tidak bergantung pada rule yang bisa dipelajari
 dan dihindari. Setiap skor menyertakan fitur penyumbangnya, dan setiap langkah
-tercatat di audit trail. Pada data sintetis, LightGBM yang disetujui menandai
-785 dari 29.512 transaksi baru dan membuat 96 alert. Angka ini berasal dari data
-sintetis dan bukan ukuran kinerja produksi; job di latar belakang, jalur AML
+tercatat di audit trail. Monitoring menjalankan seluruh rule P01–P10 serta
+model yang disetujui; skor versi yang sudah tidak ACTIVE tidak membuat alert
+baru. Hasil sintetis terbaru ada pada laporan perbaikan 4 November dan bukan
+ukuran kinerja produksi; job di latar belakang, jalur AML
 mingguan dan lisensi dataset eksternal belum diselesaikan.
 
 ## Files
@@ -154,10 +189,14 @@ mingguan dan lisensi dataset eksternal belum diselesaikan.
 Backend: `app/ml/lab/` (mapping, features, trainer, **scoring**),
 `app/services/tabular.py`, `app/services/lab.py`, `app/routers/lab.py`,
 `app/schemas/lab.py`, `app/models/lab.py`, migrations `0010_model_lab`,
-`0011_merge_lab_and_roles`, `0012_lab_file_format`, `app/scripts/make_lab_sample.py`;
+`0011_merge_lab_and_roles`, `0012_lab_file_format`, `0014_lab_evaluation_lock`,
+`app/scripts/make_lab_sample.py`, `app/scripts/generate_lab_dataset.py`,
+`app/scripts/audit_lab_repair.py`;
 lab support in `app/services/ml_scoring.py`, `app/services/ml_queries.py`,
 `app/routers/ml.py`; Parquet in `app/routers/ingestion.py`.
-Tests: `tests/test_lab.py`, `tests/test_lab_deploy.py`, `tests/test_tabular.py`.
+Tests: `tests/test_lab.py`, `tests/test_lab_deploy.py`, `tests/test_tabular.py`,
+`tests/test_lab_evaluation_lock.py`, `tests/test_generate_lab_dataset.py`,
+`tests/test_lab_repair_audit.py`, `tests/test_monitoring_alignment.py`.
 Frontend: `pages/LabPage.tsx`, `components/LabDeploy.tsx`, `lab.css`,
 `api/lab.ts`, `types/lab.ts`; Parquet on the Overview upload; model-alert labels
 in the alert queue; linear explanations in `components/ModelSignals.tsx`.

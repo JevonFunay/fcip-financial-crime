@@ -100,8 +100,8 @@ def test_chronological_split_keeps_test_after_validation_after_train() -> None:
     mapped = apply_mapping(raw, mapping_for(raw))
     part = chronological_split(mapped.frame, 0.6)
     dates = mapped.frame.transaction_date
-    assert dates[part == "train"].max() <= dates[part == "validation"].min()
-    assert dates[part == "validation"].max() <= dates[part == "test"].min()
+    assert dates[part == "train"].max() < dates[part == "validation"].min()
+    assert dates[part == "validation"].max() < dates[part == "test"].min()
     assert abs((part == "train").mean() - 0.6) < 0.01
 
 
@@ -115,21 +115,23 @@ def test_training_compares_models_and_keeps_test_out_of_threshold_choice() -> No
     assert results["best_model"] in ALL_MODELS
     for summary, model in zip(results["models"], outcome.models):
         curve = summary["validation_curve"]
-        assert len(curve) == len(model.thresholds) == len(model.test_curve)
+        assert len(curve) == len(model.thresholds)
+        assert model.test_curve == []
         assert [p["threshold"] for p in curve] == sorted(p["threshold"] for p in curve)
         # The default threshold is the validation max-F1 point.
         assert curve[summary["default_index"]]["f1"] == pytest.approx(max(p["f1"] for p in curve))
-        assert summary["test"]["threshold"] == model.thresholds[summary["default_index"]]
+        assert "test" not in summary and "test_by_category" not in summary
         assert "test_curve" not in summary  # never shipped with the comparison
     lightgbm = next(m for m in results["models"] if m["key"] == "lightgbm")
-    assert lightgbm["test"]["average_precision"] > 0.5  # the planted signal is learnable
+    assert lightgbm["validation_ranking"]["average_precision"] > 0.5  # the planted signal is learnable
     assert results["features"]["unusable"]  # e.g. login attempts are absent from this dataset
 
 
-def test_a_split_without_positives_is_refused() -> None:
+def test_validation_without_positives_is_refused() -> None:
     raw = read_csv_bytes(make_dataset(600, defects=False))
-    raw.loc[raw.Timestamp > "2026-07-15", "is_fraud"] = "no"  # no positives in the latest period
     mapped = apply_mapping(raw, mapping_for(raw))
+    part = chronological_split(mapped.frame, .6)
+    mapped.labels[part == "validation"] = 0
     with pytest.raises(ValueError, match="positif dan negatif"):
         train_run(mapped.frame, mapped.labels, None, feature_groups=ALL_GROUPS, model_keys=["lightgbm"],
                   train_share=0.6)

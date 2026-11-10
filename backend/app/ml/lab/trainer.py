@@ -11,7 +11,7 @@ Protocol (fixed in this prototype, recorded in every result):
   threshold on validation and to measure it, like the others.
 - Test rows are scored once, after everything is fixed. The threshold slider in
   the UI shows validation figures; test figures are read for the chosen
-  threshold only when a model is saved.
+  threshold only once after a source protocol locks its chosen model at save.
 
 Artefacts are text (JSON / LightGBM text), never pickle, like the rest of FCIP.
 """
@@ -82,25 +82,54 @@ class TrainingOutcome:
 
 # --- splitting ---------------------------------------------------------------------------------
 
+EVALUATION_PROTOCOL = "sealed_final_v2"
+
+
+def availability_dates(frame: pd.DataFrame) -> pd.Series:
+    """Use the feature library's conservative availability, not invented order."""
+    dates = pd.to_datetime(frame.transaction_date, utc=True, errors="raise")
+    precision = frame.timestamp_precision.fillna("day") if "timestamp_precision" in frame else pd.Series("day", index=frame.index)
+    return dates.where(precision.ne("day"), dates.dt.floor("D") + pd.Timedelta(days=1) - pd.Timedelta(nanoseconds=1))
+
+
 def chronological_split(frame: pd.DataFrame, train_share: float) -> np.ndarray:
+    """Keep complete timestamp groups; identifiers never determine a partition.
+
+    Boundaries follow cumulative row targets, retaining at least one complete
+    availability group in each later period. Actual row shares are reported;
+    fewer than three groups are refused instead of splitting any group.
+    """
     if not 0.5 <= train_share <= 0.8:
         raise LabTrainingError("Porsi data latih harus antara 50% dan 80%.")
-    order = np.lexsort((frame.transaction_ref.to_numpy().astype(str), frame.transaction_date.astype("int64").to_numpy()))
+    dates = availability_dates(frame)
+    if dates.isna().any() or dates.nunique() < 3:
+        raise LabTrainingError("Diperlukan setidaknya tiga waktu transaksi berbeda untuk membagi periode.")
     n = len(frame)
-    n_train = int(round(n * train_share))
-    n_val = int(round((n - n_train) / 2))
-    part = np.empty(n, dtype=object)
-    part[order[:n_train]] = "train"
-    part[order[n_train:n_train + n_val]] = "validation"
-    part[order[n_train + n_val:]] = "test"
+    n_train = min(max(int(round(n * train_share)), 1), n - 2)
+    n_val = max(int(round((n - n_train) / 2)), 1)
+    groups = dates.value_counts(sort=False).sort_index()
+    cumulative = groups.cumsum().to_numpy()
+    train_group = min(int(np.searchsorted(cumulative, n_train, side="left")), len(groups) - 3)
+    validation_group = max(train_group + 1, min(int(np.searchsorted(cumulative, n_train + n_val, side="left")),
+                                               len(groups) - 2))
+    train_end = groups.index[train_group]
+    validation_end = groups.index[validation_group]
+    part = np.where(dates <= train_end, "train", np.where(dates <= validation_end, "validation", "test"))
+    if any(not np.any(part == name) for name in ("train", "validation", "test")):
+        raise LabTrainingError("Timestamp yang sama tidak boleh dipisah; ubah porsi latih atau tambah rentang waktu.")
     return part
 
 
-def _split_summary(frame: pd.DataFrame, y: np.ndarray, mask: np.ndarray) -> dict:
+def _split_summary(frame: pd.DataFrame, y: np.ndarray, mask: np.ndarray, *, reveal_labels: bool = True) -> dict:
     dates = frame.transaction_date[mask]
-    return {"rows": int(mask.sum()), "positives": int(y[mask].sum()),
-            "date_from": dates.min().isoformat() if len(dates) else None,
-            "date_to": dates.max().isoformat() if len(dates) else None}
+    available = availability_dates(frame)[mask]
+    result = {"rows": int(mask.sum()), "date_from": dates.min().isoformat() if len(dates) else None,
+              "date_to": dates.max().isoformat() if len(dates) else None,
+              "availability_from": available.min().isoformat() if len(available) else None,
+              "availability_to": available.max().isoformat() if len(available) else None}
+    if reveal_labels:
+        result["positives"] = int(y[mask].sum())
+    return result
 
 
 # --- models ------------------------------------------------------------------------------------
@@ -210,7 +239,7 @@ def point(scores: np.ndarray, y: np.ndarray, threshold: float) -> dict:
 def ranking(scores: np.ndarray, y: np.ndarray) -> dict:
     from sklearn.metrics import average_precision_score, roc_auc_score
 
-    if y.min() == y.max():
+    if not len(y) or y.min() == y.max():
         return {"average_precision": None, "roc_auc": None}
     return {"average_precision": float(average_precision_score(y, scores)), "roc_auc": float(roc_auc_score(y, scores))}
 
@@ -250,12 +279,22 @@ def train_run(frame: pd.DataFrame, y: np.ndarray, categories: pd.Series | None, 
 
     part = chronological_split(frame, train_share)
     masks = {name: part == name for name in ("train", "validation", "test")}
-    for name, label in (("train", "latih"), ("validation", "validasi"), ("test", "uji")):
+    for name, label in (("train", "latih"), ("validation", "validasi")):
         positives = int(y[masks[name]].sum())
         if positives == 0 or positives == int(masks[name].sum()):
             raise LabTrainingError(f"Data {label} harus berisi baris positif dan negatif; ubah porsi data latih "
                                    f"atau gunakan dataset dengan rentang waktu label yang lebih luas.")
 
+    coverage = {}
+    if categories is not None:
+        values = categories.fillna("").astype(str).str.strip().to_numpy()
+        for name in ("train", "validation"):
+            present = values[masks[name] & (y == 1)]
+            coverage[name] = {value: int((present == value).sum()) for value in sorted(set(present)) if value}
+        absent = sorted(set(coverage["validation"]) - set(coverage["train"]))
+        if absent and any(MODELS[key]["kind"] == "supervised" for key in model_keys):
+            raise LabTrainingError("Pola positif validasi belum ada di TRAIN: " + ", ".join(absent)
+                                   + ". Tambahkan contoh pada periode latih tanpa mencampur urutan waktu.")
     feature_started = time.perf_counter()
     matrix, vocabulary = build_matrix(frame, masks["train"])
     feature_seconds = time.perf_counter() - feature_started
@@ -266,9 +305,9 @@ def train_run(frame: pd.DataFrame, y: np.ndarray, categories: pd.Series | None, 
     if not features:
         raise LabTrainingError("Semua fitur yang dipilih kosong atau konstan di dataset ini; pilih kelompok fitur lain.")
 
-    X = {name: matrix.loc[mask, features] for name, mask in masks.items()}
-    Y = {name: y[mask] for name, mask in masks.items()}
-    test_categories = categories[masks["test"]].to_numpy() if categories is not None else None
+    X = {name: matrix.loc[masks[name], features] for name in ("train", "validation")}
+    Y = {name: y[masks[name]] for name in ("train", "validation")}
+    validation_categories = categories[masks["validation"]].to_numpy() if categories is not None else None
 
     trained: list[TrainedModel] = []
     summaries: list[dict] = []
@@ -282,47 +321,52 @@ def train_run(frame: pd.DataFrame, y: np.ndarray, categories: pd.Series | None, 
         else:
             model_text, _ = fit_model(X["train"], features, seed=seed)
         val_scores = score(key, model_text, X["validation"])
-        test_scores = score(key, model_text, X["test"])
         default = best_f1_threshold(val_scores, Y["validation"])
         thresholds = candidate_thresholds(val_scores, default)
         default_index = int(np.flatnonzero(thresholds == default)[0])
         validation_curve = [point(val_scores, Y["validation"], t) for t in thresholds]
-        test_curve = [point(test_scores, Y["test"], t) for t in thresholds]
-        test_at_default = {**test_curve[default_index], **ranking(test_scores, Y["test"])}
         by_category = None
-        if test_categories is not None:
-            flagged = test_scores >= default
+        if validation_categories is not None:
+            flagged = val_scores >= default
             by_category = []
-            for value in sorted({c for c in test_categories[Y["test"] == 1]}):
-                rows = (Y["test"] == 1) & (test_categories == value)
+            for value in sorted({c for c in validation_categories[Y["validation"] == 1]}):
+                rows = (Y["validation"] == 1) & (validation_categories == value)
                 by_category.append({"category": value or "(kosong)", "positives": int(rows.sum()),
                                     "caught": int((rows & flagged).sum())})
+        category_curve = None
+        if validation_categories is not None:
+            positive_categories = sorted({c for c in validation_categories[Y["validation"] == 1]})
+            category_masks = {value: (Y["validation"] == 1) & (validation_categories == value)
+                              for value in positive_categories}
+            category_curve = [[{"category": value or "(kosong)", "positives": int(rows.sum()),
+                                "caught": int((rows & (val_scores >= threshold)).sum())}
+                               for value, rows in category_masks.items()] for threshold in thresholds]
         summaries.append({
             "key": key, "name": spec["name"], "kind": spec["kind"], "description": spec["description"],
             "seconds": round(time.perf_counter() - model_started, 2),
             "default_index": default_index,
             "validation_ranking": ranking(val_scores, Y["validation"]),
             "validation_curve": validation_curve,
-            "test": test_at_default,
-            "test_by_category": by_category,
+            "validation_by_category": by_category,
+            "validation_category_curve": category_curve,
             "top_features": _importance(key, model_text),
         })
         trained.append(TrainedModel(key, spec["artefact_type"], model_text, features,
-                                    [float(t) for t in thresholds], test_curve, default_index))
+                                    [float(t) for t in thresholds], [], default_index))
 
     best = max(summaries, key=lambda s: (s["validation_ranking"]["average_precision"] or -1.0))["key"]
     results = {
         "protocol": {
-            "split": "chronological", "train_share": train_share,
+            "split": "chronological_whole_availability_groups", "evaluation": EVALUATION_PROTOCOL, "train_share": train_share,
             "validation_share": round((1 - train_share) / 2, 4), "test_share": round((1 - train_share) / 2, 4),
             "default_threshold": "max F1 on validation", "best_model_rule": "highest validation average precision",
             "seed": seed, "unit": "FRAUD: one row per transaction, features as of that transaction",
         },
-        "split": {name: _split_summary(frame, y, mask) for name, mask in masks.items()},
+        "split": {name: _split_summary(frame, y, mask, reveal_labels=name != "test") for name, mask in masks.items()},
         "features": {"requested_groups": feature_groups, "used": features, "unusable": unusable,
                      "definitions": {f: definition(f) for f in features}, "feature_seconds": round(feature_seconds, 2),
                      "vocabulary": vocabulary},
-        "positive_rate_test": float(Y["test"].mean()),
+        "positive_category_coverage": coverage,
         "models": summaries,
         "best_model": best,
         "seconds": round(time.perf_counter() - started, 2),

@@ -502,7 +502,7 @@ export function OverviewPage() {
           )}
           <p className="muted small" style={{ marginTop: 12 }}>
             {data?.transactions
-              ? "Deteksi manual menjalankan rule P02 dan seluruh model ACTIVE. Upload seluruh bagian sebelum memulai."
+              ? "Deteksi manual menjalankan seluruh rule P01–P10 dan model ACTIVE. Upload seluruh bagian sebelum memulai."
               : "Deteksi dapat dijalankan setelah transaksi diterima."}
           </p>
           {models.isSuccess && !hasActiveModel && (

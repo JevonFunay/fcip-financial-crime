@@ -1,19 +1,26 @@
 # Handoff: Financial Crime Intelligence Platform (FCIP)
 
 **Current handoff — 4 November 2026:** read
-[PROJECT_CONTEXT.md §18–19](docs/PROJECT_CONTEXT.md),
+[PROJECT_CONTEXT.md §18–20](docs/PROJECT_CONTEXT.md),
 [PROGRESS.md](docs/PROGRESS.md), [the Lab guide](docs/LAB_THIN_SLICE.md) and
-[current quality evidence](docs/ml/current_quality_20261104.md) first. The
+[current repair evidence](docs/ml/lab_repair_20261104.md) first. The
 7 October material below is historical; its role, dataset, model-registration
 and pending-CF-05 instructions do not describe the current application.
 
 The current code has nine roles, model Lab approval/monitoring and P01–P10
-rules. The 4 November audit passes 843 existing backend checks + 18 new audit
-checks and the frontend build. Fresh synthetic LightGBM P98.56%/R89.38% hides
-weak ATO/P05 coverage (33.33%/0%); TRAIN has no positive ATO/P05 examples.
-The audit does not promote or activate models, modify the generator or live DB,
-or prove real crime/AML accuracy. Future fixes need fresh evaluation; do not
-tune on the now-exposed final and call a reproduction an unseen test.
+rules. The repair passes 913 distinct backend tests and the frontend build.
+Mapping/split lock at first training, comparison uses validation, and one final
+choice locks before TEST reveal. New separate synthetic coverage source: 250k
+rows, 150k actual TRAIN, positive/benign/low-value ATO/P04/P05 in every split.
+On the same new 100k final, selected LightGBM P68.49%/R97.39% versus old model
+P36.99%/R13.91%; FP rises 499→944, so strict matched guard fails. Benign
+lookalike episode flags remain high (104/108). No real crime/AML claim,
+activation or live DB change; migration 0014 awaits normal deployment.
+Enterprise generator1.4/raw_contract/shared data/raw sources and old artifacts
+are unchanged. Old 98.56% baseline belongs a different population and archived
+commit 0382821. AML account-week Lab is a later stage. New final is now exposed;
+do not retune it and call a reproduction unseen. Jevon receives commit commands
+and runs commit/push himself.
 
 Kamu akan melanjutkan pengembangan sebuah proyek capstone. Baca seluruh prompt ini sebelum mengerjakan apa pun. Kalau kamu tidak bisa membaca file di repository secara langsung, minta Jevon menempelkan file yang kamu butuhkan, terutama `docs/PROJECT_CONTEXT.md`, `docs/PROGRESS.md` dan `README.md`. Jangan menebak isi file.
 

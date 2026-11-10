@@ -401,7 +401,7 @@ def raise_ml_alerts(db: Session, run_id: uuid.UUID, actor: User | None) -> tuple
         select(MlScore, ModelVersion, Transaction.transaction_date)
         .join(ModelVersion, MlScore.model_version_id == ModelVersion.id)
         .outerjoin(Transaction, MlScore.transaction_id == Transaction.id)
-        .where(MlScore.flagged.is_(True))
+        .where(MlScore.flagged.is_(True), ModelVersion.state == RuleState.ACTIVE)
         .order_by(MlScore.as_of)
     ).all()
     groups: dict[tuple, list] = defaultdict(list)

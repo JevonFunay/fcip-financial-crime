@@ -161,14 +161,13 @@ def test_final_scores_do_not_depend_on_labels_or_refit_preprocessing(source_raw,
                              pd.Series(["background"] * len(first.frame)))
 
 
-def test_audit_reports_production_time_ties_without_changing_split():
+def test_current_audit_refuses_a_single_availability_group():
     frame = pd.DataFrame({"transaction_ref": list("abcdef"),
                           "transaction_date": pd.to_datetime(["2026-01-01T00:00:00Z"] * 6)})
-    parts = audit.chronological_split(frame, .5)
-    diagnostics = audit.split_diagnostics(frame, parts)
-    assert diagnostics["boundaries"]["train_to_validation"]["shared_timestamp_values"] == 1
-    assert diagnostics["boundaries"]["validation_to_test"]["shared_timestamp_values"] == 1
-    assert list(parts) == ["train", "train", "train", "validation", "validation", "test"]
+    # The old split is retained in the source archive of the original audit.
+    # Current code must refuse it instead of splitting an unknown time order.
+    with pytest.raises(ValueError, match="tiga waktu"):
+        audit.chronological_split(frame, .5)
 
 
 def test_other_injected_patterns_remain_distinct_from_normal_controls(tmp_path):

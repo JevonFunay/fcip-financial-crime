@@ -23,13 +23,20 @@ from __future__ import annotations
 import csv
 import hashlib
 import io
+import json
+from copy import deepcopy
+from pathlib import Path
 import time
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import select
+import numpy as np
+import pandas as pd
+
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
+from app.ml.behavioral.features import build_features
 from app.ml.lab.features import UNIT, definition
 from app.ml.lab.mapping import LabDataError, apply_mapping, map_for_monitoring, read_table_bytes, suggest
 from app.ml.lab.scoring import (
@@ -39,12 +46,12 @@ from app.ml.lab.scoring import (
     SCORE_KIND,
     definition_hash as lab_definition_hash,
 )
-from app.ml.lab.trainer import MODELS, SEED, train_run
+from app.ml.lab.trainer import (EVALUATION_PROTOCOL, MODELS, SEED, chronological_split, point, ranking, score, train_run)
 from app.models.account import Account
 from app.models.audit_log import AuditLog
 from app.models.customer import Customer
 from app.models.enums import AccountStatus, EntityType, RuleState
-from app.models.lab import LAB_DATASET_MAPPED, LAB_DATASET_UPLOADED, LabDataset, LabModel, LabRun
+from app.models.lab import LAB_DATASET_MAPPED, LAB_DATASET_UPLOADED, LabDataset, LabEvaluationProtocol, LabModel, LabRun
 from app.models.ml import ModelVersion
 from app.models.rule import Rule, RuleVersion
 from app.models.user import User
@@ -69,6 +76,10 @@ class LabConflict(Exception):
     """The request does not fit the dataset's current state; shown to the user."""
 
 
+class LabInvalidSelection(LabConflict):
+    """A supplied selection index is outside its candidate contract."""
+
+
 def _sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
@@ -90,6 +101,13 @@ def create_dataset(db: Session, *, actor: User, file_name: str, raw_bytes: bytes
         uploaded_by=actor.id,
         correlation_id=uuid.uuid4(),
     )
+    protocol = _protocol(db, dataset.file_sha256)
+    if protocol is not None and not protocol.legacy_exposed:
+        # Exact duplicate uploads adopt the first source contract; their UI
+        # cannot create a new mapping or a new final partition.
+        dataset.mapping = deepcopy(protocol.mapping_snapshot)
+        dataset.validation = apply_mapping(frame, dataset.mapping).report
+        dataset.status = LAB_DATASET_MAPPED
     db.add(dataset)
     db.flush()
     record_transition(db, correlation_id=dataset.correlation_id, actor=actor, object_type=OBJECT_LAB_DATASET,
@@ -103,11 +121,94 @@ def create_dataset(db: Session, *, actor: User, file_name: str, raw_bytes: bytes
     return dataset
 
 
+def _json_hash(value) -> str:
+    return _sha256(json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False).encode())
+
+
+def _source_lock(db: Session, checksum: str) -> None:
+    # Serialises identical-file uploads/runs/saves, including first protocol
+    # creation before a row exists. No session/user advisory lock survives a
+    # transaction; same-key hash collisions only cause harmless extra waiting.
+    key = int.from_bytes(bytes.fromhex(checksum)[:8], "big", signed=True)
+    db.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": key})
+
+
+def _protocol(db: Session, checksum: str, *, lock: bool = False) -> LabEvaluationProtocol | None:
+    query = select(LabEvaluationProtocol).where(LabEvaluationProtocol.source_file_sha256 == checksum)
+    if lock:
+        query = query.with_for_update().execution_options(populate_existing=True)
+    return db.scalar(query)
+
+
+def _code_hashes() -> dict:
+    app = Path(__file__).resolve().parents[1]
+    names = ("ml/lab/trainer.py", "ml/lab/features.py", "ml/lab/mapping.py",
+             "ml/behavioral/features.py", "ml/behavioral/model.py", "ml/behavioral/standardize.py",
+             "services/tabular.py", "services/lab.py")
+    return {name: _sha256((app / name).read_bytes()) for name in names}
+
+
+def _split_hash(frame, parts) -> str:
+    return _json_hash([[str(ref), str(part)] for ref, part in zip(frame.transaction_ref, parts)])
+
+
+def _candidate_hash(candidate) -> str:
+    return _json_hash({"model_key": candidate.model_key if hasattr(candidate, "model_key") else candidate.key,
+                       "model_text": candidate.model_text, "features": candidate.features,
+                       "vocabulary": candidate.vocabulary if hasattr(candidate, "vocabulary") else None,
+                       "thresholds": candidate.thresholds, "default_index": candidate.default_index})
+
+
+def evaluation_state(db: Session, dataset: LabDataset, run: LabRun | None = None) -> dict:
+    protocol = _protocol(db, dataset.file_sha256)
+    if protocol is None:
+        legacy = run is not None or db.scalar(select(LabRun.id).join(LabDataset, LabRun.dataset_id == LabDataset.id)
+                                               .where(LabDataset.file_sha256 == dataset.file_sha256,
+                                                      LabRun.protocol_id.is_(None)).limit(1)) is not None
+        return {"state": "LEGACY_EXPOSED" if legacy else "UNCONFIGURED",
+                "source_sha256": dataset.file_sha256, "selected_final": None}
+    state = "LEGACY_EXPOSED" if protocol.legacy_exposed else ("REVEALED" if protocol.final_model_version_id else "SEALED")
+    version = db.get(ModelVersion, protocol.final_model_version_id) if protocol.final_model_version_id else None
+    selected = None
+    if version is not None:
+        final = version.model_card.get("test", {})
+        selected = {"model_key": protocol.final_model_key, "version": version.version,
+                    "threshold_index": protocol.final_threshold_index,
+                    "at_threshold": final.get("at_threshold", {}), "by_category": final.get("by_category", [])}
+    return {"state": state, "protocol_id": str(protocol.id), "source_sha256": protocol.source_file_sha256,
+            "mapping_sha256": protocol.mapping_sha256, "train_share": protocol.train_share,
+            "final_run_id": str(protocol.final_run_id) if protocol.final_run_id else None,
+            "model_key": protocol.final_model_key, "threshold_index": protocol.final_threshold_index,
+            "version": version.version if version else None,
+            "evaluated_at": protocol.final_evaluated_at.isoformat() if protocol.final_evaluated_at else None,
+            "selected_final": selected, "identity_scope": "exact uploaded bytes (SHA-256); re-encoding is not detected"}
+
+
+def public_run_results(run: LabRun) -> dict:
+    # Legacy results stay byte-for-byte in storage, but candidate TEST metrics
+    # must not leak through the comparison endpoint after the gate is added.
+    results = deepcopy(run.results)
+    results.pop("positive_rate_test", None)
+    if isinstance(results.get("split", {}).get("test"), dict):
+        results["split"]["test"].pop("positives", None)
+    for model in results.get("models", []):
+        model.pop("test", None)
+        model.pop("test_by_category", None)
+    return results
+
+
 def map_dataset(db: Session, dataset: LabDataset, mapping: dict, *, actor: User) -> LabDataset:
+    _source_lock(db, dataset.file_sha256)
+    protocol = _protocol(db, dataset.file_sha256, lock=True)
+    if protocol is not None:
+        if protocol.legacy_exposed or _json_hash(mapping) != protocol.mapping_sha256:
+            raise LabConflict("Pemetaan sumber ini sudah dikunci oleh pelatihan; gunakan dataset baru untuk pemetaan berbeda.")
+        if dataset.mapping == mapping:
+            return dataset
     raw, _ = read_table_bytes(dataset.raw_file)
     mapped = apply_mapping(raw, mapping)
     previous = dataset.status
-    dataset.mapping = mapping
+    dataset.mapping = deepcopy(mapping)
     dataset.validation = mapped.report
     dataset.status = LAB_DATASET_MAPPED
     record_transition(db, correlation_id=dataset.correlation_id, actor=actor, object_type=OBJECT_LAB_DATASET,
@@ -121,31 +222,68 @@ def map_dataset(db: Session, dataset: LabDataset, mapping: dict, *, actor: User)
 
 
 def train(db: Session, dataset: LabDataset, config: dict, *, actor: User) -> LabRun:
+    _source_lock(db, dataset.file_sha256)
+    dataset = db.scalar(select(LabDataset).where(LabDataset.id == dataset.id).with_for_update()
+                        .execution_options(populate_existing=True))
     if dataset.mapping is None:
         raise LabConflict("Petakan dan validasi kolom dataset ini sebelum melatih model.")
+    if _sha256(dataset.raw_file) != dataset.file_sha256:
+        raise LabConflict("Checksum sumber berubah; pelatihan ditolak.")
+    protocol = _protocol(db, dataset.file_sha256, lock=True)
+    if protocol is not None and (protocol.legacy_exposed or protocol.final_run_id is not None):
+        raise LabConflict("Final sumber ini sudah dibuka; file identik tidak dapat dipakai sebagai final baru.")
+    if protocol is not None and (protocol.mapping_sha256 != _json_hash(dataset.mapping)
+                                 or protocol.train_share != config["train_share"]):
+        raise LabConflict("Pemetaan dan porsi latih sudah dikunci pada protokol sumber ini.")
     started = time.perf_counter()
     raw, _ = read_table_bytes(dataset.raw_file)
     mapped = apply_mapping(raw, dataset.mapping)
     if not mapped.report["ready"]:
         raise LabConflict("Dataset belum memenuhi syarat minimal baris positif dan negatif.")
+    if protocol is None:
+        # Handles old rows inserted before the migration as well as normal
+        # migration backfill; a duplicate upload cannot make them unseen.
+        prior = db.scalar(select(LabRun.id).join(LabDataset, LabRun.dataset_id == LabDataset.id)
+                          .where(LabDataset.file_sha256 == dataset.file_sha256, LabRun.protocol_id.is_(None)).limit(1))
+        if prior is not None:
+            raise LabConflict("Sumber ini memiliki evaluasi lama yang sudah terbuka; gunakan data final baru.")
+        protocol = LabEvaluationProtocol(source_file_sha256=dataset.file_sha256,
+                                         protocol_version=EVALUATION_PROTOCOL,
+                                         mapping_snapshot=deepcopy(dataset.mapping),
+                                         mapping_sha256=_json_hash(dataset.mapping), train_share=config["train_share"],
+                                         legacy_exposed=False)
+        db.add(protocol)
+        db.flush()
+    code_hashes = _code_hashes()
     outcome = train_run(mapped.frame, mapped.labels, mapped.categories, feature_groups=config["feature_groups"],
                         model_keys=config["models"], train_share=config["train_share"])
-    run = LabRun(dataset_id=dataset.id, config=config, results=outcome.results,
+    if code_hashes != _code_hashes():
+        raise LabConflict("Kode preprocessing berubah selama pelatihan; jalankan ulang dengan versi tetap.")
+    parts = chronological_split(mapped.frame, config["train_share"])
+    vocabulary = outcome.results["features"]["vocabulary"]
+    candidates = [LabModel(model_key=model.key, artefact_type=model.artefact_type,
+                           model_text=model.model_text, features=model.features, vocabulary=vocabulary,
+                           thresholds=model.thresholds, test_curve=[], default_index=model.default_index)
+                  for model in outcome.models]
+    snapshot = {**deepcopy(config), "protocol_version": EVALUATION_PROTOCOL,
+                "source_file_sha256": dataset.file_sha256, "mapping_snapshot": deepcopy(protocol.mapping_snapshot),
+                "mapping_sha256": protocol.mapping_sha256, "validation_snapshot": deepcopy(mapped.report),
+                "split_sha256": _split_hash(mapped.frame, parts), "code_sha256": code_hashes,
+                "candidate_sha256": {c.model_key: _candidate_hash(c) for c in candidates}}
+    run = LabRun(dataset_id=dataset.id, protocol_id=protocol.id, config=snapshot, results=outcome.results,
                  seconds=round(time.perf_counter() - started, 2), created_by=actor.id,
                  correlation_id=dataset.correlation_id)
     db.add(run)
     db.flush()
-    vocabulary = outcome.results["features"]["vocabulary"]
-    for model in outcome.models:
-        db.add(LabModel(run_id=run.id, model_key=model.key, artefact_type=model.artefact_type,
-                        model_text=model.model_text, features=model.features, vocabulary=vocabulary,
-                        thresholds=model.thresholds, test_curve=model.test_curve, default_index=model.default_index))
+    for candidate in candidates:
+        candidate.run_id = run.id
+        db.add(candidate)
     best = outcome.results["best_model"]
     record_transition(db, correlation_id=dataset.correlation_id, actor=actor, object_type=OBJECT_LAB_RUN,
                       object_id=run.id, from_state=None, to_state="COMPLETED",
                       reason=(f"Lab training on {dataset.name}: {', '.join(MODELS[k]['name'] for k in config['models'])}; "
                               f"best on validation: {MODELS[best]['name']}"),
-                      details={"config": config})
+                      details={"config": config, "protocol_id": str(protocol.id), "mapping_sha256": protocol.mapping_sha256})
     db.commit()
     db.refresh(run)
     return run
@@ -157,27 +295,79 @@ def saved_versions(db: Session, run: LabRun) -> list[ModelVersion]:
                            .order_by(ModelVersion.created_at)))
 
 
+def _selected_final(db: Session, run: LabRun, candidate: LabModel, dataset: LabDataset,
+                    threshold: float) -> tuple[dict, list]:
+    """Called only after the one choice is flushed under the source lock."""
+    if _sha256(dataset.raw_file) != run.config["source_file_sha256"]:
+        raise LabConflict("Checksum dataset tidak cocok dengan snapshot run.")
+    if _code_hashes() != run.config["code_sha256"]:
+        raise LabConflict("Versi kode berubah sejak pelatihan; evaluasi final run lama ditolak.")
+    if _candidate_hash(candidate) != run.config["candidate_sha256"][candidate.model_key]:
+        raise LabConflict("Artefak kandidat tidak cocok dengan kontrak yang dibekukan.")
+    raw, _ = read_table_bytes(dataset.raw_file)
+    mapped = apply_mapping(raw, run.config["mapping_snapshot"])
+    parts = chronological_split(mapped.frame, run.config["train_share"])
+    if _split_hash(mapped.frame, parts) != run.config["split_sha256"]:
+        raise LabConflict("Batas final tidak cocok dengan snapshot pelatihan.")
+    features = build_features(mapped.frame, UNIT, candidate.vocabulary)
+    order = pd.Series(np.arange(len(mapped.frame)), index=mapped.frame.transaction_ref)
+    features = features.set_index(order.loc[features.transaction_ref].to_numpy()).sort_index()
+    mask = parts == "test"
+    values = np.asarray(score(candidate.model_key, candidate.model_text, features.loc[mask, candidate.features]))
+    if values.shape != (int(mask.sum()),) or not np.isfinite(values).all():
+        raise LabConflict("Skor final tidak finite atau tidak sejajar dengan observasi.")
+    truth = mapped.labels[mask]
+    metrics = {**point(values, truth, threshold), **ranking(values, truth), "rows": len(truth),
+               "positives": int(truth.sum())}
+    categories = []
+    if mapped.categories is not None:
+        supplied = mapped.categories[mask].to_numpy()
+        for category in sorted(set(supplied[truth == 1])):
+            selected = (truth == 1) & (supplied == category)
+            categories.append({"category": category or "(kosong)", "positives": int(selected.sum()),
+                               "caught": int((selected & (values >= threshold)).sum())})
+    return metrics, categories
+
+
 def save_draft(db: Session, run: LabRun, *, model_key: str, threshold_index: int,
                actor: User) -> tuple[ModelVersion, bool]:
-    """The DRAFT model version, and whether it already existed (saving is idempotent)."""
+    """Freeze and evaluate exactly one candidate/threshold for this source."""
+    version_name = f"lab_{model_key}_{run.id.hex[:8]}_t{threshold_index}"
+    if run.protocol_id is None:
+        # Historical versions remain readable/idempotent; no new final claim.
+        existing = db.scalar(select(ModelVersion).where(ModelVersion.version == version_name))
+        if existing is not None:
+            return existing, True
+        raise LabConflict("Run lama sudah mengekspos final; hanya versi yang telah disimpan dapat dibaca kembali.")
+    checksum = run.config["source_file_sha256"]
+    _source_lock(db, checksum)
+    protocol = _protocol(db, checksum, lock=True)
+    if protocol is None or protocol.legacy_exposed or protocol.id != run.protocol_id:
+        raise LabConflict("Run tidak memiliki protokol final tertutup yang sah.")
+    if protocol.final_run_id is not None:
+        if (protocol.final_run_id == run.id and protocol.final_model_key == model_key
+                and protocol.final_threshold_index == threshold_index and protocol.final_model_version_id is not None):
+            return db.get(ModelVersion, protocol.final_model_version_id), True
+        raise LabConflict("Final sumber ini sudah dikunci untuk satu pilihan; model atau threshold lain tidak dapat dievaluasi.")
     candidate = db.scalar(select(LabModel).where(LabModel.run_id == run.id, LabModel.model_key == model_key))
     if candidate is None:
         raise LookupError("Model ini tidak dilatih pada run tersebut.")
     if not 0 <= threshold_index < len(candidate.thresholds):
-        raise LabConflict("Indeks threshold di luar rentang kurva validasi.")
-    version_name = f"lab_{model_key}_{run.id.hex[:8]}_t{threshold_index}"
-    existing = db.scalar(select(ModelVersion).where(ModelVersion.version == version_name))
-    if existing is not None:
-        return existing, True
-
-    summary = next(m for m in run.results["models"] if m["key"] == model_key)
+        raise LabInvalidSelection("Indeks threshold di luar rentang kurva validasi.")
     dataset = db.get(LabDataset, run.dataset_id)
+    summary = next(m for m in run.results["models"] if m["key"] == model_key)
     threshold = float(candidate.thresholds[threshold_index])
     validation_point = summary["validation_curve"][threshold_index]
-    test_point = candidate.test_curve[threshold_index]
+    protocol.final_run_id = run.id
+    protocol.final_model_key = model_key
+    protocol.final_threshold_index = threshold_index
+    protocol.final_locked_at = datetime.now(timezone.utc)
+    db.flush()
+    test_point, by_category = _selected_final(db, run, candidate, dataset, threshold)
     spec = MODELS[model_key]
     definition_hash = lab_definition_hash(candidate.model_text, candidate.features, candidate.vocabulary, threshold)
-    report = dataset.validation or {}
+    report = run.config["validation_snapshot"]
+    mapping = run.config["mapping_snapshot"]
     card = {
         "version": version_name,
         "artefact_type": candidate.artefact_type,
@@ -201,9 +391,11 @@ def save_draft(db: Session, run: LabRun, *, model_key: str, threshold_index: int
             "source": "model_lab", "profile": f"Lab · {dataset.name}", "seed": SEED, "generator_version": "model lab",
             "dataset_id": str(dataset.id), "dataset_name": dataset.name, "file_name": dataset.file_name,
             "file_sha256": dataset.file_sha256, "usable_rows": report.get("usable_rows"),
-            "positives": report.get("positives"), "label_column": (dataset.mapping or {}).get("label_column"),
-            "positive_values": (dataset.mapping or {}).get("positive_values"),
-            "fields": (dataset.mapping or {}).get("fields"), "split": run.results.get("split"),
+            "positives": report.get("positives"), "label_column": mapping.get("label_column"),
+            "positive_values": mapping.get("positive_values"),
+            "fields": mapping.get("fields"), "split": run.results.get("split"),
+            "mapping_snapshot": mapping, "mapping_sha256": run.config["mapping_sha256"],
+            "protocol_id": str(protocol.id), "protocol_version": EVALUATION_PROTOCOL,
         },
         # Flat keys, so the existing model cards in the UI show them like any version's validation.
         "validation": {
@@ -211,7 +403,8 @@ def save_draft(db: Session, run: LabRun, *, model_key: str, threshold_index: int
             "precision": validation_point["precision"], "recall": validation_point["recall"],
             "f1": validation_point["f1"], "threshold": threshold, "at_threshold": validation_point,
         },
-        "test": {"at_threshold": test_point, "at_default_threshold": summary["test"]},
+        "test": {"at_threshold": test_point, "by_category": by_category, "revealed_once": True,
+                 "locked_at": protocol.final_locked_at.isoformat()},
         "lab_run_id": str(run.id),
         "lab_model_key": model_key,
         "approval": APPROVAL_NOTE,
@@ -225,6 +418,8 @@ def save_draft(db: Session, run: LabRun, *, model_key: str, threshold_index: int
     )
     db.add(version)
     db.flush()
+    protocol.final_model_version_id = version.id
+    protocol.final_evaluated_at = datetime.now(timezone.utc)
     record_transition(db, correlation_id=run.correlation_id, actor=actor, object_type=OBJECT_MODEL_VERSION,
                       object_id=version.id, from_state=None, to_state=RuleState.DRAFT.value,
                       reason=(f"Saved from model lab run {run.id}: {spec['name']} at threshold {threshold:.6g}. "
@@ -483,20 +678,43 @@ def _ensure_account_proxies(db: Session, accepted) -> int:
     return len(missing)
 
 
+def _monitor_mapping(db: Session, dataset: LabDataset) -> dict:
+    """Use the approved model's provenance, never a mutable later remapping."""
+    active = list(db.scalars(select(ModelVersion).where(ModelVersion.state == RuleState.ACTIVE,
+                                                       ModelVersion.artefact_type.in_(LAB_ARTEFACTS))))
+    matching = [v for v in active if v.model_card.get("training_data", {}).get("dataset_id") == str(dataset.id)
+                or v.model_card.get("training_data", {}).get("file_sha256") == dataset.file_sha256]
+    if matching:
+        data = matching[0].model_card.get("training_data", {})
+        mapping = data.get("mapping_snapshot")
+        if not mapping or _json_hash(mapping) != data.get("mapping_sha256"):
+            raise LabConflict("Model lama tidak memiliki snapshot pemetaan lengkap; siapkan versi baru sebelum monitoring file sumber.")
+        return deepcopy(mapping)
+    if active:
+        raise LabConflict("Dataset ini bukan sumber model ACTIVE; pilih dataset yang pemetaannya disetujui bersama model.")
+    protocol = _protocol(db, dataset.file_sha256)
+    if protocol is not None:
+        if protocol.legacy_exposed or not protocol.mapping_snapshot:
+            raise LabConflict("Sumber lama tidak memiliki kontrak pemetaan monitoring yang dibekukan.")
+        return deepcopy(protocol.mapping_snapshot)
+    if dataset.mapping is None:
+        raise LabConflict("Petakan kolom dataset ini terlebih dahulu; pemantauan memakai pemetaan yang sama.")
+    return deepcopy(dataset.mapping)
+
+
 def monitor_upload(db: Session, dataset: LabDataset, *, actor: User, file_name: str, raw_bytes: bytes) -> dict:
     """Ingest a new file in this dataset's layout as a monitored batch, then run detection:
     every ACTIVE rule, then every ACTIVE model (and ML_SCORE alerts when switched on)."""
-    from app.services.detection.p02_structuring import run_p02_structuring
+    from app.services.detection.registry import run_all_rule_patterns
     from app.services.ingestion import DuplicateBatchError, IngestionFileError, ingest_transactions_csv, register_batch
     from app.services.ml_scoring import run_ml_scoring
 
-    if dataset.mapping is None:
-        raise LabConflict("Petakan kolom dataset ini terlebih dahulu; pemantauan memakai pemetaan yang sama.")
+    mapping = _monitor_mapping(db, dataset)
     started = time.perf_counter()
     raw, file_format = read_table_bytes(raw_bytes)
-    mapped = map_for_monitoring(raw, dataset.mapping)
+    mapped = map_for_monitoring(raw, mapping)
     proxies = _ensure_account_proxies(db, mapped.frame) if len(mapped.frame) else 0
-    content = _canonical_csv(raw, dataset.mapping, mapped.frame)
+    content = _canonical_csv(raw, mapping, mapped.frame)
     try:
         batch = register_batch(db, actor=actor, file_name=file_name, raw_bytes=raw_bytes,
                                source_system=MONITOR_SOURCE_SYSTEM, business_date=datetime.now(timezone.utc).date(),
@@ -518,7 +736,7 @@ def monitor_upload(db: Session, dataset: LabDataset, *, actor: User, file_name: 
                       details={"batch_ref": summary.batch_ref, "file_format": file_format,
                                "account_proxies_created": proxies})
     db.commit()
-    p02 = run_p02_structuring(db, actor=actor)
+    rules = run_all_rule_patterns(db, actor=actor)
     ml = run_ml_scoring(db, actor=actor)
     return {
         "file_name": file_name, "file_format": file_format, "mapping_report": mapped.report,
@@ -526,7 +744,7 @@ def monitor_upload(db: Session, dataset: LabDataset, *, actor: User, file_name: 
         "accepted": summary.accepted, "quarantined": summary.quarantined,
         "quarantine_preview": [p.model_dump() for p in summary.quarantine_preview],
         "account_proxies_created": proxies,
-        "rule_alerts_created": p02.alerts_created,
+        "rule_alerts_created": sum(rule.alerts_created for rule in rules),
         "models": [r.__dict__ for r in ml.models],
         "model_alerts_created": ml.alerts_created,
         "model_alerts_active": bool(ml.ml_rule_versions_evaluated),

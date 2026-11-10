@@ -14,7 +14,7 @@ so a run can always be traced back to exactly the file it was trained on.
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, LargeBinary, String, Text, UniqueConstraint, text
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, LargeBinary, String, Text, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, deferred, mapped_column
 from sqlalchemy.sql import func
@@ -61,6 +61,7 @@ class LabRun(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()")
     )
+    protocol_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("lab_evaluation_protocol.id"), nullable=True)
     dataset_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("lab_dataset.id"), nullable=False, index=True
     )
@@ -88,10 +89,34 @@ class LabModel(Base):
     model_text: Mapped[str] = deferred(mapped_column(Text, nullable=False))
     features: Mapped[list] = mapped_column(JSONB, nullable=False)
     vocabulary: Mapped[dict] = mapped_column(JSONB, nullable=False)
-    # The validation curve is what the threshold slider shows. The test curve
-    # (same candidate thresholds) is only read when a model is saved, so the
-    # final figures never steer the choice of threshold.
+    # Legacy test curves stay for historical rows. Sealed-final candidates
+    # store [] and compute only the one locked choice at save.
     thresholds: Mapped[list] = mapped_column(JSONB, nullable=False)
     test_curve: Mapped[list] = deferred(mapped_column(JSONB, nullable=False))
     default_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class LabEvaluationProtocol(Base):
+    """One logical final evaluation per exact uploaded byte checksum.
+
+    Re-encoding or altering data creates another checksum; this is a local
+    workflow lock, never a claim of adversarially hidden source labels.
+    """
+    __tablename__ = "lab_evaluation_protocol"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True,
+                                         server_default=text("gen_random_uuid()"))
+    source_file_sha256: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    protocol_version: Mapped[str] = mapped_column(String, nullable=False)
+    mapping_snapshot: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    mapping_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    train_share: Mapped[float | None] = mapped_column(Float, nullable=True)
+    legacy_exposed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    final_run_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("lab_run.id", use_alter=True, name="fk_lab_protocol_final_run"), nullable=True)
+    final_model_key: Mapped[str | None] = mapped_column(String, nullable=True)
+    final_threshold_index: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    final_model_version_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("model_version.id"), nullable=True)
+    final_locked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    final_evaluated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

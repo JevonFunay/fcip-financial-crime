@@ -5,12 +5,15 @@
 Supersedes any earlier progress figure. Scope definitions, architecture and open
 questions are unchanged — see `PROJECT_CONTEXT.md`.
 
-> **4 November quality verification:** all **843 existing backend checks** and
-> the frontend build pass; 18 new offline audit checks pass too. Fresh synthetic
-> Lab LightGBM precision/recall is **98.56%/89.38%**, but ATO recall is 33.33% and
-> P05 is 0%. Actual TRAIN has no positive examples of either pattern. These
-> results measure the current offline pipeline, not a live ACTIVE artifact or
-> real crime/AML accuracy. [Report and evidence](ml/current_quality_20261104.md).
+> **4 November repair and retraining:** **913 distinct backend checks** and the
+> frontend build pass. Mapping/splits lock at first training; comparison uses
+> validation and reveals one committed final choice. A separate 250k source has
+> 150k actual TRAIN with low-value/benign ATO/P04/P05 coverage. On the same fresh
+> 100k final, selected LightGBM P68.49%/R97.39% versus old P36.99%/R13.91%; FP
+> increases 499→944, so the strict matched guard fails. Models stay offline DRAFT;
+> 104/108 benign lookalike episodes are flagged. No live DB/activation or original
+> generator change. [Report and evidence](ml/lab_repair_20261104.md). The preceding
+> 98.56% baseline is historical and uses a different final population.
 
 > **3 November:** detection patterns **P01 and P03–P10** are now rule-as-data like P02
 > (migration 0013 seeds nine ACTIVE rules, `RUL-0003`…`RUL-0011`; templates in
@@ -59,16 +62,17 @@ assigns effort weights.
 | Demo-relevant UAT scenarios runnable end to end | 3 of 15 (UAT-01, 04, 05 are plausible; others blocked) | ~20% |
 
 **Test status (be precise about what was verified):**
-- On 4 November, **838 regular + 5 slow existing tests pass**, no failed or skipped
-  bodies, on a new private PostgreSQL16.15 cluster. The temporary servers are
-  confirmed stopped; no live application database is accessed.
-- **18 new audit guard checks pass**, independently repeated, for 861 distinct
-  passing checks in the stage. Preliminary/repeated checks are not double-counted.
+- On 4 November, **887 regular + 5 slow checks pass** on private PostgreSQL16.15
+  clusters. The temporary servers are stopped; no live app DB is accessed.
+- One later generator compatibility check and 20 new repair-audit guards also
+  pass. Latest independent focused run: 35 passing generator/audit checks.
+  **913 distinct checks** in total; overlapping reruns are not double-counted.
 - Frontend `npm run build` passes (TypeScript and Vite production build).
 - Full commands, runtimes, warnings, environment setup correction and log hashes
-  are in [technical evidence](ml/current_quality_20261104_checks.json).
-- Passing tests do not establish broad detection quality or fix the listed
-  evaluation/integration gaps. Audit models remain offline DRAFT; current live
+  are in [technical evidence](ml/lab_repair_20261104_checks.json).
+- Passing tests do not establish crime/AML accuracy. Evaluation/mapping and
+  monitoring alignment gaps listed in the old audit are repaired; investigation
+  workflow gaps remain. Audit models stay offline DRAFT; current live
   registry state was not queried. Production browser QA was not rerun.
 
 ---
@@ -124,7 +128,20 @@ assigns effort weights.
 
 ## Built since the last progress report
 
-### 4 November — current application and model quality tested
+### 4 November — evaluation lock, coverage retraining and monitoring repair
+
+913 distinct tests and frontend build pass; private test databases stop cleanly.
+Mapping/share and complete availability groups lock; one candidate/threshold
+commits before final TEST reveal, including concurrent/duplicate-upload guards.
+New separate source250k → TRAIN150k; all ATO/P04/P05 positive/benign/low slices.
+Three native fits, hashes frozen before final100k; selected LightGBM P68.49%,
+R97.39%, TP2052/FP944/FN55/TN96949; low-value recall97.86% across all patterns.
+Matched old model P36.99%/R13.91%, FP499: strict FP guard fails; benign episodes
+flagged104/108. CLI/Lab run P01–P10; retired/suspended scores make no new alerts.
+**Own decisions:** AS-17–19. **Capstone:** Cakupan membaik, tetapi lookalike sah
+masih sulit dibedakan; model offline, tanpa klaim AML. [Report](ml/lab_repair_20261104.md).
+
+### 4 November — historical baseline application and model quality test
 
 843 existing tests + 18 new audit checks pass, plus frontend build. An unchanged
 Lab fit uses 100k source rows; a frozen later 100k synthetic draw has 98,346 valid
@@ -240,7 +257,14 @@ project start date). Feature freeze (Gate 5) is week 14, so roughly six weeks re
 
 ## Next (priority order)
 
-0. **Mentor, this week (no code):** written answers to MQ-01, MQ-02, MQ-04, MQ-05, CF-01, CF-05;
+**Current authorised ML track:** the 4 November repair/retraining stage is
+complete; its final is exposed and cannot support tuning plus a new unseen-test
+claim. Next, review false positives/legitimate controls and the desired
+precision/recall tradeoff with the mentor. More dummy volume cannot reveal
+unobserved intent. The separate AML account-week Lab remains a subsequent stage.
+The original product backlog below remains in its existing order.
+
+0. **Mentor, this week (no code):** written answers to MQ-01, MQ-02, MQ-04, MQ-05, CF-01;
    a one-page parameter sheet for the 12 patterns (default value, keep/change column); ruling on the
    A/B split and a cut list for the 84 Must requirements (FRD §14.6 C2).
 1. **Align state vocabulary** to TRD §17.2 (alert, case, evidence, decision types) with migration and tests.
@@ -257,8 +281,10 @@ project start date). Feature freeze (Gate 5) is week 14, so roughly six weeks re
 9. **DQ metrics, rule metrics, basic dashboards** (FR-108, 1001, 1011–1013).
 10. Risk scoring (minimal), P11/graph — cut first if time runs out.
 
-**Freeze, do not extend:** further ML research, live monitoring, and any `ML_SCORE` activation
-until CF-05 is confirmed in writing.
+**Governance:** CF-05(b) was answered on 27 October, as relayed by Michael;
+MLRO approval and the model-alert switch govern activation. This offline stage
+does not activate models. Written confirmation of proposed RC-ML-01/severity
+and the remaining product defaults is still advisable.
 
 ---
 
@@ -266,16 +292,19 @@ until CF-05 is confirmed in writing.
 
 - **MQ-01…MQ-10** unanswered past their week-3 deadline (DEP-11). MQ-02's default is already
   implemented in P02; the other answer means redesigning the detector.
-- **CF-01 and CF-05** (TRD §1.5) open.
+- **CF-01** (TRD §1.5) open; CF-05(b) answered 27 October, see AS-15.
 - **The A/B split never happened.** FRD §13, TRD §17, interfaces I-01…I-11 and Gate 1 have no counterparty.
 - **FRD §14.6 C2** ("the Must set is achievable") has never been ticked.
-- **ML quality gate unmet:** best AML account-window precision 0.677%; all models DRAFT.
+- **ML quality gate unmet:** historical AML account-window precision 0.677%.
+  New transaction coverage improves but lookalike discrimination is weak and
+  the matched FP guard fails; new research models remain offline DRAFT.
 - **State vocabulary divergence** (see 27 October entry) — needs a decision: align to contract, or
   record a documented ADR and get mentor sign-off.
 - **TRD §11.1 vs §11.5:** "~600" vs 820 entity-resolution duplicates; generator follows §11.5.
 - **UAT-12:** one correlation ID from batch to report is not well defined because an alert's window can
   span several batches; batch and alert currently chain separately.
-- **Unreproduced test count:** the full-suite figure needs a recorded Docker run.
+- **Deployment verification:** current backend checks use private PostgreSQL16.15;
+  no live Compose migration, deployment or browser QA is claimed.
 
 ---
 

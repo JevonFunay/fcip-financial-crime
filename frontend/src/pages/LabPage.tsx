@@ -265,14 +265,16 @@ function initialMapping(dataset: LabDataset): LabMappingIn {
 
 function MappingStep({ options, dataset, canWrite }: { options: LabOptions; dataset: LabDataset; canWrite: boolean }) {
   const queryClient = useQueryClient();
+  const mappingLocked = dataset.evaluation?.state !== "UNCONFIGURED";
+  const editable = canWrite && !mappingLocked;
   const [form, setForm] = useState<LabMappingIn>(() => initialMapping(dataset));
   const [positiveText, setPositiveText] = useState("");
   useEffect(() => {
     setForm(initialMapping(dataset));
     setPositiveText("");
-    // Re-initialise only when another dataset is opened, not on every refetch.
+    // Refresh the form when its source or immutable contract changes, not on every refetch.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dataset.id]);
+  }, [dataset.id, dataset.evaluation?.protocol_id]);
   const save = useMutation({
     mutationFn: (mapping: LabMappingIn) => saveLabMapping(dataset.id, mapping),
     onSuccess: (updated) => {
@@ -321,6 +323,8 @@ function MappingStep({ options, dataset, canWrite }: { options: LabOptions; data
         <span className="badge badge-blue">{num(dataset.row_count)} baris · {dataset.columns.length} kolom</span>
       </div>
 
+      {mappingLocked && <p className="notice lab-note">Pemetaan sudah dikunci bersama run pelatihan. Data baru dipantau memakai pemetaan yang tersimpan pada model.</p>}
+
       <details className="lab-preview">
         <summary>Pratinjau 8 baris pertama</summary>
         <div className="table-scroll">
@@ -350,7 +354,7 @@ function MappingStep({ options, dataset, canWrite }: { options: LabOptions; data
               <select
                 value={form.fields[field.key] ?? NONE}
                 onChange={(event) => setField(field.key, event.target.value)}
-                disabled={!canWrite}
+                disabled={!editable}
               >
                 <option value={NONE}>— tidak ada —</option>
                 {dataset.columns.filter((c) => !reserved.has(c)).map((c) => <option key={c} value={c}>{c}</option>)}
@@ -362,7 +366,7 @@ function MappingStep({ options, dataset, canWrite }: { options: LabOptions; data
           <h3>Kunci jawaban</h3>
           <label>
             Kolom label
-            <select value={form.label_column} onChange={(event) => setLabel(event.target.value)} disabled={!canWrite}>
+            <select value={form.label_column} onChange={(event) => setLabel(event.target.value)} disabled={!editable}>
               <option value={NONE}>— pilih kolom label —</option>
               {dataset.columns.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
@@ -376,7 +380,7 @@ function MappingStep({ options, dataset, canWrite }: { options: LabOptions; data
                     <input
                       type="checkbox"
                       checked={form.positive_values.includes(value)}
-                      disabled={!canWrite}
+                      disabled={!editable}
                       onChange={(event) =>
                         setForm((current) => ({
                           ...current,
@@ -394,7 +398,7 @@ function MappingStep({ options, dataset, canWrite }: { options: LabOptions; data
                   value={positiveText}
                   onChange={(event) => setPositiveText(event.target.value)}
                   placeholder="Nilai positif, pisahkan dengan koma"
-                  disabled={!canWrite}
+                  disabled={!editable}
                 />
               )}
             </fieldset>
@@ -404,7 +408,7 @@ function MappingStep({ options, dataset, canWrite }: { options: LabOptions; data
             <select
               value={form.category_column ?? NONE}
               onChange={(event) => setForm((current) => ({ ...current, category_column: event.target.value || null }))}
-              disabled={!canWrite}
+              disabled={!editable}
             >
               <option value={NONE}>— tidak ada —</option>
               {dataset.columns.filter((c) => c !== form.label_column).map((c) => <option key={c} value={c}>{c}</option>)}
@@ -415,7 +419,7 @@ function MappingStep({ options, dataset, canWrite }: { options: LabOptions; data
             <select
               value={form.date_format}
               onChange={(event) => setForm((current) => ({ ...current, date_format: event.target.value as "iso" | "month_first" }))}
-              disabled={!canWrite}
+              disabled={!editable}
             >
               <option value="iso">ISO · 2026-04-01 13:45:00</option>
               <option value="month_first">Bulan dulu · 04/01/2026</option>
@@ -428,10 +432,10 @@ function MappingStep({ options, dataset, canWrite }: { options: LabOptions; data
               maxLength={3}
               placeholder="mis. IDR atau USD"
               onChange={(event) => setForm((current) => ({ ...current, default_currency: event.target.value }))}
-              disabled={!canWrite}
+              disabled={!editable}
             />
           </label>
-          {canWrite && (
+          {editable && (
             <button type="button" onClick={submit} disabled={save.isPending || !form.label_column}>
               <Icon name="scan" size={16} />
               {save.isPending ? "Memvalidasi..." : "Validasi pemetaan"}
@@ -506,7 +510,12 @@ function TrainingStep({
   const queryClient = useQueryClient();
   const [groups, setGroups] = useState<string[]>(() => options.feature_groups.filter((g) => g.default).map((g) => g.key));
   const [models, setModels] = useState<string[]>(() => options.models.filter((m) => m.default).map((m) => m.key));
-  const [trainShare, setTrainShare] = useState(0.6);
+  const [trainShare, setTrainShare] = useState(dataset.evaluation?.train_share ?? 0.6);
+  const closed = ["REVEALED", "LEGACY_EXPOSED"].includes(dataset.evaluation?.state ?? "");
+  const editable = canWrite && !closed;
+  useEffect(() => {
+    if (dataset.evaluation?.train_share != null) setTrainShare(dataset.evaluation.train_share);
+  }, [dataset.id, dataset.evaluation?.train_share]);
   const train = useMutation({
     mutationFn: () => trainLabModels(dataset.id, { feature_groups: groups, models, train_share: trainShare }),
     onSuccess: (run) => {
@@ -531,6 +540,7 @@ function TrainingStep({
           <p>Fitur dihitung per transaksi hanya dari riwayat sebelum transaksi itu (tanpa mengintip masa depan).</p>
         </div>
       </div>
+      {dataset.evaluation?.state === "SEALED" && <p className="notice lab-note">Porsi waktu dan pemetaan sudah dikunci. Fitur/model masih dapat dibandingkan memakai validasi sampai pilihan final disimpan.</p>}
       <div className="lab-config">
         <fieldset className="lab-checks">
           <legend>Kelompok fitur</legend>
@@ -539,7 +549,7 @@ function TrainingStep({
               <input
                 type="checkbox"
                 checked={groups.includes(group.key)}
-                disabled={!canWrite || train.isPending}
+                disabled={!editable || train.isPending}
                 onChange={(event) => setGroups((current) => toggle(current, group.key, event.target.checked))}
               />
               <span>
@@ -557,7 +567,7 @@ function TrainingStep({
                 <input
                   type="checkbox"
                   checked={models.includes(model.key)}
-                  disabled={!canWrite || train.isPending}
+                  disabled={!editable || train.isPending}
                   onChange={(event) => setModels((current) => toggle(current, model.key, event.target.checked))}
                 />
                 <span>
@@ -577,20 +587,20 @@ function TrainingStep({
               max={0.8}
               step={0.05}
               value={trainShare}
-              disabled={!canWrite || train.isPending}
+              disabled={!editable || train.isPending || dataset.evaluation?.state === "SEALED"}
               onChange={(event) => setTrainShare(Number(event.target.value))}
             />
             <small className="muted">
               Urut waktu: {pct(trainShare, 0)} terlama untuk latih · {pct(rest, 0)} validasi · {pct(rest, 0)} terbaru untuk uji
             </small>
           </label>
-          {canWrite ? (
+          {editable ? (
             <button type="button" onClick={() => train.mutate()} disabled={train.isPending || !groups.length || !models.length}>
               <Icon name="activity" size={16} />
               {train.isPending ? "Melatih model..." : "Latih & bandingkan"}
             </button>
           ) : (
-            <p className="muted small">Hanya Data Ops dan Analyst yang dapat melatih model.</p>
+            <p className="muted small">Pelatihan memerlukan Data Ops/Analyst dan data uji yang belum dibuka. Dataset lama yang hasilnya sudah terlihat tidak menjadi uji final baru.</p>
           )}
           {train.isPending && (
             <div className="processing-state" role="status">
@@ -640,8 +650,8 @@ function CurveChart({ curve, index, defaultIndex }: { curve: LabCurvePoint[]; in
       <path d={path("precision")} className="lab-chart-precision" />
       <path d={path("recall")} className="lab-chart-recall" />
       <line x1={x(index)} x2={x(index)} y1={pad.top} y2={height - pad.bottom} className="lab-chart-cursor" />
-      <text x={pad.left} y={height - 6} className="lab-chart-label">threshold rendah · banyak alert</text>
-      <text x={width - pad.right} y={height - 6} textAnchor="end" className="lab-chart-label">threshold tinggi · sedikit alert</text>
+      <text x={pad.left} y={height - 6} className="lab-chart-label">threshold rendah · banyak flag</text>
+      <text x={width - pad.right} y={height - 6} textAnchor="end" className="lab-chart-label">threshold tinggi · sedikit flag</text>
     </svg>
   );
 }
@@ -654,13 +664,14 @@ function ResultsStep({ run, canWrite }: { run: LabRun; canWrite: boolean }) {
   const [index, setIndex] = useState(model.default_index);
   const [saved, setSaved] = useState<LabSavedModel | null>(null);
   useEffect(() => {
-    setModelKey(results.best_model);
+    setModelKey(run.evaluation?.model_key ?? results.best_model);
     setSaved(null);
-  }, [run.id, results.best_model]);
+  }, [run.id, results.best_model, run.evaluation?.model_key]);
   useEffect(() => {
-    setIndex(model.default_index);
+    setIndex(run.evaluation?.model_key === model.key && run.evaluation.threshold_index != null
+      ? run.evaluation.threshold_index : model.default_index);
     setSaved(null);
-  }, [model.key, model.default_index]);
+  }, [model.key, model.default_index, run.evaluation?.model_key, run.evaluation?.threshold_index]);
   const save = useMutation({
     mutationFn: () => saveLabModel(run.id, model.key, index),
     onSuccess: (result) => {
@@ -668,15 +679,20 @@ function ResultsStep({ run, canWrite }: { run: LabRun; canWrite: boolean }) {
       void queryClient.invalidateQueries({ queryKey: ["lab-run", run.id] });
       void queryClient.invalidateQueries({ queryKey: ["models"] });
       void queryClient.invalidateQueries({ queryKey: ["lab-models"] });
+      void queryClient.invalidateQueries({ queryKey: ["lab-dataset", run.dataset_id] });
+      void queryClient.invalidateQueries({ queryKey: ["lab-datasets"] });
     },
   });
   const point = model.validation_curve[Math.min(index, model.validation_curve.length - 1)];
   const categories = useMemo(() => {
     const names = new Set<string>();
-    results.models.forEach((m) => m.test_by_category?.forEach((c) => names.add(c.category)));
+    results.models.forEach((m) => m.validation_by_category?.forEach((c) => names.add(c.category)));
     return [...names];
   }, [results.models]);
   const savedHere = run.saved_versions.filter((v) => v.model_key === model.key);
+  const evaluation = run.evaluation;
+  const final = evaluation?.selected_final;
+  const locked = !!saved || ["REVEALED", "LEGACY_EXPOSED"].includes(evaluation?.state ?? "");
 
   return (
     <>
@@ -686,18 +702,20 @@ function ResultsStep({ run, canWrite }: { run: LabRun; canWrite: boolean }) {
             <span className="section-kicker">LANGKAH 4</span>
             <h2 id="lab-step-4">Perbandingan model</h2>
             <p>
-              Diukur di data uji (periode terbaru) yang tidak dipakai untuk melatih atau memilih apa pun. Run{" "}
+              Perbandingan memakai data validasi; hasil uji final tidak dipakai untuk memilih model. Run{" "}
               {formatDateTime(run.created_at)} · {num(run.seconds, 1)} detik.
             </p>
           </div>
         </div>
+        {evaluation?.state === "LEGACY_EXPOSED" && <p className="notice lab-note">Run lama sudah pernah menampilkan hasil uji. Hasilnya tetap historis dan tidak dapat dipakai sebagai uji final baru.</p>}
+        {evaluation?.state === "REVEALED" && <p className="notice lab-note">Pilihan final untuk file ini sudah dikunci. Perbandingan validasi tetap dapat dibaca; pilihan model dan threshold tidak dapat diganti.</p>}
         <div className="lab-split">
           {(["train", "validation", "test"] as const).map((part) => (
             <div key={part} className="lab-split-part">
               <span>{part === "train" ? "Latih" : part === "validation" ? "Validasi" : "Uji"}</span>
               <strong>{num(results.split[part].rows)} baris</strong>
               <small>
-                {num(results.split[part].positives)} positif · {dateOnly(results.split[part].date_from)} – {dateOnly(results.split[part].date_to)}
+                {part !== "test" ? `${num(results.split[part].positives)} positif · ` : "hasil dikunci · "}{dateOnly(results.split[part].date_from)} – {dateOnly(results.split[part].date_to)}
               </small>
             </div>
           ))}
@@ -711,7 +729,7 @@ function ResultsStep({ run, canWrite }: { run: LabRun; canWrite: boolean }) {
                 <th className="num">Average precision</th>
                 <th className="num">Presisi</th>
                 <th className="num">Recall</th>
-                <th className="num">Alert / 10.000 trx</th>
+                <th className="num">Flag / 10.000 trx</th>
                 <th className="num">Waktu latih</th>
               </tr>
             </thead>
@@ -723,10 +741,10 @@ function ResultsStep({ run, canWrite }: { run: LabRun; canWrite: boolean }) {
                     {m.key === results.best_model && <span className="badge badge-green lab-best">Terbaik di validasi</span>}
                   </td>
                   <td><span className={`lab-kind lab-kind-${m.kind}`}>{kindLabel(m.kind)}</span></td>
-                  <td className="num">{dec(m.test.average_precision)}</td>
-                  <td className="num">{pct(m.test.precision)}</td>
-                  <td className="num">{pct(m.test.recall)}</td>
-                  <td className="num">{num(m.test.flagged_per_10k, 0)}</td>
+                  <td className="num">{dec(m.validation_ranking.average_precision)}</td>
+                  <td className="num">{pct(m.validation_curve[m.default_index].precision)}</td>
+                  <td className="num">{pct(m.validation_curve[m.default_index].recall)}</td>
+                  <td className="num">{num(m.validation_curve[m.default_index].flagged_per_10k, 0)}</td>
                   <td className="num">{num(m.seconds, 1)} s</td>
                 </tr>
               ))}
@@ -734,16 +752,21 @@ function ResultsStep({ run, canWrite }: { run: LabRun; canWrite: boolean }) {
           </table>
         </div>
         <p className="small muted lab-footnote">
-          Presisi & recall pada threshold default tiap model (F1 tertinggi di validasi). Pembanding: menandai transaksi
-          secara acak hanya memberi presisi ≈ {pct(results.positive_rate_test, 2)} (rasio positif di data uji). Average
-          precision: 1,0 = sempurna.
+          Presisi dan recall memakai threshold default tiap model di validasi. Average precision adalah ringkasan
+          peringkat di validasi; hasil final hanya dibuka untuk satu pilihan model dan threshold.
         </p>
+        {results.positive_category_coverage?.train && (
+          <p className="notice lab-note">
+            Contoh positif di latih: {Object.entries(results.positive_category_coverage.train).map(([name, count]) => `${name} ${num(count)}`).join(" · ") || "tidak ada kategori"}.
+            {" "}Validasi: {Object.entries(results.positive_category_coverage.validation ?? {}).map(([name, count]) => `${name} ${num(count)}`).join(" · ") || "tidak ada kategori"}.
+          </p>
+        )}
         {categories.length > 0 && (
           <div className="table-scroll">
             <table className="table lab-categories">
               <thead>
                 <tr>
-                  <th>Kategori / pola (data uji)</th>
+                  <th>Kategori / pola (validasi · threshold default)</th>
                   {results.models.map((m) => <th key={m.key} className="num">{m.name}</th>)}
                 </tr>
               </thead>
@@ -752,7 +775,7 @@ function ResultsStep({ run, canWrite }: { run: LabRun; canWrite: boolean }) {
                   <tr key={category}>
                     <td className="mono">{category}</td>
                     {results.models.map((m) => {
-                      const c = m.test_by_category?.find((x) => x.category === category);
+                      const c = m.validation_by_category?.find((x) => x.category === category);
                       return (
                         <td key={m.key} className="num">
                           {c ? `${num(c.caught)} / ${num(c.positives)} tertangkap` : "–"}
@@ -787,8 +810,8 @@ function ResultsStep({ run, canWrite }: { run: LabRun; canWrite: boolean }) {
             <span className="section-kicker">LANGKAH 4 · THRESHOLD</span>
             <h2 id="lab-threshold">Pilih titik kerja</h2>
             <p>
-              Angka di sini dari data validasi. Data uji baru dibuka saat model disimpan, supaya threshold tidak
-              disetel ke data uji.
+              Angka di sini dari validasi. Saat pilihan dikunci dan disimpan, satu hasil uji final dibuka.
+              Pilihan lain dan pelatihan ulang pada file yang sama kemudian ditutup.
             </p>
           </div>
           <div className="lab-model-tabs" role="tablist" aria-label="Model">
@@ -797,6 +820,7 @@ function ResultsStep({ run, canWrite }: { run: LabRun; canWrite: boolean }) {
                 key={m.key}
                 type="button"
                 role="tab"
+                disabled={save.isPending || locked}
                 aria-selected={m.key === model.key}
                 className={m.key === model.key ? "is-active" : "button-secondary"}
                 onClick={() => setModelKey(m.key)}
@@ -822,6 +846,7 @@ function ResultsStep({ run, canWrite }: { run: LabRun; canWrite: boolean }) {
                 max={model.validation_curve.length - 1}
                 step={1}
                 value={index}
+                disabled={locked || save.isPending}
                 onChange={(event) => {
                   setIndex(Number(event.target.value));
                   setSaved(null);
@@ -829,7 +854,7 @@ function ResultsStep({ run, canWrite }: { run: LabRun; canWrite: boolean }) {
               />
             </label>
             <div className="lab-slider-actions">
-              <button type="button" className="button-secondary" onClick={() => setIndex(model.default_index)}>
+              <button type="button" className="button-secondary" disabled={locked || save.isPending} onClick={() => setIndex(model.default_index)}>
                 Kembali ke default
               </button>
             </div>
@@ -838,7 +863,7 @@ function ResultsStep({ run, canWrite }: { run: LabRun; canWrite: boolean }) {
             <div className="lab-metric">
               <span>Presisi</span>
               <strong>{pct(point.precision)}</strong>
-              <small>dari alert, yang benar positif</small>
+              <small>dari flag, yang berlabel positif</small>
             </div>
             <div className="lab-metric">
               <span>Recall</span>
@@ -846,15 +871,23 @@ function ResultsStep({ run, canWrite }: { run: LabRun; canWrite: boolean }) {
               <small>dari kasus positif, yang tertangkap</small>
             </div>
             <div className="lab-metric">
-              <span>Alert / 10.000 trx</span>
+              <span>Flag / 10.000 trx</span>
               <strong>{num(point.flagged_per_10k, 0)}</strong>
               <small>beban kerja analis</small>
             </div>
             <p className="lab-plain">
-              Dari <strong>{num(point.flagged)}</strong> alert di data validasi, <strong>{num(point.tp)}</strong> benar
-              positif dan <strong>{num(point.fp)}</strong> alarm palsu; <strong>{num(point.fn)}</strong> kasus positif
+              Dari <strong>{num(point.flagged)}</strong> flag di data validasi, <strong>{num(point.tp)}</strong> benar
+              positif dan <strong>{num(point.fp)}</strong> berlabel negatif ikut ditandai; <strong>{num(point.fn)}</strong> kasus positif
               terlewat.
             </p>
+            {!!model.validation_category_curve?.[index]?.length && (
+              <div className="small">
+                <strong>Cakupan pola pada threshold ini · validasi</strong>
+                {model.validation_category_curve[index].map((c) => (
+                  <p key={c.category}>{c.category}: {num(c.caught)} / {num(c.positives)} positif tertangkap.</p>
+                ))}
+              </div>
+            )}
             {model.top_features.length > 0 && (
               <div className="lab-top-features">
                 <h3>Fitur paling berpengaruh · {model.name}</h3>
@@ -893,18 +926,18 @@ function ResultsStep({ run, canWrite }: { run: LabRun; canWrite: boolean }) {
             <dt>Threshold</dt>
             <dd className="mono">{threshold(point.threshold)}{index === model.default_index ? " (default)" : ""}</dd>
             <dt>Validasi</dt>
-            <dd>presisi {pct(point.precision)} · recall {pct(point.recall)} · {num(point.flagged_per_10k, 0)} alert / 10.000 trx</dd>
+            <dd>presisi {pct(point.precision)} · recall {pct(point.recall)} · {num(point.flagged_per_10k, 0)} flag / 10.000 trx</dd>
             <dt>Dataset</dt>
             <dd>{run.dataset_name}</dd>
           </dl>
           {canWrite && (
-            <button type="button" onClick={() => save.mutate()} disabled={save.isPending}>
+            <button type="button" onClick={() => save.mutate()} disabled={save.isPending || locked}>
               <Icon name="check" size={16} />
-              {save.isPending ? "Menyimpan..." : "Simpan sebagai draft"}
+              {save.isPending ? "Mengunci & menguji..." : locked ? "Pilihan final sudah dikunci" : "Kunci pilihan & simpan draft"}
             </button>
           )}
           {save.error && <p className="error" role="alert">{errorMessage(save.error)}</p>}
-          {saved && (
+          {saved && !final && (
             <div className="lab-saved" role="status">
               <p>
                 <strong>{saved.already_saved ? "Sudah tersimpan sebelumnya" : "Tersimpan"}</strong> sebagai{" "}
@@ -912,7 +945,7 @@ function ResultsStep({ run, canWrite }: { run: LabRun; canWrite: boolean }) {
               </p>
               <p>
                 Hasil di <strong>data uji</strong> pada threshold ini: presisi {pct(saved.test.precision)} · recall{" "}
-                {pct(saved.test.recall)} · {num(saved.test.flagged_per_10k, 0)} alert / 10.000 trx.
+                {pct(saved.test.recall)} · {num(saved.test.flagged_per_10k, 0)} flag / 10.000 trx.
               </p>
               <p className="small muted">
                 DRAFT belum menilai transaksi apa pun. Berikutnya: Analyst mengajukannya, MLRO lain menyetujui
@@ -926,6 +959,13 @@ function ResultsStep({ run, canWrite }: { run: LabRun; canWrite: boolean }) {
                   Lihat di registry model
                 </Link>
               </div>
+            </div>
+          )}
+          {final && (
+            <div className="lab-saved" role="status">
+              <strong>Uji final terkunci · {final.version}</strong>
+              <p>Presisi {pct(final.at_threshold.precision)} · recall {pct(final.at_threshold.recall)} · {num(final.at_threshold.flagged_per_10k)} flag / 10.000 transaksi.</p>
+              {final.by_category?.map((c) => <p key={c.category} className="small">{c.category}: {num(c.caught)} / {num(c.positives)} positif tertangkap.</p>)}
             </div>
           )}
           {!saved && savedHere.length > 0 && (

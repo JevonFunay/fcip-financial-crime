@@ -82,6 +82,7 @@ class LabDatasetOut(BaseModel):
     uploaded_by_email: str | None
     created_at: datetime
     runs: list[LabRunSummary] = []
+    evaluation: dict = {}
 
 
 class LabRunIn(BaseModel):
@@ -106,6 +107,7 @@ class LabRunOut(BaseModel):
     results: dict
     saved_versions: list[LabSavedVersion]
     synthetic_notice: str
+    evaluation: dict = {}
 
 
 class LabSaveIn(BaseModel):
@@ -137,6 +139,7 @@ class LabHistoryEntry(BaseModel):
 
 
 class LabModelVersionOut(BaseModel):
+    evaluation_state: str = "LEGACY_EXPOSED"
     id: uuid.UUID
     version: str
     state: RuleState
