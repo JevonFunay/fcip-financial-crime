@@ -1,0 +1,205 @@
+{
+  "checks": {
+    "all_frozen_expected_files": 28,
+    "database_access": false,
+    "externally_pinned_manifest": true,
+    "feature_infinite_values": 0,
+    "feature_intentional_nan_values": 6170,
+    "features_rebuilt_from_sealed_train_vocabulary": true,
+    "fit_or_activation": false,
+    "freeze_precedes_selected_test": true,
+    "labels_source_unchanged": true,
+    "original_sources_verified": 5,
+    "prepared_rows": 615,
+    "replayed_selected_scores_exactly_equal": true,
+    "selected_test_model_replayed_only": "lightgbm",
+    "test_artifact_files": 1,
+    "test_nonselected_candidates_scored": false,
+    "test_population": 93,
+    "validation_models_replayed": [
+      "logistic_regression",
+      "lightgbm",
+      "isolation_forest"
+    ],
+    "validation_native_max_f1_verified": true
+  },
+  "frozen_manifest_sha256": "dcaedabda6abdccbb418af503918f825bc31126e4516d691141080baed180c85",
+  "limitations": [
+    "Precision1.0 rests on10flags in93rows with15positives; FN5 remains. No perfect-model/production/real-crime claim.",
+    "Finalpositivecategories STRUCTURING/VELOCITY only; ATO/DORMANT/MULE unassessed.",
+    "TESTsupportmetadata previouslyinspected; VELOCITY-2crossesTRAIN/VAL; noindependentepisode/blindfinalclaim.",
+    "LRVALfloatingwarningsretained; finite savedparameters andnonBLASprobabilityparity verified withoneULPboundaryflagdifference; transientfititeratesnotreconstructed."
+  ],
+  "logistic_validation_non_blas_parity": {
+    "coef_max_abs": 1.6343658952226798,
+    "fixed_threshold_flag_differences": 1,
+    "input_z_max_abs": 5.635218137648402,
+    "linear_score_range": [
+      -9.423683189218217,
+      10.926081608615009
+    ],
+    "max_abs_probability_error": 2.220446049250313e-16,
+    "test_logistic_scores_computed": false,
+    "ulp_boundary_rows": [
+      {
+        "label": 1.0,
+        "native_probability": 0.8950247540355929,
+        "non_blas_probability": 0.8950247540355927,
+        "threshold": 0.8950247540355929,
+        "transaction_ref": "TRX-00516"
+      }
+    ]
+  },
+  "report_sha256": "27f1ecf685750b4d0aa57a1808923109d4e511dddab16e617c7d26673ee620d4",
+  "selected_test": {
+    "all": {
+      "average_precision": 0.9528322440087147,
+      "f1": 0.8,
+      "flagged": 10,
+      "flagged_per_10k": 1075.268817204301,
+      "fn": 5,
+      "fp": 0,
+      "negative_rows": 78,
+      "positive_rows": 15,
+      "precision": 1.0,
+      "recall": 0.6666666666666666,
+      "roc_auc": 0.9888888888888889,
+      "rows": 93,
+      "threshold": 0.5038643408002007,
+      "tn": 78,
+      "tp": 10
+    },
+    "by_family": {
+      "ATO": {
+        "caught": 0,
+        "missed": 0,
+        "positive_rows": 0,
+        "recall": null
+      },
+      "DORMANT": {
+        "caught": 0,
+        "missed": 0,
+        "positive_rows": 0,
+        "recall": null
+      },
+      "LOOKALIKE": {
+        "caught": 0,
+        "missed": 0,
+        "positive_rows": 0,
+        "recall": null
+      },
+      "MULE": {
+        "caught": 0,
+        "missed": 0,
+        "positive_rows": 0,
+        "recall": null
+      },
+      "NORMAL": {
+        "caught": 0,
+        "missed": 0,
+        "positive_rows": 0,
+        "recall": null
+      },
+      "STRUCTURING": {
+        "caught": 3,
+        "missed": 3,
+        "positive_rows": 6,
+        "recall": 0.5
+      },
+      "VELOCITY": {
+        "caught": 7,
+        "missed": 2,
+        "positive_rows": 9,
+        "recall": 0.7777777777777778
+      }
+    },
+    "small_amount_train_q25": {
+      "average_precision": 1.0,
+      "f1": 0.8571428571428571,
+      "flagged": 6,
+      "flagged_per_10k": 2400.0,
+      "fn": 2,
+      "fp": 0,
+      "positive_rows": 8,
+      "precision": 1.0,
+      "recall": 0.75,
+      "roc_auc": 1.0,
+      "rows": 25,
+      "threshold": 0.5038643408002007,
+      "tn": 17,
+      "tp": 6
+    }
+  },
+  "selected_test_scoring_warnings": [],
+  "small_amount_cutoff": 110625.0,
+  "state": "PASS_RETAIN_OFFLINE_DRAFT",
+  "unsupported_final_positive_families": [
+    "ATO",
+    "DORMANT",
+    "MULE"
+  ],
+  "validation": {
+    "isolation_forest": {
+      "candidate_curve_points_verified": 58,
+      "default_counts": {
+        "f1": 0.7586206896551724,
+        "fn": 1,
+        "fp": 6,
+        "precision": 0.6470588235294118,
+        "recall": 0.9166666666666666,
+        "threshold": 0.5547109324791415,
+        "tn": 74,
+        "tp": 11
+      },
+      "max_f1_over_all_validation_score_thresholds": true,
+      "ranking": {
+        "average_precision": 0.7441001400560224,
+        "roc_auc": 0.959375
+      },
+      "warnings": []
+    },
+    "lightgbm": {
+      "candidate_curve_points_verified": 29,
+      "default_counts": {
+        "f1": 0.9565217391304348,
+        "fn": 1,
+        "fp": 0,
+        "precision": 1.0,
+        "recall": 0.9166666666666666,
+        "threshold": 0.5038643408002007,
+        "tn": 80,
+        "tp": 11
+      },
+      "max_f1_over_all_validation_score_thresholds": true,
+      "ranking": {
+        "average_precision": 0.9666666666666667,
+        "roc_auc": 0.9916666666666667
+      },
+      "warnings": []
+    },
+    "logistic_regression": {
+      "candidate_curve_points_verified": 58,
+      "default_counts": {
+        "f1": 0.7586206896551724,
+        "fn": 1,
+        "fp": 6,
+        "precision": 0.6470588235294118,
+        "recall": 0.9166666666666666,
+        "threshold": 0.8950247540355929,
+        "tn": 74,
+        "tp": 11
+      },
+      "max_f1_over_all_validation_score_thresholds": true,
+      "ranking": {
+        "average_precision": 0.7922482882041707,
+        "roc_auc": 0.9489583333333332
+      },
+      "warnings": [
+        "divide by zero encountered in matmul",
+        "overflow encountered in matmul",
+        "invalid value encountered in matmul"
+      ]
+    }
+  },
+  "verification_harness_note": "Initial checker required exact non-BLAS LR VAL threshold flags; one2.22e-16 tie boundary differs, now explicitly retained rather than claimed identical. Selected LightGBM TEST scores/flags are exactly equal; no product/data/model edits."
+}

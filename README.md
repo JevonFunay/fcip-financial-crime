@@ -39,6 +39,13 @@ interventions, not adjudicated crime or AML labels. Models remain offline
 DRAFT; no live DB migration, registry change or activation was performed.
 The separate AML account-week Lab is still a later stage.
 
+**10 November small learning exercise:** the supplied team key labels615synthetic
+transactions (73positive/542negative). An approved70/15/15 offline study selects
+LightGBM on validation; its93-row TEST has TP10/FP0/FN5/TN78, P100%/R66.67%.
+Precision rests on only10flags, and TEST covers only two positive families;
+this does not replace the250k/100k benchmark or establish broad improvement.
+No application model is activated. [Data, methods and result](docs/ml/team_review_20261110.md).
+
 ## Historical baseline quality verification — 4 November 2026
 
 [The current quality report](docs/ml/current_quality_20261104.md) records

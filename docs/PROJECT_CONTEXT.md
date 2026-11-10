@@ -4,16 +4,23 @@
 Intelligence Platform capstone: what the project is, what the spec demands, what
 is actually built, what is deliberately not built, and what is still undecided.
 
-Last updated: **4 November 2026** · latest scope estimate in
+Last updated: **10 November 2026** · latest scope estimate in
 [PROGRESS.md](PROGRESS.md) is roughly 20% (3 November; not recounted by this audit).
 
-**Current handoff:** §18–20, [the Lab guide](LAB_THIN_SLICE.md) and
+**Current handoff:** §18–21, [the Lab guide](LAB_THIN_SLICE.md) and
 [PROGRESS.md](PROGRESS.md) describe the current application after the team's
 27 October/3 November work: nine roles, model approval and monitoring, and
 P01–P10 app rules. CF-05(b) is recorded as answered; an MLRO controls model
 alerts. Historical statements below about absent roles, pending CF-05 and
 only P02 are not the current application capability. Actual live model state
 was not queried by the 4 November verification.
+
+The [10 November team-label exercise](ml/team_review_20261110.md) is a separate
+small development study. Jevon supplied 615 synthetic transactions and clarified
+that the separate answer key contains the team's manual flags. All615 labels
+join exactly (73 positive/542 negative); he explicitly approved chronological
+70/15/15 offline training. It does not replace the250k benchmark or activate a
+model. AS-20 records the approved scope and source-provenance limitations.
 
 The [4 November Lab repair](ml/lab_repair_20261104.md) passes 913 distinct backend
 checks and the frontend build. It fixes evaluation/mapping leakage, adds a
@@ -785,6 +792,37 @@ the prior audit. Temporary PostgreSQL 16.15 tests only. Monitoring uses the
 approved model mapping snapshot and P01–P10 registry; only ACTIVE model versions'
 stored flags create new ML alerts. No live migration, registration or activation
 is authorised by this offline run. Jevon receives commit commands and pushes.
+
+**AS-20 — user-supplied team labels and small offline learning study (10 Nov):**
+Jevon supplied `transaksi_untuk_diflag.csv/.xlsx`, `kunci_jawaban.csv`,
+`make_flag_dataset.py` and `PANDUAN_FLAGGING.md` from Downloads, then clarified
+“dari kunci jawaban itu adalah flagging manual dari tim”. That direct instruction
+supersedes the guide's original instruction not to train on the key. Record
+manual provenance as user-reported; no reviewer identities/timestamps/agreement
+history are supplied, and the accompanying script also writes a key in this
+format. This cannot independently establish which labels were adjudicated.
+Original inputs are preserved and hashed; the supplied generator is not run.
+
+Exact one-to-one transaction_ref and matching account_number join615rows:
+73positive/542negative, no missing/extra IDs or labels, no quarantine. Labels
+mean team review decisions on synthetic records, not confirmed crime. Key
+scenario/penjelasan and reviewer text never become features. Pattern metadata
+only strips the trailing numeric episode suffix; DORMANT stays DORMANT, not
+FRD P05 (there is no observed ≥90-day prior gap). The default60%TRAIN fails the
+TRAIN→VAL category guard; Jevon explicitly selects70/15/15 (430/92/93 rows)
+before any fit or prediction. Models and thresholds use native validation
+selection; seal source/code/preprocessing/model/choice hashes before scoring
+only the selected model's TEST. Allthree native algorithms/eight feature groups,
+unchanged seed20261026. Keep the source TEST class-support inspection disclosed;
+this is a small exposed development dataset, not a new blind final benchmark.
+
+Limitations: only12 validation and15 TEST positives; TEST has STRUCTURING and
+VELOCITY positives, without ATO/MULE/DORMANT. VELOCITY-2 crosses TRAIN/VAL;
+episode independence is not claimed.613/615rows lack the minimum history gate;
+source channel choices contain strong label shortcuts. No duplication/upsampling
+to manufacture100k records, no old benchmark/model overwrite, DB access, model
+registration/activation or promotion. The user authorises offline learning
+only. These research choices are not FRD acceptance targets.
 
 ### TRD §1.5 — conflicts still open
 
@@ -2037,3 +2075,57 @@ diperbaiki; recall nominal kecil mencapai97,86% pada simulasi tiga pola. Presisi
 naik terhadap model lama pada data final yang sama, tetapi false positive
 bertambah dan lookalike sah masih sering tertandai. Model tetap offline DRAFT,
 tanpa klaim akurasi fraud nyata atau pencucian uang.
+
+---
+
+## 21. Team-labelled learning exercise — 10 November 2026
+
+Jevon's five Downloads files are read without executing their generator. His
+clarification supplies team manual labels; the original guide's prohibition on
+using the key is superseded by that instruction. Provenance remains user-reported
+without an independent reviewer history. AS-20 records the explicit70/15/15
+approval, input preservation, label semantics and limitations.
+[Report](ml/team_review_20261110.md), [results](ml/team_review_20261110_results.json),
+[checks](ml/team_review_20261110_checks.json) and
+[verification](ml/team_review_20261110_verification.json) retain the evidence.
+
+**Prepared:** exact one-to-one transaction_ref and account matching joins615rows
+with73positive/542negative labels, no loss/quarantine, preserving original fields
+and source hashes. `training_labeled.csv` adds category metadata only; reviewer
+explanations/names/recipient relationships are not numerical model inputs.
+The externally pinned import manifest SHA is99726eaed9d81461e9f79bf9bbef8c96d46b68dc61cdc6b7dd4babaa0fb3a481.
+
+**Trained once offline:**430TRAIN(46positive),92VAL(12positive),93TEST(15positive).
+All3native algorithms/eight groups/unchanged seed20261026; validation AP selects
+LightGBM(.966667), validation max-F1 fixes threshold0.5038643408002007.28protected
+input/code/model/choice hashes and the own manifest checksum seal before only
+the selected saved model's TEST scores. TP10/FP0/FN5/TN78: **P100%/R66.67%**,
+F1.80. Small≤TRAINq25IDR110,625:TP6/FP0/FN2/TN17, P100%/R75%,8positive rows.
+
+**Interpretation:** ten flags with no FP in this small set do not establish a
+perfect model or improvement over the large4November final. STRUCTURING3/6 and
+VELOCITY7/9 are assessed; ATO/MULE/DORMANT have no positive TEST rows and null
+recall. TEST support metadata was inspected before training and share choice,
+not a fully blinded novel final. VELOCITY-2 crosses TRAIN/VAL;613/615rows lack
+the history gate and channel/source recipes contain label shortcuts. DORMANT
+does not certify observed90-day P05 inactivity. This is a small team-review
+learning target on synthetic data, not verified fraud/AML quality.
+
+**Verification:**25new pure guards pass, independently repeated, without DB
+fixtures; independent preparation verifies every label/field/hash and confirms
+reviewer-text poisoning leaves numerical features identical. Actual CLI exits0
+in1.01s. LR fit/validation matrix warnings are retained; selected LightGBM scores
+are finite. No nonselected TEST scores, post-TEST refit or threshold tuning.
+No full app-suite/browser run is claimed for this new-script-only stage.
+
+**No deployment change:** the new file is upload-ready for Lab with70%TRAIN,
+but the offline artifact is not registered/activated. Old datasets/models and
+original five sources stay unchanged. The250k/100k benchmark, separate AML Lab
+stage and product backlog are unchanged. Jevon receives commit commands and
+does commit/push.
+
+**Own decisions:** stable-ID join/account checks, immutable provenance and
+native validation selection; key and split explicitly approved by Jevon.
+**Capstone:** Label tim digunakan untuk latihan615transaksi; precision100%
+berdasarkan hanya10transaksi yang ditandai disertai recall66,67%. Sampel kecil
+dan keterbatasan cakupan belum membuktikan kualitas produksi atau seluruh pola.

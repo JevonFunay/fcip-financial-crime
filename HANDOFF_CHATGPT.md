@@ -1,6 +1,6 @@
 # Handoff: Financial Crime Intelligence Platform (FCIP)
 
-**Current handoff — 4 November 2026:** read
+**Current handoff — 10 November 2026:** read
 [PROJECT_CONTEXT.md §18–20](docs/PROJECT_CONTEXT.md),
 [PROGRESS.md](docs/PROGRESS.md), [the Lab guide](docs/LAB_THIN_SLICE.md) and
 [current repair evidence](docs/ml/lab_repair_20261104.md) first. The
@@ -21,6 +21,15 @@ are unchanged. Old 98.56% baseline belongs a different population and archived
 commit 0382821. AML account-week Lab is a later stage. New final is now exposed;
 do not retune it and call a reproduction unseen. Jevon receives commit commands
 and runs commit/push himself.
+
+**Small subsequent exercise, 10 November:** Jevon supplied615synthetic transactions
+and a separate key, clarified it as team manual flags, and explicitly approved
+offline70/15/15 training. Exact join gives73positive/542negative. Three native
+candidates fit; selected LightGBM has TEST TP10/FP0/FN5/TN78 (P100%/R66.67%)
+on93rows/15positives, only10flags, with channel shortcuts and no positive
+ATO/MULE/DORMANT TEST support. This does not replace the large benchmark or
+activate any model. [Study and prepared dataset](docs/ml/team_review_20261110.md),
+PROJECT_CONTEXT AS-20 and PROGRESS are current; originals remain unchanged.
 
 Kamu akan melanjutkan pengembangan sebuah proyek capstone. Baca seluruh prompt ini sebelum mengerjakan apa pun. Kalau kamu tidak bisa membaca file di repository secara langsung, minta Jevon menempelkan file yang kamu butuhkan, terutama `docs/PROJECT_CONTEXT.md`, `docs/PROGRESS.md` dan `README.md`. Jangan menebak isi file.
 

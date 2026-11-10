@@ -1,0 +1,136 @@
+{
+  "actual": {
+    "command": [
+      "backend/.venv/bin/python",
+      "-m",
+      "app.scripts.train_team_review",
+      "--data",
+      "ml_data/team_review_s20261110/training_labeled.csv",
+      "--manifest-sha256",
+      "99726eaed9d81461e9f79bf9bbef8c96d46b68dc61cdc6b7dd4babaa0fb3a481",
+      "--out",
+      "ml_data/team_review_s20261110/study"
+    ],
+    "exit_code": 0,
+    "log": "/tmp/fcip_team_review_actual_20261110.log",
+    "log_sha256": "0a47e5dc2b3219ce974a1b4f209608ccc82ae01eb6b1050dda9854af055c1475",
+    "wall_seconds": 1.0137359999935143
+  },
+  "actual_invocations": 1,
+  "base_head": "02b9309fd7ed19305020b0f7d464a8d9f606026e",
+  "code_and_test_sha256": {
+    "backend/app/scripts/train_team_review.py": "bf8c25c0502d93694f97c198dffbfd312618d0d6496f63bd429bc7dfa2f9f017",
+    "backend/tests/test_team_review_training.py": "e907e7176451cdb6551165262d07c8d03d24b700048be526046aa26664ce3af4"
+  },
+  "database_accessed": false,
+  "frontend_build_rerun": false,
+  "frontend_changed": false,
+  "full_application_suite_rerun": false,
+  "independent_actual_result": {
+    "logistic_optional_non_blas_validation_warning": "max probability error2.22e-16; one exact native LR threshold boundary changes one LR VALflag under non-BLAS arithmetic. Native VAL replay and selected LightGBM TEST flags remain exact; no LR TEST scored.",
+    "path": "docs/ml/team_review_20261110_verification.json",
+    "selected_test_replay_exact": true,
+    "sha256": "e3aab166dcbb65901445fbfa7a51fe1979c15ab277b768e3fa8a8577639caaca",
+    "state": "PASS_RETAIN_OFFLINE_DRAFT"
+  },
+  "model_registered_or_activated": false,
+  "new_pure_tests": {
+    "db_fixtures_used": false,
+    "independent_log_sha256": "77dcb0befae26b0cc7e2a581ad45da4fc183356c5cf1fd17698485b2c25429d9",
+    "independent_pytest_seconds": 1.11,
+    "model_fits_in_tests": false,
+    "owner_log_sha256": "94a306db8f039511aa22cbf32404df664fdc97776c86efb21944fbc330dba714",
+    "owner_seconds": 1.24,
+    "passed": 25
+  },
+  "post_test_refit_or_retune": false,
+  "previous_full_suite_evidence": "913 distinct checks passed4Nov; not rerun for this isolated newscript.",
+  "report_sha256": "27f1ecf685750b4d0aa57a1808923109d4e511dddab16e617c7d26673ee620d4",
+  "source_preparation": {
+    "all_original_nonlabel_fields_unchanged": true,
+    "csv_xlsx_parity_rows": 615,
+    "database_access": false,
+    "family_categories_only_numeric_suffix_stripped": true,
+    "joined_rows_verified": 615,
+    "key_explanation_not_joined": true,
+    "manifest_sha256": "99726eaed9d81461e9f79bf9bbef8c96d46b68dc61cdc6b7dd4babaa0fb3a481",
+    "mapped_report": {
+      "accepted": 615,
+      "accounts": 30,
+      "category_counts": {
+        "ATO": 16,
+        "DORMANT": 2,
+        "MULE": 16,
+        "STRUCTURING": 12,
+        "VELOCITY": 27
+      },
+      "currency": "IDR",
+      "date_from": "2026-07-01T02:54:44+00:00",
+      "date_to": "2026-09-30T13:35:43+00:00",
+      "excluded_other_currency": 0,
+      "missing_label": 0,
+      "negatives": 542,
+      "notes": [],
+      "positive_rate": 0.11869918699186992,
+      "positives": 73,
+      "quarantine_reasons": [],
+      "quarantined": 0,
+      "ready": true,
+      "timestamp_precision": {
+        "second": 615
+      },
+      "total_rows": 615,
+      "usable_rows": 615
+    },
+    "model_fit_or_scoring": false,
+    "nonfeature_text_poison_invariance": true,
+    "prepared_sha256": "d2b8087e9fc07a2462d84bb1d3fb3be405035b8027430a670b1753e6f220aea6",
+    "source_hashes_verified": 5,
+    "source_key_labels_preserved": true,
+    "source_or_model_files_changed": false,
+    "splits_70_15_15": {
+      "test": {
+        "date_from": "2026-09-14T04:18:33+00:00",
+        "date_to": "2026-09-30T13:35:43+00:00",
+        "negative": 78,
+        "positive": 15,
+        "positive_families": {
+          "STRUCTURING": 6,
+          "VELOCITY": 9
+        },
+        "rows": 93
+      },
+      "train": {
+        "date_from": "2026-07-01T02:54:44+00:00",
+        "date_to": "2026-09-02T17:37:39+00:00",
+        "negative": 384,
+        "positive": 46,
+        "positive_families": {
+          "ATO": 11,
+          "DORMANT": 2,
+          "MULE": 16,
+          "STRUCTURING": 6,
+          "VELOCITY": 11
+        },
+        "rows": 430
+      },
+      "validation": {
+        "date_from": "2026-09-02T17:39:22+00:00",
+        "date_to": "2026-09-14T03:51:38+00:00",
+        "negative": 80,
+        "positive": 12,
+        "positive_families": {
+          "ATO": 5,
+          "VELOCITY": 7
+        },
+        "rows": 92
+      }
+    },
+    "state": "PASS",
+    "verification_harness_note": "First XML read attempt stopped on an omitted blank inline-string node; handling empty XML cells as empty strings fixed the read-only checker, without source changes.",
+    "xlsx_formula_cells": 0
+  },
+  "source_preparation_verification_sha256": "ea3fac86ccf7bcd6dd91cc183007b7f818d42355accf7b4b6e4c522e8f0f350b",
+  "version": "team_review_checks_v1",
+  "warnings": "Logistic Regression fit/validation NumPy matmul warnings retained; selected LightGBM TEST scores finite. No nonselected TEST scoring."
+}

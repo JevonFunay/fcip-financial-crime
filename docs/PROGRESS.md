@@ -1,9 +1,21 @@
 # FCIP — Progress Status
 
-**As of 4 November 2026 · roughly 20% of MVP scope (3 November estimate; not recounted by the quality audit)**
+**As of 10 November 2026 · roughly 20% of MVP scope (3 November estimate; not recounted by the ML exercises)**
 
 Supersedes any earlier progress figure. Scope definitions, architecture and open
 questions are unchanged — see `PROJECT_CONTEXT.md`.
+
+> **10 November team-label learning exercise:** incoming 615-row CSV/XLSX is
+> reconciled with the supplied team key (73 positive/542 negative, 615 accepted).
+> Jevon explicitly approves 70/15/15 chronological offline training. The source
+> manifest is externally pinned, label joins are checked and notes/scenarios
+> excluded from features. **25 new pure guard tests pass**, independently
+> repeated without DB fixtures. This small development study is separate from
+> the 250k benchmark and does not change the active model. Three native fits
+> complete; validation-selected LightGBM gets TP10/FP0/FN5/TN78 on93TEST rows,
+> precision100% from only10flags and recall66.67%. The final has only15positive
+> rows across two families, with recipe shortcuts; no broad precision gain claim.
+> [Study and interpretation](ml/team_review_20261110.md).
 
 > **4 November repair and retraining:** **913 distinct backend checks** and the
 > frontend build pass. Mapping/splits lock at first training; comparison uses
@@ -127,6 +139,19 @@ assigns effort weights.
 ---
 
 ## Built since the last progress report
+
+### 10 November — supplied team labels prepared and used offline
+
+All 615 ID/account joins preserve supplied labels:73positive/542negative, zero loss.
+Jevon approves70/15/15 before fits; source/code/mapping/model hashes seal before
+selected-only TEST. Three candidates fit; validation AP selects LightGBM.
+TEST93rows:TP10/FP0/FN5/TN78, P100%/R66.67%; only10flags and15positive targets.
+STRUCTURING3/6, VELOCITY7/9; no positive ATO/MULE/DORMANT TEST coverage.
+25 new pure guard tests pass, independently repeated; no full-suite rerun claimed.
+Original files/old benchmarks/active models stay unchanged; no DB access.
+**Own decisions:** AS-20, including user-approved label source and temporal split.
+**Capstone:** Label tim sudah dipakai untuk latihan; hasil kecil belum membuktikan
+presisi produksi atau cakupan seluruh pola. [Report](ml/team_review_20261110.md).
 
 ### 4 November — evaluation lock, coverage retraining and monitoring repair
 

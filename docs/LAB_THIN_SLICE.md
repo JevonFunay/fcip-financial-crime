@@ -147,6 +147,23 @@ historical USD public-source track. For Parquet convert the CSV with pandas
 - Live monitoring means "upload, then detect"; there is no streaming feed.
 - The approval flow covers lab models; rule approval (FR-304) is still separate.
 
+## Small team-label exercise — 10 November
+
+The prepared file is
+`backend/ml_data/team_review_s20261110/training_labeled.csv` (615 rows,
+73positive/542negative). It joins the separately supplied review key by exact
+transaction ID and preserves account/label checks. For a separate Lab experiment
+choose `is_fraud`, positive `1`, category `pattern_code`, all feature groups and
+**70% TRAIN before first training**. Default60% is refused because DORMANT
+positives are absent TRAIN despite appearing in validation. The native split at
+70% is430TRAIN/92validation/93TEST.
+
+The supplied `.xlsx` can be edited by reviewers but must be exported as CSV;
+direct Excel upload is unsupported. Explanations/reviewer text never enter
+features. The completed offline model is not automatically registered in Lab.
+Its tiny selected TEST is a learning result, not a new general-quality claim or
+an unseen monitoring file. See [the study](ml/team_review_20261110.md).
+
 ## Decisions I took myself (for Jevon to check)
 
 Recorded as AS-12 to AS-15 and AS-17 to AS-19 in `PROJECT_CONTEXT.md` §8:
