@@ -824,6 +824,20 @@ to manufacture100k records, no old benchmark/model overwrite, DB access, model
 registration/activation or promotion. The user authorises offline learning
 only. These research choices are not FRD acceptance targets.
 
+**AS-21 — authorised frontend visual refresh (12 Nov):** Jevon requests the
+`ui-ux-pro-max` skill, analysis of the existing frontend, and a design plan
+before implementation. The plan is explained first. Adopt navy navigation,
+teal actions, a light canvas, semantic CSS tokens, system fonts, the existing
+SVG family and a 4/8 px spacing rhythm across all eight existing page types.
+Type sizes, colour values, radii, 44 px main controls and responsive breakpoints
+are reversible UI design choices, not FRD/TRD numeric requirements. Keep all
+API clients, handlers, validation, authentication, permissions, routes, model
+policy/results, database, generator and shared data unchanged. Captions remain
+visible (FR-406 / BR-406.1, TRD §10.6, FRD L-01; prior PDF verification in §13).
+The design system is in `design-system/fcip/MASTER.md`. Browser QA uses an
+isolated Chrome profile with all API calls fulfilled by fixtures; screenshot
+counts/model metrics are invented QA examples, never new product results.
+
 ### TRD §1.5 — conflicts still open
 
 - **CF-01** (tied to MQ-09): boundary between forbidden autonomous closure and permitted exact-duplicate suppression

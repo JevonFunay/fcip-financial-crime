@@ -159,7 +159,10 @@ export function Layout() {
               }}
             >
               <Icon name={item.icon} />
-              <span>{item.label}</span>
+              <span className="nav-item-copy">
+                <span>{item.label}</span>
+                <small>{item.caption}</small>
+              </span>
               <Icon name="chevron" size={14} className="nav-chevron" />
             </NavLink>
           ))}
@@ -212,7 +215,7 @@ export function Layout() {
           <div className="topbar-user">
             {user && (
               <>
-                <span className="user-avatar">
+                <span className="user-avatar" title={user.full_name}>
                   {user.full_name
                     .split(" ")
                     .filter(Boolean)

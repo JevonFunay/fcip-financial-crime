@@ -1,0 +1,79 @@
+/* FCIP UI tokens. Product-wide decisions live in design-system/fcip/MASTER.md. */
+:root {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.875rem;
+  --text-lg: 1rem;
+  --text-title: 1.125rem;
+  --text-heading: 2rem;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  --ink: #172b3a;
+  --text-secondary: #405568;
+  --muted: #5d6e7e;
+  --canvas: #f3f6f8;
+  --panel: #ffffff;
+  --surface-subtle: #f7f9fb;
+  --surface-muted: #edf2f5;
+  --line: #dce4ea;
+  --line-subtle: #e8edf1;
+  --control-border: #8294a3;
+  --line-strong: #bcc9d3;
+  --primary: #0c716e;
+  --primary-hover: #095d5b;
+  --primary-soft: #edf7f6;
+  --primary-border: #a2cfcb;
+  --on-primary: #ffffff;
+  --focus: #087d90;
+  --green: #216c46;
+  --green-soft: #edf7f0;
+  --green-border: #afd4bb;
+  --amber: #885716;
+  --amber-soft: #fff8eb;
+  --amber-border: #ead2a7;
+  --red: #ad3548;
+  --red-soft: #fff1f3;
+  --red-border: #edbdc7;
+  --info: #355dac;
+  --info-soft: #eef3fc;
+  --chart-recall: #6256b5;
+  --chart-guide: #6c7d8d;
+
+  --nav-bg: #112b3b;
+  --nav-surface: #1b394a;
+  --nav-line: #335061;
+  --nav-text: #f2f7fa;
+  --nav-muted: #b1c3cf;
+  --nav-accent: #8bd8cd;
+  --nav-active: #24495a;
+  --scrim: #10263499;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --shadow-sm: 0 2px 6px #172b3a05;
+  --shadow-md: 0 8px 24px #172b3a0a;
+  --shadow-drawer: 16px 0 48px #10263426;
+  --motion-fast: 150ms;
+  --motion-normal: 220ms;
+  --sidebar-width: 264px;
+  --page-gutter: 32px;
+  --control-height: 44px;
+  --layer-sidebar: 20;
+  --layer-backdrop: 19;
+  --layer-skip: 100;
+
+  /* Existing component names remain compatible during the visual refresh. */
+  --blue: var(--primary);
+  --blue-soft: var(--primary-soft);
+}

@@ -61,6 +61,36 @@ assigns effort weights.
 
 ---
 
+## 12 November — frontend UI redesign
+
+Jevon requests `ui-ux-pro-max`; the existing React 18/TypeScript/Vite frontend
+and four CSS files are analysed, then the design plan is explained before edits.
+All eight page types share navy/teal tokens, clearer typography, panel/table/form
+styles and responsive navigation. The alert-detail grid conflict at 1024 px and
+narrow Lab action overflow are fixed. No API, auth, business logic, model, DB,
+generator, shared dataset or dependency change. AS-21 records visual choices;
+[design system](../design-system/fcip/MASTER.md) is the maintained reference.
+
+**Verification:** TypeScript/Vite build and `git diff --check` pass. An isolated
+headless Chrome run passes 46 page/state/viewport checks at 320/375/768/1024/1440
+px, including empty/error states and reduced-motion landscape. Drawer focus,
+Shift+Tab trap, Escape/focus return, MLRO control rendering, 19/20-character
+Triage validation, Analyst read-only review, CSV selection and password toggle
+also pass. Zero document overflows, runtime exceptions or unknown fixture
+routes; no non-auth API mutation is sent. Text-token contrast is 4.84:1 or
+higher for the measured pairs; input border vs white is 3.13:1. This is fixture
+UI QA, not fresh live-backend UAT, model evaluation or a backend-suite rerun.
+[Screenshots and check data](screenshots/ui-redesign-20261112/checks.json).
+
+**Decisions I took myself:** navy/teal light workspace; system fonts/no new
+packages; common semantic tokens; two metric columns below 1200 px; retain
+complete tables inside local scroll containers and existing workflows.
+**Capstone:** Antarmuka FCIP diperbarui dengan design system konsisten dan
+responsif. Pengujian tampilan dan interaksi memakai data tiruan terisolasi,
+tanpa mengubah fungsi deteksi, autentikasi, model, atau data aplikasi.
+
+---
+
 ## Where we are
 
 | Dimension | Built | % |
