@@ -1,7 +1,7 @@
 # Handoff: Financial Crime Intelligence Platform (FCIP)
 
-**Current handoff — 10 November 2026:** read
-[PROJECT_CONTEXT.md §18–20](docs/PROJECT_CONTEXT.md),
+**Current handoff — 12 November 2026:** read
+[PROJECT_CONTEXT.md §18–22](docs/PROJECT_CONTEXT.md),
 [PROGRESS.md](docs/PROGRESS.md), [the Lab guide](docs/LAB_THIN_SLICE.md) and
 [current repair evidence](docs/ml/lab_repair_20261104.md) first. The
 7 October material below is historical; its role, dataset, model-registration
@@ -30,6 +30,14 @@ on93rows/15positives, only10flags, with channel shortcuts and no positive
 ATO/MULE/DORMANT TEST support. This does not replace the large benchmark or
 activate any model. [Study and prepared dataset](docs/ml/team_review_20261110.md),
 PROJECT_CONTEXT AS-20 and PROGRESS are current; originals remain unchanged.
+
+**12 November mentoring:** Kak Gio suggests 70/15/15 (development testing then
+final backtest) and a consistent fraud definition. The existing split already
+matches that proposed role interpretation. Ground truth is the reference label;
+confirmed fraud versus review-worthy activity is not yet an agreed new target.
+The 93-row final is exposed; accuracy 94.62% still misses 5/15 positives. See context
+§22 before any new data/label/threshold experiment. No retraining or relabelling
+was done for this discussion.
 
 Kamu akan melanjutkan pengembangan sebuah proyek capstone. Baca seluruh prompt ini sebelum mengerjakan apa pun. Kalau kamu tidak bisa membaca file di repository secara langsung, minta Jevon menempelkan file yang kamu butuhkan, terutama `docs/PROJECT_CONTEXT.md`, `docs/PROGRESS.md` dan `README.md`. Jangan menebak isi file.
 

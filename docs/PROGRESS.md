@@ -1,9 +1,18 @@
 # FCIP — Progress Status
 
-**As of 10 November 2026 · roughly 20% of MVP scope (3 November estimate; not recounted by the ML exercises)**
+**As of 12 November 2026 · roughly 20% of MVP scope (3 November estimate; not recounted by the ML exercises)**
 
 Supersedes any earlier progress figure. Scope definitions, architecture and open
 questions are unchanged — see `PROJECT_CONTEXT.md`.
+
+> **12 November mentoring clarification:** Kak Gio suggests 70/15/15 development
+> and final backtest plus a fundamental fraud definition. Existing 430/92/93
+> training/validation/final roles already match that proposed interpretation.
+> Ground truth means reference labels, not the last 15% itself. Current accuracy
+> is 94.62%, precision 100%, recall 66.67% on 93 synthetic rows (five of 15 positives
+> missed). Target definition, reviewer rubric and numeric acceptance criteria
+> still need agreement. No new fit, relabelling, generator or DB change.
+> See PROJECT_CONTEXT §22; this is a mentoring record, not a new quality result.
 
 > **10 November team-label learning exercise:** incoming 615-row CSV/XLSX is
 > reconciled with the supplied team key (73 positive/542 negative, 615 accepted).

@@ -4,10 +4,10 @@
 Intelligence Platform capstone: what the project is, what the spec demands, what
 is actually built, what is deliberately not built, and what is still undecided.
 
-Last updated: **10 November 2026** · latest scope estimate in
+Last updated: **12 November 2026** · latest scope estimate in
 [PROGRESS.md](PROGRESS.md) is roughly 20% (3 November; not recounted by this audit).
 
-**Current handoff:** §18–21, [the Lab guide](LAB_THIN_SLICE.md) and
+**Current handoff:** §18–22, [the Lab guide](LAB_THIN_SLICE.md) and
 [PROGRESS.md](PROGRESS.md) describe the current application after the team's
 27 October/3 November work: nine roles, model approval and monitoring, and
 P01–P10 app rules. CF-05(b) is recorded as answered; an MLRO controls model
@@ -21,6 +21,12 @@ that the separate answer key contains the team's manual flags. All615 labels
 join exactly (73 positive/542 negative); he explicitly approved chronological
 70/15/15 offline training. It does not replace the250k benchmark or activate a
 model. AS-20 records the approved scope and source-provenance limitations.
+
+**12 November mentoring update:** Jevon relays Kak Gio's suggested 70% training,
+15% development testing and 15% final backtest, plus the need for a fundamental
+fraud definition. §22 records the proposed interpretation and unresolved target/
+acceptance criteria. Existing 70/15/15 results are preserved; no new training,
+generator, label, threshold or model-state change follows from this discussion.
 
 The [4 November Lab repair](ml/lab_repair_20261104.md) passes 913 distinct backend
 checks and the frontend build. It fixes evaluation/mapping leakage, adds a
@@ -2143,3 +2149,55 @@ native validation selection; key and split explicitly approved by Jevon.
 **Capstone:** Label tim digunakan untuk latihan615transaksi; precision100%
 berdasarkan hanya10transaksi yang ditandai disertai recall66,67%. Sampel kecil
 dan keterbatasan cakupan belum membuktikan kualitas produksi atau seluruh pola.
+
+---
+
+## 22. Mentoring update: reference labels and final backtest — 12 November 2026
+
+Jevon relays Kak Gio's 08:39–08:40 messages: consider accuracy/recall, split 70%
+training plus 15% testing and 15% final ground-truth/backtest, and establish the
+fundamental definition of fraud. This is a mentoring discussion, not a new
+experiment or permission to rewrite existing labels or generated data.
+
+**Proposed interpretation:** the middle 15% is development validation when used
+to choose algorithms, parameters or threshold. The last 15% is a held-out final
+period evaluated after selection is frozen. This is already how the approved
+10 November experiment uses 430 TRAIN / 92 VAL / 93 TEST. A ground-truth label is the
+reference decision attached to an observation, not the name of a partition;
+reference labels are needed in all three periods. Whether the target is
+confirmed fraud or a review-worthy transaction must still be agreed with the
+mentor. Current supplied flags represent team judgments on synthetic cases;
+they do not independently establish confirmed financial crime.
+
+**Current evidence:** TP10/FP0/FN5/TN78 implies accuracy 88/93=94.62%,
+precision 10/10=100%, recall 10/15=66.67%, F1 0.80. The positive denominator is only 15;
+five positives are missed. Final positive support is STRUCTURING 6 and VELOCITY 9;
+ATO/MULE/DORMANT remain unassessed. These figures measure agreement with the
+supplied reference labels, not real-crime accuracy. The final has already been
+revealed; reshuffling these 615 rows does not create new independent evidence.
+
+**Next proposed work, not yet executed:** agree a label rubric and target,
+record indicator evidence/normal lookalikes/insufficient-evidence cases, obtain
+independent reviewer decisions and reconcile disagreements, repair shortcut-
+driven source coverage, and reserve new later whole episodes before final
+evaluation. Keep chronology and prediction-time information limits. Predeclare
+precision/recall by pattern and review-load criteria with the mentor; no numeric
+production acceptance targets are invented. Dataset/generator changes remain
+subject to Jevon's existing approval rule; no scope/stage order is changed here.
+
+For unresolved cases keep `is_fraud` blank and store review status separately;
+do not put `REVIEW`/`UNRESOLVED` into the binary label. The current normalizer
+maps nonempty nonpositive values to 0. Altering that behavior is not part of
+this mentoring record. Existing files/labels/model artifacts/DB remain unchanged.
+
+Method references: [scikit-learn validation/test separation](https://scikit-learn.org/stable/modules/cross_validation.html),
+[leakage prevention](https://scikit-learn.org/stable/common_pitfalls.html) and
+[classification metrics](https://scikit-learn.org/stable/modules/model_evaluation.html).
+These support the proposed evaluation interpretation, not mentor approval of a
+new operational fraud definition.
+
+**Decisions I took myself:** record the mentoring source and explain existing
+roles/metrics without retraining or relabelling. **Capstone:** Arahan mentor
+dipetakan ke alur 70/15/15 yang sudah ada; ground truth adalah label acuan, dan
+hasil saat ini masih melewatkan sepertiga kasus positif. Prioritas berikutnya
+menyepakati definisi target dan rubrik label sebelum eksperimen baru.
