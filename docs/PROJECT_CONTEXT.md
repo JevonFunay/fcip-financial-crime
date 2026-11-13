@@ -860,6 +860,20 @@ auth, permissions, model, generator or data changes. The updated design referenc
 is `design-system/fcip/MASTER.md`. Fixture browser QA is recorded in PROGRESS;
 its counts and metrics are invented UI examples, not new application results.
 
+**AS-23 — local development port collision repair (13 Nov):** Jevon sees
+Laravel's Vite landing page when opening FCIP. Read-only checks find the
+separate `Documents/webapp` project listening on `[::1]:5173` (Vite) and
+`127.0.0.1:8000` (PHP), overlapping FCIP's Docker host ports. Keep that project
+running and use a gitignored `docker-compose.override.yml` on this machine:
+FCIP web `http://localhost:5176`, API `http://localhost:8001`, each bound only
+to loopback. Override the browser API URL and the exact CORS origin together;
+retain the same localhost hostname and existing cookie security settings.
+Port numbers are reversible local choices, not FRD/TRD requirements or team
+defaults. An optional `docker-compose.override.example.yml` documents this
+setup; the base Compose file and `.env` are unchanged. Only the backend/frontend
+containers are recreated; the existing database container and volume are kept.
+No seed, upload, detection, training or model-state action is performed.
+
 ### TRD §1.5 — conflicts still open
 
 - **CF-01** (tied to MQ-09): boundary between forbidden autonomous closure and permitted exact-duplicate suppression

@@ -133,6 +133,21 @@ docker compose up --build
 - Frontend: http://localhost:5173
 - Postgres: localhost:5432
 
+If another local project uses ports 5173 or 8000 (for example Laravel), use
+the optional local override:
+
+```bash
+cp docker-compose.override.example.yml docker-compose.override.yml
+docker compose up -d --build
+```
+
+Then open **http://localhost:5176**; the API is **http://localhost:8001**.
+Compose loads this gitignored local file automatically. It replaces the two
+host ports and sets matching frontend API and backend CORS origins, without
+changing `.env`, the database volume or another project. The default ports
+above apply when no local override is present. This template requires Docker
+Compose 2.24.4 or newer.
+
 The backend container runs `alembic upgrade head` before starting the API,
 so the schema is always up to date on boot.
 

@@ -70,6 +70,44 @@ assigns effort weights.
 
 ---
 
+## 13 November — local run repair: Laravel port collision
+
+Jevon reports Laravel's Vite landing page at FCIP's documented URL. Port and
+process checks confirm the unrelated `Documents/webapp` project owns
+`[::1]:5173` and `127.0.0.1:8000`, while FCIP containers also publish those
+ports. Add an optional Compose override template and a gitignored local copy:
+FCIP web **http://localhost:5176**, API **http://localhost:8001**, both loopback
+only. Set matching `VITE_API_BASE_URL` and exact `CORS_ORIGINS`. README explains
+how Compose automatically loads the local file; default team ports stay as-is.
+
+**Verification:** installed Compose 5.5.1 successfully renders the merged
+configuration with only the replacement app ports. Recreate backend/frontend
+using `docker compose up -d --no-build --no-deps backend frontend`; the existing
+healthy DB container/volume and both Laravel processes remain running.
+FCIP HTML title and React entrypoint return successfully on 5176; the served
+API client points to 8001; `/health` returns `{"status":"ok"}`. Auth-route CORS
+preflight returns HTTP 200 with `Access-Control-Allow-Origin:
+http://localhost:5176` and credentials enabled. No login/session creation,
+upload, seed, detection, training or model activation is performed. No source
+code/build dependency changed, so frontend/backend suites are not rerun for
+this local Compose repair. `git diff --check` passes.
+
+**Decisions I took myself:** preserve Laravel, choose free local ports 5176/8001,
+keep override gitignored and share an optional example, preserve exact-origin
+CORS and the database. AS-23 records the reversible local choice.
+**Capstone:** Konflik port antara FCIP dan proyek Laravel diselesaikan dengan
+konfigurasi lokal terpisah. Halaman FCIP, health API, dan koneksi CORS sudah
+diverifikasi tanpa mengubah data atau model.
+
+Local stage commit commands:
+
+```bash
+git add -- .gitignore README.md docker-compose.override.example.yml docs/PROJECT_CONTEXT.md docs/PROGRESS.md
+git commit -m "fix: isolate local FCIP ports from Laravel"
+```
+
+---
+
 ## 13 November — clean UI and shorter operational copy
 
 Jevon requests `ui-ux-pro-max` and a clean interface without ornaments or
