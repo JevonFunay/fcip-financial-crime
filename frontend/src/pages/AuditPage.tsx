@@ -149,12 +149,7 @@ export function AuditPage() {
     <div className="analysis-page">
       <div className="page-header">
         <div>
-          <p className="eyebrow">Governance & oversight</p>
           <h1>Audit trail</h1>
-          <p className="page-subtitle">
-            Telusuri aktivitas, keputusan, dan correlation ID yang
-            menghubungkannya.
-          </p>
         </div>
         <button
           type="button"
@@ -173,11 +168,7 @@ export function AuditPage() {
       >
         <div className="section-head">
           <div>
-            <h2 id="audit-filter-heading">Find an audit chain</h2>
-            <p className="muted">
-              Terapkan filter correlation ID, objek, atau aktor untuk menelusuri
-              kejadian.
-            </p>
+            <h2 id="audit-filter-heading">Filter aktivitas</h2>
           </div>
           <span className="analysis-small-count">
             {activeFilters.length
@@ -199,9 +190,6 @@ export function AuditPage() {
                 maxLength={36}
                 spellCheck={false}
               />
-              <span className="analysis-field-help">
-                ID bersama untuk aktivitas yang saling terkait
-              </span>
             </label>
             <label>
               Object type

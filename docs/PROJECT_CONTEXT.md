@@ -4,7 +4,7 @@
 Intelligence Platform capstone: what the project is, what the spec demands, what
 is actually built, what is deliberately not built, and what is still undecided.
 
-Last updated: **12 November 2026** · latest scope estimate in
+Last updated: **13 November 2026** · latest scope estimate in
 [PROGRESS.md](PROGRESS.md) is roughly 20% (3 November; not recounted by this audit).
 
 **Current handoff:** §18–22, [the Lab guide](LAB_THIN_SLICE.md) and
@@ -843,6 +843,22 @@ visible (FR-406 / BR-406.1, TRD §10.6, FRD L-01; prior PDF verification in §13
 The design system is in `design-system/fcip/MASTER.md`. Browser QA uses an
 isolated Chrome profile with all API calls fulfilled by fixtures; screenshot
 counts/model metrics are invented QA examples, never new product results.
+
+**AS-22 — authorised UI simplification (13 Nov):** Jevon requests a clean
+interface without ornaments or unnecessary explanation, using `ui-ux-pro-max`.
+Supersedes AS-21's navy sidebar and promotional split login with light,
+single-line navigation, flat panels and a centred login form. Remove repeated
+introductions, slogans and decorative icon blocks across the eight page types;
+keep operational help, score units, errors, evaluation locks and approval
+consequences. Optional upload metadata uses a native disclosure that preserves
+entered values. The full synthetic caption moves to the shared footer; the
+unchanged bilingual signal caption remains by the results (FR-406 / BR-406.1,
+TRD §10.6, FRD L-01, PDF verification already recorded in §13). These are
+reversible presentation choices; 224 px navigation, 360 px login, type sizes,
+colours and radii are design choices, not FRD/TRD numeric requirements. No API,
+auth, permissions, model, generator or data changes. The updated design reference
+is `design-system/fcip/MASTER.md`. Fixture browser QA is recorded in PROGRESS;
+its counts and metrics are invented UI examples, not new application results.
 
 ### TRD §1.5 — conflicts still open
 

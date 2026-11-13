@@ -67,13 +67,13 @@ function kindLabel(kind: string): string {
 // --- stepper -------------------------------------------------------------------------------------
 
 const STEPS = [
-  { title: "Dataset berlabel", caption: "CSV atau Parquet" },
-  { title: "Pemetaan kolom", caption: "Cocokkan & validasi" },
-  { title: "Fitur & model", caption: "Pilih & latih" },
-  { title: "Hasil & threshold", caption: "Bandingkan & atur" },
-  { title: "Simpan & ajukan", caption: "Draft ke MLRO" },
-  { title: "Persetujuan MLRO", caption: "Aktifkan model" },
-  { title: "Pantau data baru", caption: "Skor & alert" },
+  { title: "Dataset" },
+  { title: "Pemetaan" },
+  { title: "Pelatihan" },
+  { title: "Hasil" },
+  { title: "Simpan" },
+  { title: "Persetujuan" },
+  { title: "Monitoring" },
 ];
 
 function Stepper({ reached }: { reached: number }) {
@@ -82,11 +82,10 @@ function Stepper({ reached }: { reached: number }) {
       {STEPS.map((step, index) => {
         const state = index < reached ? "is-done" : index === reached ? "is-current" : "is-locked";
         return (
-          <li key={step.title} className={`lab-step ${state}`}>
+          <li key={step.title} className={`lab-step ${state}`} aria-current={index === reached ? "step" : undefined}>
             <span className="lab-step-number">{index < reached ? <Icon name="check" size={14} /> : index + 1}</span>
             <span>
               <strong>{step.title}</strong>
-              <small>{step.caption}</small>
             </span>
           </li>
         );
@@ -150,7 +149,7 @@ function DatasetStep({
         <div>
           <span className="section-kicker">LANGKAH 1</span>
           <h2 id="lab-step-1">Dataset berlabel</h2>
-          <p>Dataset latih disimpan terpisah dari transaksi yang dimonitor dan wajib punya kolom label (kunci jawaban).</p>
+          <p>CSV atau Parquet dengan kolom label.</p>
         </div>
         <span className="badge badge-blue">CSV / Parquet · {maxMb} MB</span>
       </div>
@@ -318,7 +317,7 @@ function MappingStep({ options, dataset, canWrite }: { options: LabOptions; data
         <div>
           <span className="section-kicker">LANGKAH 2</span>
           <h2 id="lab-step-2">Pemetaan kolom · {dataset.name}</h2>
-          <p>Cocokkan kolom file dengan field FCIP. Saran otomatis boleh diubah; kolom label tidak pernah menjadi fitur.</p>
+          <p>Cocokkan kolom transaksi dan label.</p>
         </div>
         <span className="badge badge-blue">{num(dataset.row_count)} baris · {dataset.columns.length} kolom</span>
       </div>
@@ -537,7 +536,6 @@ function TrainingStep({
         <div>
           <span className="section-kicker">LANGKAH 3</span>
           <h2 id="lab-step-3">Fitur & model</h2>
-          <p>Fitur dihitung per transaksi hanya dari riwayat sebelum transaksi itu (tanpa mengintip masa depan).</p>
         </div>
       </div>
       {dataset.evaluation?.state === "SEALED" && <p className="notice lab-note">Porsi waktu dan pemetaan sudah dikunci. Fitur/model masih dapat dibandingkan memakai validasi sampai pilihan final disimpan.</p>}
@@ -1033,22 +1031,10 @@ export function LabPage() {
     <>
       <div className="page-header">
         <div>
-          <span className="eyebrow">MODEL LAB · PROTOTIPE</span>
           <h1>Lab model</h1>
-          <p className="page-subtitle">
-            Unggah dataset berlabel, latih dan bandingkan model, minta persetujuan, lalu pantau data baru dengan model
-            terpilih.
-          </p>
         </div>
+        <span className="badge badge-disposed">Prototipe</span>
       </div>
-      <p className="notice lab-prototype-notice">
-        <Icon name="info" size={15} />
-        <span>
-          Arah <strong>framework</strong> yang disetujui mentor. Dataset latih tidak masuk ke transaksi yang dipantau;
-          model baru menilai data setelah diajukan Analyst dan disetujui MLRO, dan skornya boleh membuat alert tanpa
-          rule pola (CF-05). Angka dari data sintetis bukan ukuran kinerja produksi.
-        </span>
-      </p>
       <Stepper reached={reached} />
       {(options.isPending || datasets.isPending) && <p className="loading-text">Memuat lab...</p>}
       {(options.error || datasets.error) && (

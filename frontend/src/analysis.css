@@ -41,16 +41,6 @@
   align-items: center;
   gap: var(--space-3);
 }
-.analysis-model-icon {
-  display: grid;
-  place-items: center;
-  color: var(--primary);
-  background: var(--primary-soft);
-  width: 46px;
-  height: 46px;
-  border-radius: var(--radius-lg);
-  flex: 0 0 auto;
-}
 .analysis-model-heading .eyebrow {
   margin: 0 0 var(--space-1);
   color: var(--muted);
@@ -496,10 +486,6 @@
   }
   .analysis-model-heading h3 {
     font-size: var(--text-base);
-  }
-  .analysis-model-icon {
-    width: 39px;
-    height: 39px;
   }
   .analysis-version-state {
     margin-left: 0;

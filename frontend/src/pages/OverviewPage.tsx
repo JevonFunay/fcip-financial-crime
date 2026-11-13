@@ -156,11 +156,7 @@ export function OverviewPage() {
     <>
       <div className="page-header">
         <div>
-          <span className="eyebrow">MONITORING WORKSPACE</span>
           <h1>Overview</h1>
-          <p className="page-subtitle">
-            Dari data transaksi ke observasi yang dapat ditelusuri.
-          </p>
         </div>
         <button
           type="button"
@@ -181,21 +177,15 @@ export function OverviewPage() {
         <Tile
           label="Transaksi diterima"
           value={data?.transactions}
-          icon="wallet"
-          note="Riwayat dalam database"
         />
         <Tile
           label="Alert terbuka"
           value={data?.alerts_open}
-          icon="alert"
-          note="Menunggu tinjauan manusia"
-          tone="alert"
           to="/alerts"
         />
         <Tile
           label="Sinyal AML"
           value={aml.data?.total}
-          icon="activity"
           note={
             behavioral
               ? "Rekening-week di atas threshold"
@@ -206,7 +196,6 @@ export function OverviewPage() {
         <Tile
           label="Sinyal Fraud"
           value={fraud.data?.total}
-          icon="scan"
           note="Transaksi di atas threshold"
           to="/model-flags?unit=FRAUD"
         />
@@ -221,24 +210,19 @@ export function OverviewPage() {
       />
       <div className="data-summary" aria-label="Master data dan status review">
         <span className="data-summary-item">
-          <Icon name="users" size={16} />
           <strong>{data ? number(data.customers) : "—"}</strong>
           {behavioral ? "proxy observasi" : "nasabah"}
         </span>
         <span className="data-summary-item">
-          <Icon name="wallet" size={16} />
           <strong>{data ? number(data.accounts) : "—"}</strong>rekening
         </span>
         <span className="data-summary-item">
-          <Icon name="arrow-right" size={16} />
           <strong>{data ? number(data.alerts_escalated) : "—"}</strong>escalated
         </span>
         <span className="data-summary-item">
-          <Icon name="file" size={16} />
           <strong>{data ? number(data.cases) : "—"}</strong>case
         </span>
         <span className="data-summary-item small">
-          <Icon name="clock" size={15} />
           {data?.latest_transaction_date
             ? `Terbaru: ${formatObservedDateTime(
                 data.latest_transaction_date,
@@ -254,21 +238,9 @@ export function OverviewPage() {
           <section className="card" id="upload-data">
             <div className="section-head">
               <div>
-                <span className="section-kicker">DATA OPERATIONS</span>
-                <h2>Upload data transaksi</h2>
-                <p>
-                  Unggah CSV, lalu jalankan deteksi setelah semua bagian
-                  selesai.
-                </p>
+                <h2>Upload transaksi</h2>
               </div>
               <span className="badge badge-blue">CSV / Parquet · 50 MiB</span>
-            </div>
-            <div className="operation-tabs" aria-label="Urutan pemrosesan">
-              <strong>01 Upload & validasi</strong>
-              <span />
-              <span className="small">02 Deteksi</span>
-              <span />
-              <span className="small">03 Review</span>
             </div>
             <form
               onSubmit={(event) => {
@@ -318,46 +290,46 @@ export function OverviewPage() {
                   />
                 </div>
               </div>
-              <div className="batch-fields">
-                <label>
-                  Source system
-                  <input
-                    aria-label="Source system"
-                    value={sourceSystem}
-                    onChange={(event) => setSourceSystem(event.target.value)}
-                    placeholder="MANUAL_UPLOAD"
-                    disabled={busy}
-                  />
-                </label>
-                <label>
-                  Business date
-                  <input
-                    aria-label="Business date"
-                    type="date"
-                    value={businessDate}
-                    onChange={(event) => setBusinessDate(event.target.value)}
-                    disabled={busy}
-                  />
-                </label>
-                <label>
-                  Expected records
-                  <input
-                    aria-label="Expected records"
-                    type="number"
-                    min={0}
-                    step={1}
-                    value={expectedRecords}
-                    onChange={(event) => setExpectedRecords(event.target.value)}
-                    placeholder="Opsional"
-                    disabled={busy}
-                  />
-                </label>
-              </div>
+              <details className="upload-options">
+                <summary>Detail batch (opsional)</summary>
+                <div className="batch-fields">
+                  <label>
+                    Source system
+                    <input
+                      aria-label="Source system"
+                      value={sourceSystem}
+                      onChange={(event) => setSourceSystem(event.target.value)}
+                      placeholder="MANUAL_UPLOAD"
+                      disabled={busy}
+                    />
+                  </label>
+                  <label>
+                    Business date
+                    <input
+                      aria-label="Business date"
+                      type="date"
+                      value={businessDate}
+                      onChange={(event) => setBusinessDate(event.target.value)}
+                      disabled={busy}
+                    />
+                  </label>
+                  <label>
+                    Expected records
+                    <input
+                      aria-label="Expected records"
+                      type="number"
+                      min={0}
+                      step={1}
+                      value={expectedRecords}
+                      onChange={(event) => setExpectedRecords(event.target.value)}
+                      placeholder="Opsional"
+                      disabled={busy}
+                    />
+                  </label>
+                </div>
+              </details>
               <div className="upload-footer">
-                <p>
-                  File terdiri dari beberapa bagian? Upload semuanya sebelum
-                  menjalankan deteksi.
-                </p>
+                <p>Upload semua bagian sebelum deteksi.</p>
                 <button type="submit" disabled={busy || !selectedFile}>
                   <Icon name="upload" size={16} />
                   {upload.isPending ? "Mengunggah..." : "Upload file"}
@@ -410,30 +382,20 @@ export function OverviewPage() {
           <section className="card">
             <div className="section-head">
               <div>
-                <span className="section-kicker">DATA QUALITY</span>
                 <h2>Kualitas data transaksi</h2>
-                <p>Hasil validasi dari seluruh riwayat unggahan.</p>
               </div>
-              <Icon name="layers" size={20} />
             </div>
             <Quality
               accepted={data?.transactions}
               quarantined={data?.quarantined}
             />
-            <div className="notice" style={{ marginTop: 20, marginBottom: 0 }}>
-              Upload dilakukan oleh Data Operations. Kamu dapat meninjau hasil
-              dan jejak setiap batch di bawah.
-            </div>
           </section>
         )}
         <section className="card">
           <div className="section-head">
             <div>
-              <span className="section-kicker">DETECTION ENGINE</span>
-              <h2>Rule & model</h2>
-              <p>Riwayat dinilai dengan versi model terdaftar.</p>
+              <h2>Deteksi</h2>
             </div>
-            <Icon name="scan" size={20} />
           </div>
           {models.isLoading && (
             <p className="loading-text" role="status">
@@ -502,13 +464,12 @@ export function OverviewPage() {
           )}
           <p className="muted small" style={{ marginTop: 12 }}>
             {data?.transactions
-              ? "Deteksi manual menjalankan seluruh rule P01–P10 dan model ACTIVE. Upload seluruh bagian sebelum memulai."
+              ? "Menjalankan rule P01–P10 dan model ACTIVE."
               : "Deteksi dapat dijalankan setelah transaksi diterima."}
           </p>
           {models.isSuccess && !hasActiveModel && (
             <p className="muted small" role="status">
-              Belum ada model ACTIVE. Upload tetap dapat diuji; model DRAFT
-              belum menilai transaksi atau menghasilkan sinyal ML.
+              Belum ada model ACTIVE. Deteksi hanya menjalankan rule.
             </p>
           )}
           {behavioral && (
@@ -567,7 +528,7 @@ export function OverviewPage() {
               <p className="muted small">
                 {detect.data.ml.ml_rule_versions_evaluated.length
                   ? `ML_SCORE: ${number(detect.data.ml.alerts_created)} alert baru.`
-                  : "ML_SCORE masih DRAFT (CF-05): sinyal model tidak membuat alert sendiri."}
+                  : "ML_SCORE belum dievaluasi: tidak ada alert dari skor model."}
               </p>
               <Link className="small" to="/alerts">
                 Buka antrean alert <Icon name="arrow-right" size={13} />
@@ -580,12 +541,11 @@ export function OverviewPage() {
       <section className="card" aria-busy={transactions.isFetching}>
         <div className="section-head">
           <div>
-            <span className="section-kicker">TRANSACTION EXPLORER</span>
             <h2>Riwayat transaksi</h2>
             <p>
               {transactions.data
-                ? `${number(total)} transaksi · Tanggal mengikuti waktu transaksi`
-                : "Cari dan telusuri transaksi yang diterima."}
+                ? `${number(total)} transaksi`
+                : ""}
             </p>
           </div>
           <div className="toolbar">
@@ -728,15 +688,13 @@ export function OverviewPage() {
         <section className="card" id="ingestion-batches">
           <div className="section-head">
             <div>
-              <span className="section-kicker">INGESTION HISTORY</span>
               <h2>Batch unggahan</h2>
               <p>
                 {batches.data
                   ? `${number(batches.data.total)} batch · Menampilkan ${batches.data.items.length} terbaru`
-                  : "Setiap unggahan punya checksum dan jejak pemrosesan."}
+                  : ""}
               </p>
             </div>
-            <Icon name="upload" size={19} />
           </div>
           {batches.isLoading && (
             <p className="loading-text" role="status">
@@ -822,9 +780,7 @@ export function OverviewPage() {
         <section className="card">
           <div className="section-head">
             <div>
-              <span className="section-kicker">VALIDATION REVIEW</span>
               <h2>Quarantine</h2>
-              <p>Baris gagal validasi tersimpan beserta alasannya.</p>
             </div>
             <span className="badge badge-amber">
               {quarantine.data ? number(quarantine.data.total) : "—"} baris
@@ -902,33 +858,26 @@ export function OverviewPage() {
 function Tile({
   label,
   value,
-  icon,
   note,
-  tone,
   to,
 }: {
   label: string;
   value?: number;
-  icon: IconName;
-  note: string;
-  tone?: string;
+  note?: string;
   to?: string;
 }) {
   const content = (
     <>
       <div className="tile-top">
         <span className="tile-label">{label}</span>
-        <span className="tile-icon">
-          <Icon name={icon} size={17} />
-        </span>
       </div>
       <strong className="tile-value">
         {value === undefined ? "—" : number(value)}
       </strong>
-      <span className="tile-note">{note}</span>
+      {note && <span className="tile-note">{note}</span>}
     </>
   );
-  const className = `tile ${tone ? `tile-${tone}` : ""}`;
+  const className = "tile";
   return to ? (
     <Link className={`${className} tile-link`} to={to}>
       {content}

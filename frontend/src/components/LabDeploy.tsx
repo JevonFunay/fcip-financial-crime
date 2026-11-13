@@ -81,11 +81,8 @@ function ModelAlertsBanner({ data, isMlro }: { data: LabModelsResponse; isMlro: 
         </p>
         <p className="small">
           {state.active
-            ? "Skor di atas threshold model yang aktif langsung menjadi alert di antrean, tanpa menunggu rule pola terpicu."
-            : "Skor model hanya tampil sebagai sinyal pendukung pada alert dari rule; tidak ada alert dari skor saja."}{" "}
-          <span className="muted">
-            {state.rule_ref} · reason code {state.reason_code} · severity {state.severity} (CF-05, arahan mentor 27 Okt)
-          </span>
+            ? "Skor di atas threshold model ACTIVE membuat alert."
+            : "Skor model menjadi sinyal pendukung; tidak membuat alert sendiri."}
         </p>
       </div>
       {isMlro && (
@@ -309,8 +306,7 @@ export function ModelApprovalPanel({
           <span className="section-kicker">LANGKAH 6</span>
           <h2 id="lab-step-6-title">Persetujuan & status model</h2>
           <p>
-            Analyst mengajukan draft, lalu MLRO lain menyetujui (FR-405). Hanya satu model transaksi yang aktif; model
-            lama otomatis diganti.
+            Persetujuan oleh MLRO lain mengganti model aktif sebelumnya.
           </p>
         </div>
         <span className="badge badge-blue">{data.items.length} model dari lab</span>
@@ -388,8 +384,7 @@ export function MonitorPanel({
           <span className="section-kicker">LANGKAH 7</span>
           <h2 id="lab-step-7-title">Pantau data baru</h2>
           <p>
-            Unggah transaksi baru dengan susunan kolom yang sama seperti <strong>{dataset.name}</strong>. Data masuk ke
-            transaksi yang dipantau, lalu deteksi berjalan: rule aktif dan model yang aktif.
+            Gunakan susunan kolom <strong>{dataset.name}</strong>. Upload dilanjutkan dengan deteksi.
           </p>
         </div>
         <span className="badge badge-blue">CSV / Parquet</span>

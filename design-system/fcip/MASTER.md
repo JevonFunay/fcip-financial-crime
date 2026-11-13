@@ -1,16 +1,24 @@
 # FCIP frontend design system
 
-Applied 12 November 2026 using the `ui-ux-pro-max` skill. This is a visual
-refresh of the existing application, authorised by Jevon. It adds no workflow,
-permissions, model policy or backend capability.
+Updated 13 November 2026 using the `ui-ux-pro-max` skill. Jevon asks for a
+cleaner interface with fewer ornaments and unnecessary explanations. This
+supersedes the navy-sidebar presentation from 12 November (AS-21 → AS-22).
 
 ## Direction
 
-Use a clean, restrained enterprise workspace: navy navigation, teal actions,
-white panels and a cool neutral canvas. The skill's verified Minimalism & Swiss
-Style recommendation fits this application. Its generated marketing-page
-patterns do not fit the product and are excluded. Retain system fonts and the
-existing SVG icon family; no font service, package or animation library is needed.
+Use a light, functional workspace: white navigation, neutral canvas, flat
+panels and teal for actions and selected states. The skill's verified
+Minimalism & Swiss Style recommendation fits this application. The generated
+marketing hero and gold accent do not serve this workspace and are excluded.
+Retain system fonts and the existing SVG family, without new packages.
+
+Show a page title, its actions and its content. Omit slogans, promotional
+sections, repeated introductions, navigation captions, decorative icon blocks
+and workflow explanations already conveyed by labels. Keep help where it
+changes a decision: file limits, score units, model state, evaluation locks,
+approval consequences, validation errors and contribution interpretation.
+Optional batch metadata uses native `details`/`summary`, retaining values when
+closed. Do not hide required fields, errors or irreversible-action consequences.
 
 ## Source of truth
 
@@ -23,16 +31,16 @@ the same tokens. Existing `--blue` names alias the teal primary for compatibilit
 | --- | --- |
 | Primary action | Teal `--primary`, white text, darker hover |
 | Secondary action | White surface, neutral border and text |
-| Navigation | Navy; selected item has text, background and an accent edge |
+| Navigation | White, 224 px; one line per item, teal selected text and pale background |
 | Body / support | 14 / 13 px, metadata normally 12 px; mobile inputs 16 px |
-| Headings / metrics | 32 px page title, 18 px section title, 36 px main metric |
+| Headings / metrics | 28 px page title, 18 px section title, 32 px main metric |
 | Spacing | 4, 8, 12, 16, 20, 24, 32, 40, 48 px |
-| Surfaces | 10 px controls, 14 px panels; subtle shared shadow |
+| Surfaces | 6 px controls, 8 px panels; thin borders, no panel shadows |
 | Status | Label plus semantic colour; green / amber / red / neutral |
 | Chart | Teal precision and dashed purple recall with visible labels |
-| Focus | 3 px ring; light teal on navy navigation |
+| Focus | 3 px ring, including on light navigation and disclosure summaries |
 
-Sizes, colours and breakpoints are reversible UI design decisions (AS-21),
+Sizes, colours and breakpoints are reversible UI design decisions (AS-22),
 not numeric requirements from the FRD/TRD.
 
 ## Responsive behaviour
@@ -47,14 +55,18 @@ not numeric requirements from the FRD/TRD.
 
 ## Page application
 
-Login uses the same navy/teal identity and a restrained split layout. Overview
-prioritises existing server counts and operations. Alert, case, Model Flags and
-Audit share panel, table, filter, badge and button treatments. Lab keeps its seven
-steps, validation/final boundaries and role-based controls intact.
+Login is a centred 360 px form without a promotional panel. Overview shows
+existing server counts and operations. Alert, case, Model Flags and Audit share
+plain panels, tables, filters and badges. Investigation links use secondary
+buttons. Lab keeps seven steps as a compact progress list, validation/final
+boundaries and role-based controls. Its progress list wraps into two columns
+on small screens, with `aria-current="step"` identifying the current step.
 
-Retain every demonstration and signal caption (FR-406 / BR-406.1, TRD §10.6,
-FRD L-01, as previously verified in PROJECT_CONTEXT §13). Never invent trends,
-counts, model quality, status or data to decorate production screens.
+Retain the complete demonstration and bilingual signal captions as plain text
+(FR-406 / BR-406.1, TRD §10.6, FRD L-01, as previously verified in PROJECT_CONTEXT
+§13). The shared demonstration caption sits in the page footer; signal captions
+stay with the results. No collapsed or dismissible legal captions. Never invent
+trends, counts, model quality, status or data to decorate production screens.
 
 ## Review
 

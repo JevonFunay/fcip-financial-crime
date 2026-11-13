@@ -41,9 +41,6 @@ function ModelCard({ model }: { model: ModelVersionOut }) {
   return (
     <article className="card analysis-model-card">
       <div className="analysis-model-heading">
-        <span className="analysis-model-icon">
-          <Icon name={isWeekly ? "layers" : "activity"} size={22} />
-        </span>
         <div>
           <p className="eyebrow">{isWeekly ? "AML model" : "Fraud model"}</p>
           <h3>
@@ -68,8 +65,6 @@ function ModelCard({ model }: { model: ModelVersionOut }) {
           : "Satu skor per transaksi, menggunakan riwayat yang tersedia."}
         {unsupervised &&
           " Isolation Forest tanpa label; skor mengukur keterisolasian, bukan probabilitas fraud."}
-        {lab &&
-          ` Dibuat di Lab model dari dataset berlabel (${model.training_kind === "unsupervised" ? "fit tanpa label, threshold dari label validasi" : "supervised"}).`}
       </p>
       {model.state === "DRAFT" && (
         <p className="analysis-model-description">
@@ -249,13 +244,9 @@ export function ModelFlagsPage() {
     <div className="analysis-page">
       <div className="page-header">
         <div>
-          <p className="eyebrow">Detection intelligence</p>
-          <h1>Model signals</h1>
-          <p className="page-subtitle">
-            Telusuri skor model dan fitur yang diamati di balik setiap sinyal.
-          </p>
+          <h1>Model flags</h1>
         </div>
-        <Link to="/alerts" className="button-secondary analysis-header-action">
+        <Link to="/alerts" className="btn-link secondary analysis-header-action">
           <Icon name="alert" size={17} /> Open alert queue
         </Link>
       </div>
@@ -267,9 +258,6 @@ export function ModelFlagsPage() {
         <div className="section-head">
           <div>
             <h2 id="model-versions-heading">Model versions</h2>
-            <p className="muted">
-              Versi yang terdaftar dan unit yang dinilai oleh tiap model.
-            </p>
           </div>
           {models.data && (
             <span className="analysis-small-count">
@@ -315,8 +303,7 @@ export function ModelFlagsPage() {
           <div>
             <h2 id="model-signals-heading">Units above threshold</h2>
             <p className="muted">
-              Entity-week dan transaksi adalah unit berbeda; flag model
-              merupakan sinyal pendukung.
+              Entity-week dan transaksi adalah unit berbeda.
             </p>
           </div>
           {scores.data && (

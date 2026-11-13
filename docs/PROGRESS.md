@@ -1,6 +1,6 @@
 # FCIP — Progress Status
 
-**As of 12 November 2026 · roughly 20% of MVP scope (3 November estimate; not recounted by the ML exercises)**
+**As of 13 November 2026 · roughly 20% of MVP scope (3 November estimate; not recounted by the UI simplification or ML exercises)**
 
 Supersedes any earlier progress figure. Scope definitions, architecture and open
 questions are unchanged — see `PROJECT_CONTEXT.md`.
@@ -67,6 +67,55 @@ that FR ID matches what was built — several IDs in the previous revision of th
 file were attached to different functionality and have been corrected.
 The percentage is an estimate, not a measurement; neither the FRD nor the TRD
 assigns effort weights.
+
+---
+
+## 13 November — clean UI and shorter operational copy
+
+Jevon requests `ui-ux-pro-max` and a clean interface without ornaments or
+unnecessary explanations. All eight page types now use light navigation,
+single-line menu labels, flat panels and shorter headings. Login is one centred
+form; optional batch metadata uses a native disclosure. Remove promotional
+copy, repeated descriptions and decorative icon blocks; simplify the Lab
+progress list while retaining its seven steps and evaluation/approval controls.
+Full signal captions stay by results; the unchanged demonstration caption is
+plain text in the shared footer (FR-406 / BR-406.1, TRD §10.6, FRD L-01; prior
+PDF verification in PROJECT_CONTEXT §13). Alert status labels stay on one line.
+
+**Verification:** TypeScript/Vite production build and `git diff --check` pass.
+Isolated headless Chrome passes 46 page/state/viewport checks at
+320/375/768/1024/1440 px, including empty/error and reduced-motion landscape.
+Checks also cover drawer keyboard trapping/Escape/focus return, Triage's 19/20
+character boundary, Analyst read-only view, MLRO approval-control rendering,
+CSV selection, password visibility, centred login, long role labels, complete
+status badges and batch-detail disclosure with value preservation. Zero
+document overflows, runtime exceptions, unknown fixture routes or non-auth API
+mutations. Measured text-token contrast is at least 5.26:1; input borders vs
+white are 3.31:1. All API requests are fulfilled with fixtures or blocked.
+The first visual pass exposed a stale login width override and wrapping status
+labels; both are corrected and checked again. This is UI verification, not
+fresh backend UAT or a model evaluation; no backend suite rerun is claimed.
+[Screenshots and check data](screenshots/ui-clean-20261113/checks.json).
+
+**Decisions I took myself:** white 224 px navigation, 360 px centred login,
+flat 8 px panels, teal functional accent, no new dependencies; optional metadata
+behind a native disclosure; complete specification captions rendered as plain
+text. These reversible presentation choices are recorded as AS-22 and in the
+[design system](../design-system/fcip/MASTER.md). No API/auth/permissions,
+model policy/results, generator, shared dataset or database change.
+
+**Capstone:** Antarmuka FCIP disederhanakan agar navigasi, data, dan tindakan
+utama lebih mudah ditemukan. Dekorasi dan penjelasan berulang dikurangi;
+informasi validasi, satuan skor, dan batas interpretasi model tetap tersedia.
+Pengujian responsif dan interaksi memakai fixture terisolasi, tanpa mengubah
+hasil deteksi atau data aplikasi.
+
+Stage commit commands (local only; Jevon handles pushes):
+
+```bash
+git add -- frontend/src design-system/fcip/MASTER.md docs/PROJECT_CONTEXT.md docs/PROGRESS.md docs/screenshots/ui-clean-20261113
+git commit -m "style: simplify FCIP interface and reduce visual clutter"
+```
 
 ---
 

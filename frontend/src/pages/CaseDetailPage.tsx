@@ -37,18 +37,13 @@ export function CaseDetailPage() {
       </Link>
       <div className="page-header">
         <div>
-          <p className="eyebrow">INVESTIGASI CASE</p>
           <h1>{data.case_number}</h1>
-          <p className="page-subtitle">
-            Catatan bersama untuk alert yang sedang diinvestigasi.
-          </p>
         </div>
         <StatusBadge status={data.status} />
       </div>
       <div className="detail-grid review-case-grid">
         <section className="card">
           <div className="review-card-heading">
-            <Icon name="file" size={20} />
             <h2>Ringkasan case</h2>
           </div>
           <dl className="facts review-facts">
@@ -64,12 +59,8 @@ export function CaseDetailPage() {
         </section>
         <section className="card review-case-trace">
           <div className="review-card-heading">
-            <Icon name="history" size={20} />
             <h2>Audit trail</h2>
           </div>
-          <p className="muted">
-            Telusuri tindakan yang tercatat untuk case ini.
-          </p>
           <p className="mono review-correlation">{data.correlation_id}</p>
           <Link
             className="btn-link"
@@ -84,9 +75,6 @@ export function CaseDetailPage() {
         <div className="section-head">
           <div>
             <h2>Alert terkait</h2>
-            <p className="muted review-caption">
-              Buka alert untuk meninjau rule, faktor teramati, dan sinyal model.
-            </p>
           </div>
           <span className="review-count">
             {data.alerts.length.toLocaleString("id-ID")} terkait
@@ -145,7 +133,7 @@ export function CaseDetailPage() {
                     </td>
                     <td>
                       <Link
-                        className="btn-link review-investigate"
+                        className="btn-link secondary review-investigate"
                         to={`/alerts/${alert.id}`}
                         aria-label={`Investigasi ${alert.customer_ref}`}
                       >

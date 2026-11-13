@@ -39,26 +39,18 @@ export function AlertQueuePage() {
     <>
       <div className="page-header">
         <div>
-          <p className="eyebrow">MONITORING / TRIAGE</p>
           <h1>Alert queue</h1>
-          <p className="page-subtitle">
-            Tinjau perilaku yang teramati dan tentukan langkah berikutnya.
-          </p>
         </div>
         {data && (
           <span className="review-count">
-            <Icon name="alert" size={16} /> {data.total.toLocaleString("id-ID")}{" "}
-            sesuai filter
+            {data.total.toLocaleString("id-ID")} alert
           </span>
         )}
       </div>
       <section className="card review-queue-card">
         <div className="section-head">
           <div>
-            <h2>Alert dari rule dan model</h2>
-            <p className="muted review-caption">
-              Dibuat oleh rule pola atau oleh skor model yang disetujui MLRO (ML_SCORE); semuanya ditinjau manusia.
-            </p>
+            <h2>Daftar alert</h2>
           </div>
           <label className="review-filter">
             <span>Status</span>
@@ -90,12 +82,8 @@ export function AlertQueuePage() {
         )}
         {data && data.items.length === 0 && (
           <div className="empty-state">
-            <Icon name="check" size={28} />
-            <h3>Belum ada alert pada tampilan ini</h3>
-            <p>
-              Tidak ada alert dengan status yang dipilih. Ubah status untuk
-              meninjau antrean lainnya.
-            </p>
+            <h3>Tidak ada alert</h3>
+            <p>Ubah filter status untuk melihat alert lainnya.</p>
           </div>
         )}
         {data && data.items.length > 0 && (
@@ -138,7 +126,6 @@ export function AlertQueuePage() {
                         <div className="review-cell-sub">
                           {alert.customer_name}
                         </div>
-                        <div className="mono review-cell-id">{alert.id}</div>
                       </td>
                       <td>
                         <span className="review-pattern">
@@ -147,7 +134,7 @@ export function AlertQueuePage() {
                         <div className="review-cell-sub">
                           {alert.pattern_code === "ML_SCORE"
                             ? "Skor model (tanpa rule pola)"
-                            : "Deteksi rule"}
+                            : "Rule"}
                         </div>
                       </td>
                       <td>
@@ -174,7 +161,7 @@ export function AlertQueuePage() {
                       </td>
                       <td>
                         <Link
-                          className="btn-link review-investigate"
+                          className="btn-link secondary review-investigate"
                           to={`/alerts/${alert.id}`}
                           aria-label={`Investigasi ${alert.customer_ref}`}
                         >

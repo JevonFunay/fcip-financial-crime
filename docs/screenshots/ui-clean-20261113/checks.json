@@ -1,0 +1,362 @@
+{
+  "checkedAt": "2026-11-13T10:37:55.999Z",
+  "checks": [
+    {
+      "width": 320,
+      "path": "/",
+      "scroll": 320,
+      "title": "Overview",
+      "overflow": []
+    },
+    {
+      "width": 320,
+      "path": "/alerts",
+      "scroll": 320,
+      "title": "Alert queue",
+      "overflow": []
+    },
+    {
+      "width": 320,
+      "path": "/alerts/alert-1",
+      "scroll": 320,
+      "title": "CUS-000042",
+      "overflow": []
+    },
+    {
+      "width": 320,
+      "path": "/cases/case-1",
+      "scroll": 320,
+      "title": "CASE-000042",
+      "overflow": []
+    },
+    {
+      "width": 320,
+      "path": "/model-flags",
+      "scroll": 320,
+      "title": "Model flags",
+      "overflow": []
+    },
+    {
+      "width": 320,
+      "path": "/audit",
+      "scroll": 320,
+      "title": "Audit trail",
+      "overflow": []
+    },
+    {
+      "width": 320,
+      "path": "/lab",
+      "scroll": 320,
+      "title": "Lab model",
+      "overflow": []
+    },
+    {
+      "width": 375,
+      "path": "/",
+      "scroll": 375,
+      "title": "Overview",
+      "overflow": []
+    },
+    {
+      "width": 375,
+      "path": "/alerts",
+      "scroll": 375,
+      "title": "Alert queue",
+      "overflow": []
+    },
+    {
+      "width": 375,
+      "path": "/alerts/alert-1",
+      "scroll": 375,
+      "title": "CUS-000042",
+      "overflow": []
+    },
+    {
+      "width": 375,
+      "path": "/cases/case-1",
+      "scroll": 375,
+      "title": "CASE-000042",
+      "overflow": []
+    },
+    {
+      "width": 375,
+      "path": "/model-flags",
+      "scroll": 375,
+      "title": "Model flags",
+      "overflow": []
+    },
+    {
+      "width": 375,
+      "path": "/audit",
+      "scroll": 375,
+      "title": "Audit trail",
+      "overflow": []
+    },
+    {
+      "width": 375,
+      "path": "/lab",
+      "scroll": 375,
+      "title": "Lab model",
+      "overflow": []
+    },
+    {
+      "width": 768,
+      "path": "/",
+      "scroll": 768,
+      "title": "Overview",
+      "overflow": []
+    },
+    {
+      "width": 768,
+      "path": "/alerts",
+      "scroll": 768,
+      "title": "Alert queue",
+      "overflow": []
+    },
+    {
+      "width": 768,
+      "path": "/alerts/alert-1",
+      "scroll": 768,
+      "title": "CUS-000042",
+      "overflow": []
+    },
+    {
+      "width": 768,
+      "path": "/cases/case-1",
+      "scroll": 768,
+      "title": "CASE-000042",
+      "overflow": []
+    },
+    {
+      "width": 768,
+      "path": "/model-flags",
+      "scroll": 768,
+      "title": "Model flags",
+      "overflow": []
+    },
+    {
+      "width": 768,
+      "path": "/audit",
+      "scroll": 768,
+      "title": "Audit trail",
+      "overflow": []
+    },
+    {
+      "width": 768,
+      "path": "/lab",
+      "scroll": 768,
+      "title": "Lab model",
+      "overflow": []
+    },
+    {
+      "width": 1024,
+      "path": "/",
+      "scroll": 1024,
+      "title": "Overview",
+      "overflow": []
+    },
+    {
+      "width": 1024,
+      "path": "/alerts",
+      "scroll": 1024,
+      "title": "Alert queue",
+      "overflow": []
+    },
+    {
+      "width": 1024,
+      "path": "/alerts/alert-1",
+      "scroll": 1024,
+      "title": "CUS-000042",
+      "overflow": []
+    },
+    {
+      "width": 1024,
+      "path": "/cases/case-1",
+      "scroll": 1024,
+      "title": "CASE-000042",
+      "overflow": []
+    },
+    {
+      "width": 1024,
+      "path": "/model-flags",
+      "scroll": 1024,
+      "title": "Model flags",
+      "overflow": []
+    },
+    {
+      "width": 1024,
+      "path": "/audit",
+      "scroll": 1024,
+      "title": "Audit trail",
+      "overflow": []
+    },
+    {
+      "width": 1024,
+      "path": "/lab",
+      "scroll": 1024,
+      "title": "Lab model",
+      "overflow": []
+    },
+    {
+      "width": 1440,
+      "path": "/",
+      "scroll": 1440,
+      "title": "Overview",
+      "overflow": []
+    },
+    {
+      "width": 1440,
+      "path": "/alerts",
+      "scroll": 1440,
+      "title": "Alert queue",
+      "overflow": []
+    },
+    {
+      "width": 1440,
+      "path": "/alerts/alert-1",
+      "scroll": 1440,
+      "title": "CUS-000042",
+      "overflow": []
+    },
+    {
+      "width": 1440,
+      "path": "/cases/case-1",
+      "scroll": 1440,
+      "title": "CASE-000042",
+      "overflow": []
+    },
+    {
+      "width": 1440,
+      "path": "/model-flags",
+      "scroll": 1440,
+      "title": "Model flags",
+      "overflow": []
+    },
+    {
+      "width": 1440,
+      "path": "/audit",
+      "scroll": 1440,
+      "title": "Audit trail",
+      "overflow": []
+    },
+    {
+      "width": 1440,
+      "path": "/lab",
+      "scroll": 1440,
+      "title": "Lab model",
+      "overflow": []
+    },
+    {
+      "path": "/login",
+      "width": 320,
+      "fit": true
+    },
+    {
+      "path": "/login",
+      "width": 375,
+      "fit": true
+    },
+    {
+      "path": "/login",
+      "width": 768,
+      "fit": true
+    },
+    {
+      "path": "/login",
+      "width": 1440,
+      "fit": true
+    },
+    {
+      "path": "/",
+      "width": 375,
+      "state": "empty",
+      "fit": true
+    },
+    {
+      "path": "/alerts",
+      "width": 375,
+      "state": "empty",
+      "fit": true
+    },
+    {
+      "path": "/model-flags",
+      "width": 375,
+      "state": "empty",
+      "fit": true
+    },
+    {
+      "path": "/audit",
+      "width": 375,
+      "state": "empty",
+      "fit": true
+    },
+    {
+      "path": "/lab",
+      "width": 375,
+      "state": "empty",
+      "fit": true
+    },
+    {
+      "state": "error",
+      "rendered": true
+    },
+    {
+      "width": 812,
+      "height": 375,
+      "reducedMotion": true,
+      "fit": true
+    }
+  ],
+  "interactions": [
+    "Triage disposition retains 19/20 character validation",
+    "Analyst alert review remains read-only",
+    "CSV selection retains existing upload presentation without submitting",
+    "Login fields and password visibility remain functional",
+    "Optional batch details toggle by native disclosure and retain entered values",
+    "Synthetic and bilingual signal captions remain visible as plain text",
+    "Long role label fits 320px header",
+    "Alert status badges retain complete single-line labels"
+  ],
+  "errors": [],
+  "unknown": [],
+  "requests": 409,
+  "mutations": [],
+  "apiIsolation": "All localhost:8000 requests fulfilled with fixtures; other external requests blocked",
+  "tokens": {
+    "--ink": "#202629",
+    "--muted": "#606b73",
+    "--text-secondary": "#424c52",
+    "--primary": "#0c716e",
+    "--primary-hover": "#095d5b",
+    "--nav-bg": "#ffffff",
+    "--nav-muted": "#606b73",
+    "--nav-text": "#202629",
+    "--nav-active": "#edf7f6",
+    "--nav-accent": "#0c716e",
+    "--amber": "#885716",
+    "--amber-soft": "#fff8eb",
+    "--green": "#216c46",
+    "--green-soft": "#edf7f0",
+    "--red": "#ad3548",
+    "--red-soft": "#fff1f3",
+    "--control-border": "#858f94",
+    "--focus": "#087d90",
+    "--panel": "#ffffff",
+    "--canvas": "#fafbfb"
+  },
+  "contrast": {
+    "--ink / --panel": 15.32,
+    "--muted / --panel": 5.46,
+    "--muted / --canvas": 5.26,
+    "--text-secondary / --panel": 8.8,
+    "--primary / --panel": 5.83,
+    "--nav-text / --nav-bg": 15.32,
+    "--nav-muted / --nav-bg": 5.46,
+    "--nav-accent / --nav-active": 5.34,
+    "--amber / --amber-soft": 5.81,
+    "--green / --green-soft": 5.81,
+    "--red / --red-soft": 5.66
+  },
+  "controlBoundaryContrast": 3.31,
+  "loginCenteredAndMax360px": true
+}

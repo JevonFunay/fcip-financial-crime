@@ -38,65 +38,13 @@ export function LoginPage() {
 
   return (
     <main className="login">
-      <section className="login-story" aria-label="Tentang FCIP">
-        <div className="login-brand">
-          <span className="brand-mark">
-            <Icon name="shield" size={28} />
-          </span>
-          <strong>
-            FCIP<span>.</span>
-          </strong>
-        </div>
-        <span className="eyebrow">FINANCIAL CRIME INTELLIGENCE PLATFORM</span>
-        <h1>
-          Melihat pola.
-          <br />
-          <span>Memahami konteks.</span>
-        </h1>
-        <p className="login-intro">
-          Satu workspace untuk validasi data, observasi model, dan investigasi
-          yang dapat ditelusuri.
-        </p>
-        <div className="login-journey">
-          <div>
-            <Icon name="upload" />
-            <span>
-              <strong>Ingest & validasi</strong>
-              <small>Riwayat transaksi dengan jejak batch</small>
-            </span>
-            <span className="journey-number">01</span>
-          </div>
-          <div>
-            <Icon name="activity" />
-            <span>
-              <strong>Rule & model</strong>
-              <small>Faktor deteksi yang dapat dijelaskan</small>
-            </span>
-            <span className="journey-number">02</span>
-          </div>
-          <div>
-            <Icon name="shield" />
-            <span>
-              <strong>Tinjauan manusia</strong>
-              <small>Keputusan dan alasan oleh analis</small>
-            </span>
-            <span className="journey-number">03</span>
-          </div>
-        </div>
-        <p className="login-story-foot">
-          PT Nusantara Digital Payment
-          <br />
-          Capstone UKDW × V-TEKI · Data demonstrasi
-        </p>
-      </section>
       <section className="login-form-panel">
         <form className="login-card" onSubmit={(e) => void handleSubmit(e)}>
-          <span className="login-welcome-icon">
-            <Icon name="shield" size={27} />
-          </span>
-          <span className="eyebrow">WORKSPACE ACCESS</span>
-          <h2>Selamat datang kembali</h2>
-          <p className="muted">Masuk dengan akun sesuai peran kamu.</p>
+          <div className="login-heading">
+            <strong className="login-wordmark">FCIP</strong>
+            <p className="muted">Financial Crime Intelligence Platform</p>
+            <h1>Masuk</h1>
+          </div>
           <label>
             Email
             <input
@@ -141,18 +89,15 @@ export function LoginPage() {
             </p>
           )}
           <button type="submit" className="login-submit" disabled={submitting}>
-            {submitting ? "Sedang masuk..." : "Masuk ke workspace"}
-            <Icon name="arrow-right" size={18} />
+            {submitting ? "Sedang masuk..." : "Masuk"}
           </button>
           <div className="login-note">
-            <Icon name="info" size={17} />
             <p>
               Data demonstrasi dari sumber publik dan simulasi. Sinyal model
               mendukung investigasi; keputusan tetap oleh manusia.
             </p>
           </div>
         </form>
-        <p className="login-form-foot">Financial Crime Intelligence Platform</p>
       </section>
     </main>
   );

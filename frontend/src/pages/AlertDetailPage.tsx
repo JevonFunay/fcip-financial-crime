@@ -90,7 +90,6 @@ export function AlertDetailPage() {
       </Link>
       <div className="page-header">
         <div>
-          <p className="eyebrow">INVESTIGASI ALERT</p>
           <h1>{alert.customer_ref}</h1>
           <p className="page-subtitle">
             {alert.customer_name} · {alert.pattern_code}
@@ -107,9 +106,6 @@ export function AlertDetailPage() {
       </div>
       <section className="card review-summary-card">
         <div className="review-summary-heading">
-          <span className="review-summary-icon">
-            <Icon name="alert" size={21} />
-          </span>
           <div>
             <p className="eyebrow">PERILAKU TERAMATI</p>
             <p className="review-alert-reason">{alert.reason}</p>
@@ -164,10 +160,6 @@ export function AlertDetailPage() {
             <div className="section-head">
               <div>
                 <h2>Model signals</h2>
-                <p className="muted review-caption">
-                  Keluaran model mendukung investigasi; keputusan tetap dibuat
-                  oleh manusia.
-                </p>
               </div>
               <span className="review-count">
                 {alert.model_signals.length} tersimpan
@@ -182,14 +174,10 @@ export function AlertDetailPage() {
         <aside className="review-decision-column">
           <section className="card review-decision-card">
             <div className="review-card-heading">
-              <Icon name="users" size={19} />
               <h2>Keputusan triage</h2>
             </div>
             {alert.status !== "OPEN" ? (
               <>
-                <p className="muted review-caption">
-                  Alert ini sudah memiliki keputusan yang dibuat manusia.
-                </p>
                 <dl className="facts review-facts">
                   <dt>Keputusan</dt>
                   <dd>

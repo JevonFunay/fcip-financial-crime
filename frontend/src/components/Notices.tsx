@@ -1,5 +1,3 @@
-import { Icon } from "./Icon";
-
 // Fixed product captions: FR-406 / BR-406.1, TRD §10.6 and FRD L-01.
 // Also cover metric surfaces whose current API has no caption field.
 export const SIGNAL_NOTICE =
@@ -9,10 +7,7 @@ export const SYNTHETIC_NOTICE =
 
 export function SignalNotice({ text = SIGNAL_NOTICE }: { text?: string }) {
   return (
-    <div className="notice signal-notice">
-      <Icon name="info" size={18} />
-      <p>{text || SIGNAL_NOTICE}</p>
-    </div>
+    <p className="signal-notice">{text || SIGNAL_NOTICE}</p>
   );
 }
 
@@ -22,12 +17,6 @@ export function SyntheticNotice({
   text?: string;
 }) {
   return (
-    <div className="synthetic-notice">
-      <Icon name="layers" size={17} />
-      <p>
-        <strong>Data demonstrasi</strong>
-        <span>{text || SYNTHETIC_NOTICE}</span>
-      </p>
-    </div>
+    <p className="synthetic-notice">{text || SYNTHETIC_NOTICE}</p>
   );
 }

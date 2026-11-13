@@ -9,37 +9,31 @@ const navigation: {
   path: string;
   label: string;
   icon: IconName;
-  caption: string;
 }[] = [
   {
     path: "/",
     label: "Overview",
     icon: "grid",
-    caption: "Ringkasan & operasi data",
   },
   {
     path: "/alerts",
     label: "Alert queue",
     icon: "alert",
-    caption: "Tinjauan & investigasi",
   },
   {
     path: "/model-flags",
     label: "Model flags",
     icon: "activity",
-    caption: "Observasi AML & Fraud",
   },
   {
     path: "/lab",
     label: "Lab model",
     icon: "scan",
-    caption: "Latih & bandingkan (prototipe)",
   },
   {
     path: "/audit",
     label: "Audit trail",
     icon: "history",
-    caption: "Jejak aktivitas",
   },
 ];
 const roleNames: Record<string, string> = {
@@ -60,12 +54,6 @@ export function Layout() {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuButton = useRef<HTMLButtonElement>(null);
   const sidebar = useRef<HTMLElement>(null);
-  const current = navigation.find((item) =>
-    item.path === "/" ? pathname === "/" : pathname.startsWith(item.path),
-  );
-  const title =
-    current?.label ??
-    (pathname.startsWith("/cases") ? "Case detail" : "Alert detail");
 
   useEffect(() => {
     setMenuOpen(false);
@@ -127,24 +115,11 @@ export function Layout() {
         className={`sidebar ${menuOpen ? "is-open" : ""}`}
       >
         <Link to="/" className="brand" aria-label="FCIP Overview">
-          <span className="brand-mark">
-            <Icon name="shield" size={25} />
-          </span>
           <span>
-            <strong>
-              FCIP<span className="brand-dot">.</span>
-            </strong>
+            <strong>FCIP</strong>
             <small>Financial Crime Intelligence</small>
           </span>
         </Link>
-        <div className="workspace-label">
-          <span className="workspace-avatar">ND</span>
-          <div>
-            <strong>Nusantara Digital Payment</strong>
-            <small>Capstone workspace</small>
-          </div>
-        </div>
-        <p className="nav-group-label">MONITORING</p>
         <nav aria-label="Navigasi utama">
           {navigation.map((item) => (
             <NavLink
@@ -159,28 +134,10 @@ export function Layout() {
               }}
             >
               <Icon name={item.icon} />
-              <span className="nav-item-copy">
-                <span>{item.label}</span>
-                <small>{item.caption}</small>
-              </span>
-              <Icon name="chevron" size={14} className="nav-chevron" />
+              <span>{item.label}</span>
             </NavLink>
           ))}
         </nav>
-        <div className="sidebar-foot">
-          <span className="sidebar-foot-icon">
-            <Icon name="shield" />
-          </span>
-          <strong>Keputusan oleh manusia</strong>
-          <p>
-            Sinyal mendukung investigasi. Tinjauan dan keputusan tetap pada
-            analis.
-          </p>
-          <span className="sandbox-tag">
-            <span />
-            Synthetic sandbox
-          </span>
-        </div>
         <button
           className="mobile-menu-close button-secondary"
           type="button"
@@ -207,23 +164,12 @@ export function Layout() {
             >
               <Icon name="menu" />
             </button>
-            <span className="breadcrumb">
-              Workspace <Icon name="chevron" size={13} />
-              <strong>{title}</strong>
-            </span>
+            <span className="workspace-name">Nusantara Digital Payment</span>
           </div>
           <div className="topbar-user">
             {user && (
               <>
-                <span className="user-avatar" title={user.full_name}>
-                  {user.full_name
-                    .split(" ")
-                    .filter(Boolean)
-                    .slice(0, 2)
-                    .map((name) => name[0])
-                    .join("")}
-                </span>
-                <div className="user-details">
+                <div className="user-details" title={user.full_name}>
                   <strong>
                     {roleNames[user.role] ?? user.role.replace("ROLE_", "")}
                   </strong>
@@ -243,12 +189,10 @@ export function Layout() {
           </div>
         </header>
         <main className="content" id="main-content" tabIndex={-1}>
-          <SyntheticNotice />
           <Outlet />
         </main>
         <footer className="workspace-footer">
-          <span>FCIP · Nusantara Digital Payment</span>
-          <span>Advisory only · Tinjauan oleh manusia</span>
+          <SyntheticNotice />
         </footer>
       </div>
     </div>
