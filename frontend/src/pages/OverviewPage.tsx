@@ -177,15 +177,19 @@ export function OverviewPage() {
         <Tile
           label="Transaksi diterima"
           value={data?.transactions}
+          icon="wallet"
+          featured
         />
         <Tile
           label="Alert terbuka"
           value={data?.alerts_open}
+          icon="alert"
           to="/alerts"
         />
         <Tile
           label="Sinyal AML"
           value={aml.data?.total}
+          icon="activity"
           note={
             behavioral
               ? "Rekening-week di atas threshold"
@@ -196,6 +200,7 @@ export function OverviewPage() {
         <Tile
           label="Sinyal Fraud"
           value={fraud.data?.total}
+          icon="scan"
           note="Transaksi di atas threshold"
           to="/model-flags?unit=FRAUD"
         />
@@ -858,11 +863,15 @@ export function OverviewPage() {
 function Tile({
   label,
   value,
+  icon,
+  featured = false,
   note,
   to,
 }: {
   label: string;
   value?: number;
+  icon: IconName;
+  featured?: boolean;
   note?: string;
   to?: string;
 }) {
@@ -870,6 +879,7 @@ function Tile({
     <>
       <div className="tile-top">
         <span className="tile-label">{label}</span>
+        <Icon name={icon} size={18} className="tile-symbol" />
       </div>
       <strong className="tile-value">
         {value === undefined ? "—" : number(value)}
@@ -877,7 +887,7 @@ function Tile({
       {note && <span className="tile-note">{note}</span>}
     </>
   );
-  const className = "tile";
+  const className = `tile${featured ? " tile-featured" : ""}`;
   return to ? (
     <Link className={`${className} tile-link`} to={to}>
       {content}

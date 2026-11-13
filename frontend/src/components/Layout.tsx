@@ -115,6 +115,9 @@ export function Layout() {
         className={`sidebar ${menuOpen ? "is-open" : ""}`}
       >
         <Link to="/" className="brand" aria-label="FCIP Overview">
+          <span className="brand-mark" aria-hidden="true">
+            <Icon name="shield" size={21} />
+          </span>
           <span>
             <strong>FCIP</strong>
             <small>Financial Crime Intelligence</small>
@@ -169,6 +172,14 @@ export function Layout() {
           <div className="topbar-user">
             {user && (
               <>
+                <span className="user-avatar" aria-hidden="true">
+                  {user.full_name
+                    .split(" ")
+                    .filter(Boolean)
+                    .slice(0, 2)
+                    .map((name) => name[0])
+                    .join("")}
+                </span>
                 <div className="user-details" title={user.full_name}>
                   <strong>
                     {roleNames[user.role] ?? user.role.replace("ROLE_", "")}

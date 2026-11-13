@@ -41,7 +41,12 @@ export function LoginPage() {
       <section className="login-form-panel">
         <form className="login-card" onSubmit={(e) => void handleSubmit(e)}>
           <div className="login-heading">
-            <strong className="login-wordmark">FCIP</strong>
+            <div className="login-wordmark">
+              <span className="brand-mark" aria-hidden="true">
+                <Icon name="shield" size={21} />
+              </span>
+              <strong>FCIP</strong>
+            </div>
             <p className="muted">Financial Crime Intelligence Platform</p>
             <h1>Masuk</h1>
           </div>

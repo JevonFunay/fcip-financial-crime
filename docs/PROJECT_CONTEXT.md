@@ -874,6 +874,23 @@ setup; the base Compose file and `.env` are unchanged. Only the backend/frontend
 containers are recreated; the existing database container and volume are kept.
 No seed, upload, detection, training or model-state action is performed.
 
+**AS-24 — restrained visual refinement (13 Nov):** Jevon explicitly asks for
+a more attractive UI without a flashy appearance, again using `ui-ux-pro-max`.
+Retain AS-22's compact copy and optional batch disclosure, refining all eight
+page types with a warm neutral canvas, forest green accents, dark selected
+navigation, subtle panel shadows and stronger type hierarchy. Emphasise the
+transaction-count card using colour only; do not invent trends or change any
+metric, model status or API value. Reuse the shield SVG family and add compact
+user initials; give login a centred white card on desktop and an unboxed form
+on phones. Navigation width 240 px, body/support 15/14 px, 12 px panel corners,
+38 px desktop metrics and 440 px outer login card are reversible design
+choices, not FRD/TRD numeric requirements. Preserve the full demonstration and
+signal captions (FR-406 / BR-406.1, TRD §10.6, FRD L-01, prior PDF verification
+in §13), routes, handlers, validation, permissions, model policy and data. No
+new dependency, external font, training, generator or local-port change.
+Fixture QA evidence and limitations are in PROGRESS and the updated design
+reference is `design-system/fcip/MASTER.md`.
+
 ### TRD §1.5 — conflicts still open
 
 - **CF-01** (tied to MQ-09): boundary between forbidden autonomous closure and permitted exact-duplicate suppression

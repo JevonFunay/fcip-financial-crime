@@ -70,6 +70,56 @@ assigns effort weights.
 
 ---
 
+## 13 November — restrained UI refinement
+
+Jevon asks for a more attractive UI without a flashy appearance, using
+`ui-ux-pro-max`. Keep the compact copy and workflows from the clean redesign;
+refine the shared tokens across all eight page types with a warm neutral
+canvas, forest green accents, subtle shadows, 12 px panels and clearer type.
+Use dark selected navigation and one dark transaction-volume card, retaining
+actual API values and separate AML/Fraud units. Reuse the shield mark and
+compact user initials. Login has a centred white desktop card and an unboxed
+phone layout; model values and selected Lab steps receive clearer grouping.
+No promotional text, decorative charts, external fonts or dependencies added.
+All demonstration/signal captions and model interpretation remain available.
+
+**Verification:** TypeScript/Vite build and `git diff --check` pass. Isolated
+headless Chrome passes 46 route/state/viewport checks at
+320/375/768/1024/1440 px, including populated, empty/error and reduced-motion
+landscape states, plus eight existing interaction checks. Checks retain drawer
+keyboard trapping/Escape/focus return, the 19/20-character triage boundary,
+Analyst read-only view, MLRO controls, CSV selection, password visibility,
+batch disclosure/value preservation, centred login, long role labels and
+single-line status badges. Metric values align within each row at 320/375 px.
+Zero document overflow, runtime exceptions, unknown fixture routes or non-auth
+API mutations. Measured text-token contrast is at least 4.61:1, input boundary
+contrast 3.30:1; selected-navigation/featured-card white text is 11.45:1.
+[Screenshots and check data](screenshots/ui-refinement-20261113/checks.json).
+Fixture figures are invented UI examples, not new model/application results.
+
+The running frontend at **http://localhost:5176** serves the updated tokens;
+API `http://localhost:8001/health` still returns `{"status":"ok"}`. These are
+read-only live checks, not authenticated workflow UAT or a backend-suite rerun.
+No API/auth/route/permission, generator, data, model or port configuration change.
+
+**Decisions I took myself:** forest/neutral palette, stronger type, subtle
+surfaces, one highlighted count, compact identity marks, phone label alignment
+and a responsive login card. These are reversible UI choices recorded as AS-24
+and in the [design system](../design-system/fcip/MASTER.md).
+**Capstone:** Antarmuka FCIP diperhalus melalui hierarki visual, warna tenang,
+dan komponen yang konsisten. Tampilan lebih menarik dan tetap ringkas;
+pengujian responsif, interaksi, dan kontras dilakukan tanpa mengubah hasil
+deteksi atau data aplikasi.
+
+Local stage commit commands:
+
+```bash
+git add -- frontend/index.html frontend/public/favicon.svg frontend/src design-system/fcip/MASTER.md docs/PROJECT_CONTEXT.md docs/PROGRESS.md docs/screenshots/ui-refinement-20261113
+git commit -m "style: refine FCIP with restrained forest palette and surfaces"
+```
+
+---
+
 ## 13 November — local run repair: Laravel port collision
 
 Jevon reports Laravel's Vite landing page at FCIP's documented URL. Port and
